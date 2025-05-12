@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { QueryFormData } from "@/lib/types";
-import { PaperPlaneIcon } from "@radix-ui/react-icons"; // Example icon
+import { Send } from "lucide-react"; // Replaced PaperPlaneIcon with Send from lucide-react
 
 // Define the server action prop type
 interface ContactFormProps {
@@ -139,7 +139,7 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? "Sending..." : (
             <>
-              <PaperPlaneIcon className="mr-2 h-4 w-4" /> Send Message
+              <Send className="mr-2 h-4 w-4" /> Send Message
             </>
           )}
         </Button>
@@ -147,3 +147,4 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
     </Form>
   );
 }
+
