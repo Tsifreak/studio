@@ -41,7 +41,15 @@ export function ProfileForm() {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(formSchema),
-    // Default values will be set by useEffect or reset below
+    defaultValues: {
+      name: "",
+      email: "",
+      avatarUrl: "", // Initialize with an empty string
+      preferences: {
+        darkMode: false,
+        notifications: true, // Default to true as in AuthContext
+      },
+    },
   });
 
   useEffect(() => {
@@ -52,11 +60,11 @@ export function ProfileForm() {
         avatarUrl: user.avatarUrl || "",
         preferences: {
           darkMode: user.preferences?.darkMode || false,
-          notifications: user.preferences?.notifications || true,
+          notifications: user.preferences?.notifications === undefined ? true : user.preferences.notifications,
         },
       });
     }
-  }, [user, form]);
+  }, [user, form.reset]);
 
 
   const {formState: {isSubmitting, dirtyFields}} = form;
@@ -67,7 +75,9 @@ export function ProfileForm() {
     // Only include fields that have actually changed to send for update
     const changedValues: { name?: string; avatarUrl?: string; preferences?: ProfileFormValues['preferences'] } = {};
     if (dirtyFields.name) changedValues.name = values.name;
-    if (dirtyFields.avatarUrl) changedValues.avatarUrl = values.avatarUrl;
+    if (dirtyFields.avatarUrl || (dirtyFields.avatarUrl === undefined && values.avatarUrl === "")) { // handle case where avatarUrl becomes empty string
+      changedValues.avatarUrl = values.avatarUrl;
+    }
     if (dirtyFields.preferences) changedValues.preferences = values.preferences;
 
 
@@ -130,7 +140,7 @@ export function ProfileForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="flex items-center space-x-4 mb-6">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={form.watch("avatarUrl") || user.avatarUrl || ""} alt={user.name || "User"} data-ai-hint="avatar"/>
+                <AvatarImage src={form.watch("avatarUrl") || ""} alt={user.name || "User"} data-ai-hint="avatar"/>
                 <AvatarFallback>{user.name?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
               </Avatar>
               <FormField
