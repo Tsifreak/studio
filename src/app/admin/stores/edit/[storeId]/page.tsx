@@ -44,9 +44,12 @@ export default function EditStorePage({ params }: EditStorePageProps) {
       } else if (typeof feature.icon === 'string') {
         iconRepresentation = feature.icon;
       }
+      // If feature.icon is neither a function nor a string (e.g. undefined, or an object that's not a component),
+      // iconRepresentation will remain undefined or be set to the string if it was a string.
+      // This ensures that what's passed is either a string or undefined.
       return {
-        ...feature,
-        icon: iconRepresentation, // Now icon is string | undefined, which is serializable
+        ...feature, // Spread all other properties of feature
+        icon: iconRepresentation, // Override icon with its string representation or undefined
       };
     }),
   };
