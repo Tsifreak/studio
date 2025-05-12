@@ -51,7 +51,7 @@ export default function AdminStoresPage() {
         title: "Επιτυχής Διαγραφή",
         description: result.message,
       });
-      setStores(prevStores => prevStores.filter(s => s.id !== storeToDelete.id));
+      setStores(prevStores => prevStores.filter(s => s.id !== storeToDelete!.id));
     } else {
       toast({
         title: "Σφάλμα Διαγραφής",
@@ -148,11 +148,40 @@ export default function AdminStoresPage() {
                           <Edit3 className="h-4 w-4" />
                         </Link>
                       </Button>
-                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Διαγραφή" onClick={() => setStoreToDelete(store)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
+                      <AlertDialog
+                        open={storeToDelete?.id === store.id}
+                        onOpenChange={(isOpen) => {
+                          if (isOpen) {
+                            setStoreToDelete(store);
+                          } else {
+                            // Only nullify if this specific dialog was the one being closed
+                            if (storeToDelete?.id === store.id) {
+                              setStoreToDelete(null);
+                            }
+                          }
+                        }}
+                      >
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" title="Διαγραφή" onClick={() => setStoreToDelete(store)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                          <AlertDialogTitle>Είστε σίγουροι για τη διαγραφή;</AlertDialogTitle>
+                          <AlertDialogDescription>
+                              Αυτή η ενέργεια δεν μπορεί να αναιρεθεί. Αυτό θα διαγράψει οριστικά το κέντρο "{storeToDelete?.name}"
+                              και όλα τα σχετικά δεδομένα από τους διακομιστές μας.
+                          </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Άκυρο</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                Διαγραφή
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -169,26 +198,6 @@ export default function AdminStoresPage() {
           )}
         </CardContent>
       </Card>
-
-      {storeToDelete && (
-        <AlertDialog open={!!storeToDelete} onOpenChange={() => setStoreToDelete(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Είστε σίγουροι για τη διαγραφή;</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Αυτή η ενέργεια δεν μπορεί να αναιρεθεί. Αυτό θα διαγράψει οριστικά το κέντρο "{storeToDelete.name}"
-                    και όλα τα σχετικά δεδομένα από τους διακομιστές μας.
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel>Άκυρο</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                    Διαγραφή
-                </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-      )}
     </div>
   );
 }
