@@ -11,8 +11,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next'; // For potential future use if moving to RSC with dynamic metadata
 
 // export const metadata: Metadata = { // Cannot be used in client component like this
-//   title: 'Dashboard | StoreSpot',
-//   description: 'Manage your StoreSpot account and preferences.',
+//   title: 'Dashboard | Amaxakis',
+//   description: 'Manage your Amaxakis account and preferences.',
 // };
 
 export default function DashboardPage() {
@@ -60,7 +60,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl font-bold text-primary">Welcome, {user.name}!</h1>
-            <p className="text-muted-foreground">Here's your personalized StoreSpot dashboard.</p>
+            <p className="text-muted-foreground">Here's your personalized Amaxakis dashboard.</p>
         </div>
         <Button variant="outline" onClick={handleLogout}>Log Out</Button>
       </div>
@@ -80,7 +80,7 @@ export default function DashboardPage() {
                     <p><strong>Email:</strong> {user.email}</p>
                     {/* Firebase User object does not have a join date directly. This could be stored in Firestore. */}
                     {/* <p><strong>Joined:</strong> (Simulated) January 1, 2023</p> */} 
-                    <Button variant="link" className="p-0 h-auto text-primary" disabled>View Order History (Example)</Button>
+                    <Button variant="link" className="p-0 h-auto text-primary" disabled>View Service History (Example)</Button>
                 </CardContent>
             </Card>
              <Card>
@@ -88,8 +88,8 @@ export default function DashboardPage() {
                     <CardTitle>Quick Links</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col space-y-2">
-                    <Button variant="outline" asChild><Link href="/">Browse Stores</Link></Button>
-                    <Button variant="outline" disabled>My Favorite Stores (Example)</Button>
+                    <Button variant="outline" asChild><Link href="/">Browse Service Centers</Link></Button>
+                    <Button variant="outline" disabled>My Favorite Services (Example)</Button>
                     <Button variant="outline" disabled>Support Center (Example)</Button>
                 </CardContent>
             </Card>
@@ -98,3 +98,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

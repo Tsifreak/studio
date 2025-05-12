@@ -7,9 +7,9 @@ export default function StoreNotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
       <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
-      <h1 className="text-4xl font-bold text-foreground mb-2">Store Not Found</h1>
+      <h1 className="text-4xl font-bold text-foreground mb-2">Service Center Not Found</h1>
       <p className="text-lg text-muted-foreground mb-8">
-        Sorry, we couldn't find the store you were looking for.
+        Sorry, we couldn't find the service center you were looking for.
       </p>
       <Button asChild>
         <Link href="/">Go back to Homepage</Link>
@@ -17,3 +17,4 @@ export default function StoreNotFound() {
     </div>
   );
 }
+

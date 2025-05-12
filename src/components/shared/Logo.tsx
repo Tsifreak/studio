@@ -1,6 +1,6 @@
 
 import Link from 'next/link';
-import { ShoppingBag } from 'lucide-react'; // Changed to ShoppingBag for store directory theme
+import { Wrench } from 'lucide-react'; // Changed to Wrench for car repair theme
 
 interface LogoProps {
   className?: string;
@@ -11,8 +11,9 @@ interface LogoProps {
 export function Logo({ className, iconSize = 28, textSize = "text-2xl" }: LogoProps) {
   return (
     <Link href="/" className={`flex items-center gap-2 ${className}`}>
-      <ShoppingBag className="text-primary" size={iconSize} aria-hidden="true" />
-      <span className={`font-bold ${textSize} text-primary`}>StoreSpot</span>
+      <Wrench className="text-primary" size={iconSize} aria-hidden="true" />
+      <span className={`font-bold ${textSize} text-primary`}>Amaxakis</span>
     </Link>
   );
 }
+

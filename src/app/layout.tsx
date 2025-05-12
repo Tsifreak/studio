@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({ // Same as above for Geist_Mono.
 });
 
 export const metadata: Metadata = {
-  title: 'StoreSpot - Find Your Favorite Stores',
-  description: 'A directory of stores with details, products, and reviews. Sign up to manage your preferences.',
+  title: 'Amaxakis - Your Trusted Car Repair Service',
+  description: 'Amaxakis provides reliable car repair and maintenance services. Find expert mechanics and book your service.',
 };
 
 export default function RootLayout({
@@ -37,3 +37,4 @@ export default function RootLayout({
     </html>
   );
 }
+
