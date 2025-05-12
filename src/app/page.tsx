@@ -6,7 +6,7 @@ import { StoreCard } from '@/components/store/StoreCard';
 import { StoreFilters } from '@/components/store/StoreFilters';
 import { getAllStores } from '@/lib/placeholder-data';
 import type { Store, StoreCategory } from '@/lib/types';
-import { StoreCategories } from '@/lib/types';
+// import { StoreCategories } from '@/lib/types'; // Already imported in StoreFilters
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HomePage() {
@@ -19,6 +19,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      // Simulate fetching data
       await new Promise(resolve => setTimeout(resolve, 500)); 
       setStores(getAllStores());
       setIsLoading(false);
@@ -55,6 +56,7 @@ export default function HomePage() {
         processedStores.sort((a, b) => b.name.localeCompare(a.name));
         break;
       default:
+        // Maintain current order or sort by a default criteria if needed
         break;
     }
     return processedStores;
@@ -64,10 +66,10 @@ export default function HomePage() {
     <div className="space-y-8">
       <section className="text-center py-10 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
         <h1 className="text-4xl font-bold tracking-tight text-primary md:text-5xl">
-          Welcome to Amaxakis
+          Welcome to StoreSpot
         </h1>
         <p className="mt-4 text-lg text-foreground/80 md:text-xl">
-          Your trusted partner for car maintenance, repairs, and parts.
+          Discover and connect with a variety of stores and services.
         </p>
       </section>
 
@@ -83,7 +85,7 @@ export default function HomePage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="p-4 border rounded-lg bg-card">
+            <div key={index} className="p-4 border rounded-lg bg-card shadow-sm">
               <div className="flex items-start gap-4 mb-4">
                 <Skeleton className="h-16 w-16 rounded-lg" />
                 <div className="space-y-2 flex-1">
@@ -105,7 +107,7 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <h2 className="text-2xl font-semibold text-foreground">No Services Found</h2>
+          <h2 className="text-2xl font-semibold text-foreground">No Stores Found</h2>
           <p className="mt-2 text-muted-foreground">
             Try adjusting your search or filter criteria.
           </p>

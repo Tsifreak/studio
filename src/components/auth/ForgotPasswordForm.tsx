@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { forgotPassword } from "@/app/auth/actions"; // Using server action
+import { useAuth } from "@/hooks/useAuth"; // Using AuthContext
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -27,6 +27,7 @@ type ForgotPasswordFormValues = z.infer<typeof formSchema>;
 
 export function ForgotPasswordForm() {
   const { toast } = useToast();
+  const { sendPasswordReset } = useAuth(); // Get method from context
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -38,24 +39,30 @@ export function ForgotPasswordForm() {
 
   async function onSubmit(values: ForgotPasswordFormValues) {
     try {
-      const result = await forgotPassword(values.email);
-      if (result.success) {
-        toast({
-          title: "Password Reset Requested",
-          description: result.message,
-        });
-        form.reset();
-      } else {
-         toast({
-          title: "Request Failed",
-          description: result.message || "Could not process request. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      await sendPasswordReset(values.email);
       toast({
-        title: "Request Error",
-        description: "An unexpected error occurred. Please try again later.",
+        title: "Password Reset Email Sent",
+        description: "If an account exists for this email, a password reset link has been sent.",
+      });
+      form.reset();
+    } catch (error: any) {
+      let errorMessage = "Could not process request. Please try again.";
+       if (error.code) {
+        switch (error.code) {
+          case 'auth/invalid-email':
+            errorMessage = "Please enter a valid email address.";
+            break;
+          case 'auth/user-not-found':
+             // Don't reveal if user exists for security, message is fine as is.
+            errorMessage = "If an account exists for this email, a password reset link has been sent.";
+            break;
+          default:
+            errorMessage = error.message || errorMessage;
+        }
+      }
+      toast({
+        title: "Request Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }

@@ -11,15 +11,15 @@ import { PricingCard } from '@/components/store/PricingCard';
 import { ReviewItem } from '@/components/store/ReviewItem';
 import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
-import { submitStoreQuery } from './actions'; // Import the server action
+import { submitStoreQuery } from './actions'; 
 
 export async function generateMetadata({ params }: { params: { storeId: string } }) {
   const store = getStoreById(params.storeId);
   if (!store) {
-    return { title: 'Service Center Not Found' };
+    return { title: 'Store Not Found | StoreSpot' };
   }
   return {
-    title: `${store.name} | Amaxakis`,
+    title: `${store.name} | StoreSpot`,
     description: store.description,
   };
 }
@@ -33,19 +33,18 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
 
   const averageRating = store.reviews.length > 0 
     ? store.reviews.reduce((acc, review) => acc + review.rating, 0) / store.reviews.length
-    : store.rating; // Fallback to store's predefined rating if no reviews
+    : store.rating; 
 
   return (
     <div className="space-y-8">
-      {/* Store Header Section */}
       <Card className="overflow-hidden shadow-xl">
         {store.bannerUrl && (
           <div className="relative h-48 md:h-64 w-full">
             <Image
               src={store.bannerUrl}
               alt={`${store.name} banner`}
-              layout="fill"
-              objectFit="cover"
+              fill={true}
+              style={{objectFit:"cover"}}
               data-ai-hint="store banner"
             />
             <div className="absolute inset-0 bg-black/30" />
@@ -89,14 +88,13 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         </CardHeader>
       </Card>
 
-      {/* Tabs Section */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="products">Services/Parts ({store.products.length})</TabsTrigger>
+          <TabsTrigger value="products">Products/Services ({store.products.length})</TabsTrigger>
           <TabsTrigger value="pricing">Pricing Plans</TabsTrigger>
           <TabsTrigger value="reviews">Reviews ({store.reviews.length})</TabsTrigger>
-          <TabsTrigger value="contact">Contact Service Center</TabsTrigger>
+          <TabsTrigger value="contact">Contact Store</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -146,8 +144,8 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         <TabsContent value="products">
           <Card>
             <CardHeader>
-              <CardTitle>Our Services & Parts</CardTitle>
-              <CardDescription>Browse the selection of services and parts offered by {store.name}.</CardDescription>
+              <CardTitle>Our Products & Services</CardTitle>
+              <CardDescription>Browse the selection offered by {store.name}.</CardDescription>
             </CardHeader>
             <CardContent>
               {store.products.length > 0 ? (
@@ -157,7 +155,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No services or parts listed for this center yet.</p>
+                <p className="text-muted-foreground text-center py-8">No products or services listed for this store yet.</p>
               )}
             </CardContent>
           </Card>
@@ -177,7 +175,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No pricing plans available for this service center.</p>
+                <p className="text-muted-foreground text-center py-8">No pricing plans available for this store.</p>
               )}
             </CardContent>
           </Card>
@@ -191,13 +189,13 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
             </CardHeader>
             <CardContent>
               {store.reviews && store.reviews.length > 0 ? (
-                <div className="space-y-0"> {/* Removed space-y-4, ReviewItem has its own padding/margin */}
+                <div className="space-y-0"> 
                   {store.reviews.map(review => (
                     <ReviewItem key={review.id} review={review} />
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No reviews yet for this service center.</p>
+                <p className="text-muted-foreground text-center py-8">No reviews yet for this store.</p>
               )}
             </CardContent>
           </Card>

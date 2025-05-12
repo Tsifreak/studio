@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { signupUser } from "@/app/auth/actions"; // Using server action
+// import { signupUser } from "@/app/auth/actions"; // Server action no longer used for signup
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -28,14 +28,14 @@ const formSchema = z.object({
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"], // path of error
+  path: ["confirmPassword"],
 });
 
 type SignupFormValues = z.infer<typeof formSchema>;
 
 export function SignupForm() {
   const { toast } = useToast();
-  const { signup: contextSignup } = useAuth(); // Renamed to avoid conflict
+  const { signup } = useAuth();
   const router = useRouter();
 
   const form = useForm<SignupFormValues>({
@@ -51,29 +51,32 @@ export function SignupForm() {
 
   async function onSubmit(values: SignupFormValues) {
     try {
-       // Call the server action
-      const result = await signupUser({ name: values.name, email: values.email, password: values.password });
-
-      if (result.success && result.user) {
-        // Update client-side auth context
-        await contextSignup(values.name, values.email, values.password);
-
-        toast({
-          title: "Signup Successful!",
-          description: "Welcome to Amaxakis! You can now log in.",
-        });
-        router.push("/dashboard"); // Or redirect to login page to explicitly login
-      } else {
-        toast({
-          title: "Signup Failed",
-          description: result.message || "Could not create account. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      await signup(values.name, values.email, values.password);
       toast({
-        title: "Signup Error",
-        description: "An unexpected error occurred. Please try again later.",
+        title: "Signup Successful!",
+        description: "Welcome to StoreSpot! You're now logged in.",
+      });
+      router.push("/dashboard"); 
+    } catch (error: any) {
+      let errorMessage = "Could not create account. Please try again.";
+       if (error.code) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            errorMessage = "This email address is already in use.";
+            break;
+          case 'auth/invalid-email':
+            errorMessage = "Please enter a valid email address.";
+            break;
+          case 'auth/weak-password':
+            errorMessage = "Password is too weak. Please choose a stronger password.";
+            break;
+          default:
+            errorMessage = error.message || errorMessage;
+        }
+      }
+      toast({
+        title: "Signup Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -83,7 +86,7 @@ export function SignupForm() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
         <CardTitle className="text-3xl font-bold text-primary">Create an Account</CardTitle>
-        <CardDescription>Join Amaxakis today to find car services and parts.</CardDescription>
+        <CardDescription>Join StoreSpot today to discover amazing stores.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // Added useSearchParams
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,20 +20,22 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { loginUser } from "@/app/auth/actions"; // Using server action
+// import { loginUser } from "@/app/auth/actions"; // Server action no longer used for login
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), // Min 1 for presence, server will validate length
-  rememberMe: z.boolean().default(false).optional(),
+  password: z.string().min(1, { message: "Password is required." }), 
+  rememberMe: z.boolean().default(false).optional(), // Firebase handles persistence, this is more for UI
 });
 
 type LoginFormValues = z.infer<typeof formSchema>;
 
 export function LoginForm() {
   const { toast } = useToast();
-  const { login: contextLogin } = useAuth(); // Renamed to avoid conflict
+  const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectPath = searchParams.get('redirect') || "/dashboard";
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(formSchema),
@@ -48,31 +50,31 @@ export function LoginForm() {
 
   async function onSubmit(values: LoginFormValues) {
     try {
-      // Call the server action
-      const result = await loginUser({ email: values.email, password: values.password });
-
-      if (result.success && result.user) {
-        // Update client-side auth context after successful server-side login
-        // The server action itself doesn't set cookies or manage client session directly
-        // The AuthContext login method is responsible for setting localStorage/client state
-        await contextLogin(values.email, values.password); // This will use the mockUser logic from context
-        
-        toast({
-          title: "Login Successful!",
-          description: "Welcome back!",
-        });
-        router.push("/dashboard");
-      } else {
-        toast({
-          title: "Login Failed",
-          description: result.message || "Invalid credentials. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      await login(values.email, values.password);
       toast({
-        title: "Login Error",
-        description: "An unexpected error occurred. Please try again later.",
+        title: "Login Successful!",
+        description: "Welcome back!",
+      });
+      router.push(redirectPath);
+    } catch (error: any) {
+      let errorMessage = "An unexpected error occurred. Please try again later.";
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            errorMessage = "Invalid email or password.";
+            break;
+          case 'auth/invalid-email':
+            errorMessage = "Please enter a valid email address.";
+            break;
+          default:
+            errorMessage = error.message || errorMessage;
+        }
+      }
+      toast({
+        title: "Login Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -82,7 +84,7 @@ export function LoginForm() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
         <CardTitle className="text-3xl font-bold text-primary">Welcome Back!</CardTitle>
-        <CardDescription>Log in to access your account and explore stores.</CardDescription>
+        <CardDescription>Log in to access your StoreSpot account.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

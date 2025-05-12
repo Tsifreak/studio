@@ -18,13 +18,14 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import type { UserProfile } from "@/lib/types";
-import { updateUserProfile } from "@/app/auth/actions"; // Server action
+// import type { UserProfile } from "@/lib/types"; // Not strictly needed here now
+// import { updateUserProfile as serverUpdateUserProfile } from "@/app/auth/actions"; // Server action no longer used
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { useEffect } from "react";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }), // Typically not editable or requires verification
+  email: z.string().email({ message: "Please enter a valid email address." }),
   avatarUrl: z.string().url({ message: "Please enter a valid URL for your avatar." }).optional().or(z.literal('')),
   preferences: z.object({
     darkMode: z.boolean().optional(),
@@ -35,72 +36,88 @@ const formSchema = z.object({
 type ProfileFormValues = z.infer<typeof formSchema>;
 
 export function ProfileForm() {
-  const { user, updateProfile: contextUpdateProfile, isLoading } = useAuth();
+  const { user, updateUserProfile: contextUpdateUserProfile, isLoading } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: user?.name || "",
-      email: user?.email || "",
-      avatarUrl: user?.avatarUrl || "",
-      preferences: {
-        darkMode: user?.preferences?.darkMode || false,
-        notifications: user?.preferences?.notifications || true,
-      },
-    },
-    // Re-initialize form when user data changes (e.g., after initial load)
-    values: user ? {
-      name: user.name,
-      email: user.email,
-      avatarUrl: user.avatarUrl || "",
-      preferences: {
-        darkMode: user.preferences?.darkMode || false,
-        notifications: user.preferences?.notifications || true,
-      }
-    } : undefined,
+    // Default values will be set by useEffect or reset below
   });
 
-  const {formState: {isSubmitting}} = form;
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name || "",
+        email: user.email || "",
+        avatarUrl: user.avatarUrl || "",
+        preferences: {
+          darkMode: user.preferences?.darkMode || false,
+          notifications: user.preferences?.notifications || true,
+        },
+      });
+    }
+  }, [user, form]);
+
+
+  const {formState: {isSubmitting, dirtyFields}} = form;
 
   async function onSubmit(values: ProfileFormValues) {
     if (!user) return;
 
+    // Only include fields that have actually changed to send for update
+    const changedValues: { name?: string; avatarUrl?: string; preferences?: ProfileFormValues['preferences'] } = {};
+    if (dirtyFields.name) changedValues.name = values.name;
+    if (dirtyFields.avatarUrl) changedValues.avatarUrl = values.avatarUrl;
+    if (dirtyFields.preferences) changedValues.preferences = values.preferences;
+
+
+    if (Object.keys(changedValues).length === 0) {
+        toast({
+          title: "No Changes",
+          description: "You haven't made any changes to your profile.",
+        });
+        return;
+    }
+
     try {
-      const profileDataToUpdate: Partial<UserProfile> = {
-        name: values.name,
-        avatarUrl: values.avatarUrl,
-        preferences: values.preferences,
-      };
-      // Email is not updated in this example as it's complex (verification needed)
-
-      const result = await updateUserProfile(user.id, profileDataToUpdate);
-
-      if (result.success && result.user) {
-        // Update client-side auth context with the new user data from server
-        await contextUpdateProfile(result.user);
-        toast({
-          title: "Profile Updated",
-          description: "Your profile information has been successfully updated.",
-        });
-      } else {
-        toast({
-          title: "Update Failed",
-          description: result.message || "Could not update profile. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      await contextUpdateUserProfile(changedValues);
       toast({
-        title: "Update Error",
-        description: "An unexpected error occurred. Please try again later.",
+        title: "Profile Updated",
+        description: "Your profile information has been successfully updated.",
+      });
+      form.reset(values); // Reset form with new values to clear dirty state
+    } catch (error: any) {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Could not update profile. Please try again.",
         variant: "destructive",
       });
     }
   }
 
-  if (isLoading) return <p>Loading profile...</p>;
-  if (!user) return <p>Please log in to view your profile.</p>;
+  if (isLoading) return (
+    <Card className="w-full max-w-2xl shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-2xl">Your Profile</CardTitle>
+        <CardDescription>Manage your account settings and preferences.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p>Loading profile...</p>
+      </CardContent>
+    </Card>
+  );
+
+  if (!user) return (
+     <Card className="w-full max-w-2xl shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-2xl">Profile Not Available</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Please log in to view your profile.</p>
+      </CardContent>
+    </Card>
+  );
+
 
   return (
     <Card className="w-full max-w-2xl shadow-lg">
@@ -113,8 +130,8 @@ export function ProfileForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="flex items-center space-x-4 mb-6">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={form.watch("avatarUrl") || user.avatarUrl || ""} alt={user.name} data-ai-hint="avatar"/>
-                <AvatarFallback>{user.name?.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={form.watch("avatarUrl") || user.avatarUrl || ""} alt={user.name || "User"} data-ai-hint="avatar"/>
+                <AvatarFallback>{user.name?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
               </Avatar>
               <FormField
                 control={form.control}
@@ -154,7 +171,7 @@ export function ProfileForm() {
                     <Input type="email" placeholder="your@email.com" {...field} disabled />
                   </FormControl>
                   <FormMessage />
-                  <p className="text-xs text-muted-foreground pt-1">Email cannot be changed here.</p>
+                  <p className="text-xs text-muted-foreground pt-1">Email cannot be changed.</p>
                 </FormItem>
               )}
             />
@@ -199,7 +216,7 @@ export function ProfileForm() {
               />
             </div>
 
-            <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || !form.formState.isDirty}>
               {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </form>

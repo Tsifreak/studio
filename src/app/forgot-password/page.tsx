@@ -3,8 +3,8 @@ import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Forgot Password | Amaxakis',
-  description: 'Reset your Amaxakis account password.',
+  title: 'Forgot Password | StoreSpot',
+  description: 'Reset your StoreSpot account password.',
 };
 
 export default function ForgotPasswordPage() {

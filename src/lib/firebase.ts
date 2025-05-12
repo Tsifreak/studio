@@ -1,5 +1,6 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
 import { getAnalytics, isSupported as isAnalyticsSupported, type Analytics } from "firebase/analytics";
 
 // Your web app's Firebase configuration
@@ -35,14 +36,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// To use other Firebase services, import them here e.g.
-// import { getAuth } from 'firebase/auth';
-// import { getFirestore } from 'firebase/firestore';
-// import { getStorage } from 'firebase/storage';
+// Initialize Firebase Authentication and get a reference to the service
+const auth: Auth = getAuth(app);
 
-// Example of exporting specific services:
-// export const auth = getAuth(app);
-// export const db = getFirestore(app);
-// export const storage = getStorage(app);
-
-export { app, analytics };
+export { app, auth, analytics };
