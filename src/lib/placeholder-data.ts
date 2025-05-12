@@ -1,7 +1,7 @@
 
 import type { Store, UserProfile, Product, Review, PricingPlan, Feature, StoreCategory } from './types';
 import { StoreCategories } from './types';
-import { CheckCircle2, Zap, Award, Users, BarChart3, ShieldCheck, MessageSquare, Car, PaintBrush, Search, Wrench, Settings2, Sparkles, PackageCheck, Scale, ShieldAlert, Combine, AlignCenter, ClipboardCheck, Package } from 'lucide-react';
+import { CheckCircle2, Zap, Award, Users, BarChart3, ShieldCheck, MessageSquare, Car, Paintbrush, Search, Wrench, Settings2, Sparkles, PackageCheck, Scale, ShieldAlert, Combine, AlignCenter, ClipboardCheck, Package } from 'lucide-react';
 
 export const mockUser: UserProfile = {
   id: 'user1',
@@ -104,7 +104,7 @@ export const mockStores: Store[] = [
     tags: ['auto painting', 'body work', 'custom paint', 'scratch repair', 'Painter'],
     pricingPlans: [], 
     features: [
-      { id: 'f6', name: 'Color Matching Technology', icon: PaintBrush },
+      { id: 'f6', name: 'Color Matching Technology', icon: Paintbrush },
       { id: 'f7', name: 'Dust-Free Paint Booth', icon: ShieldCheck },
        ...commonFeatures.slice(0,1)
     ],
