@@ -21,14 +21,13 @@ import type { Store, StoreCategory, StoreFormData } from "@/lib/types";
 import { StoreCategories, TranslatedStoreCategories } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useEffect, useActionState } from "react"; // For server action state
+import { useEffect, useActionState } from "react"; 
 
 interface StoreFormProps {
-  store?: Store; // Optional: For pre-filling the form in edit mode
+  store?: Store; 
   action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: Store }>;
 }
 
-// Zod schema for client-side validation (mirroring server action for better UX)
 const clientStoreFormSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
   logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }).default('https://picsum.photos/seed/new_store_logo/100/100'),
@@ -53,14 +52,14 @@ export function StoreForm({ store, action }: StoreFormProps) {
 
   const form = useForm<ClientStoreFormValues>({
     resolver: zodResolver(clientStoreFormSchema),
-    defaultValues: store 
+    defaultValues: store
       ? {
           name: store.name,
           logoUrl: store.logoUrl,
           bannerUrl: store.bannerUrl || '',
           description: store.description,
           longDescription: store.longDescription || '',
-          category: store.category || StoreCategories[0],
+          category: StoreCategories.includes(store.category as StoreCategory) && store.category ? store.category : StoreCategories[0],
           tagsInput: store.tags?.join(', ') || '',
           contactEmail: store.contactEmail || '',
           websiteUrl: store.websiteUrl || '',
@@ -80,8 +79,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
         },
   });
   
-  const {formState: {errors: clientErrors}} = form; 
-
   useEffect(() => {
     if (formState.success) {
       toast({
@@ -89,19 +86,16 @@ export function StoreForm({ store, action }: StoreFormProps) {
         description: formState.message,
       });
       if (formState.store) {
-        // If editing, stay on edit page or go to specific store's admin view
-        // If adding, redirect to edit page of the newly created store
-        router.push(`/admin/stores/edit/${formState.store.id}`); 
+        router.push(`/admin/stores/edit/${formState.store.id}`);
       } else {
-        router.push('/admin/stores'); // Fallback, should ideally not happen if store is returned
+        router.push('/admin/stores');
       }
     } else if (formState.message && !formState.success && formState.errors) {
        toast({
         title: "Σφάλμα Φόρμας",
-        description: formState.message, // This will be "Σφάλμα επικύρωσης."
+        description: formState.message,
         variant: "destructive",
       });
-      // Set server-side errors to the form
       Object.keys(formState.errors).forEach((key) => {
         const fieldKey = key as keyof ClientStoreFormValues;
         const message = formState.errors[key as keyof typeof formState.errors]?.[0];
@@ -109,7 +103,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
             form.setError(fieldKey, { type: 'server', message });
         }
       });
-    } else if (formState.message && !formState.success && !formState.errors) { // Handle generic errors without field specifics
+    } else if (formState.message && !formState.success && !formState.errors) {
         toast({
             title: "Σφάλμα",
             description: formState.message,
@@ -280,7 +274,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 </FormItem>
               )}
             />
-            {/* Fields for pricingPlans, features, products would be more complex and likely handled separately */}
           </CardContent>
           <CardFooter className="flex justify-end">
             <Button type="button" variant="outline" onClick={() => router.back()} className="mr-2" disabled={isPending}>
