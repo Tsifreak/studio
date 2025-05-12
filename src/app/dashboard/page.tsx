@@ -13,8 +13,8 @@ import Link from 'next/link';
 // If truly dynamic metadata based on user is needed, it'd be more complex.
 // For now, static metadata or move to layout if applicable.
 // export const metadata: Metadata = {
-//   title: 'Dashboard | StoreSpot',
-//   description: 'Manage your StoreSpot account and preferences.',
+//   title: 'Dashboard | Amaxakis',
+//   description: 'Manage your Amaxakis account and preferences.',
 // };
 
 export default function DashboardPage() {
@@ -61,7 +61,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl font-bold text-primary">Welcome, {user.name}!</h1>
-            <p className="text-muted-foreground">Here's your personalized dashboard.</p>
+            <p className="text-muted-foreground">Here's your personalized Amaxakis dashboard.</p>
         </div>
         <Button variant="outline" onClick={handleLogout}>Log Out</Button>
       </div>
@@ -80,7 +80,7 @@ export default function DashboardPage() {
                     <p><strong>Name:</strong> {user.name}</p>
                     <p><strong>Email:</strong> {user.email}</p>
                     <p><strong>Joined:</strong> (Simulated) January 1, 2023</p>
-                    <Button variant="link" className="p-0 h-auto text-primary">View Order History (Example)</Button>
+                    <Button variant="link" className="p-0 h-auto text-primary">View Service History (Example)</Button>
                 </CardContent>
             </Card>
              <Card>
@@ -88,8 +88,8 @@ export default function DashboardPage() {
                     <CardTitle>Quick Links</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col space-y-2">
-                    <Button variant="outline" asChild><Link href="/">Browse Stores</Link></Button>
-                    <Button variant="outline" disabled>My Saved Stores (Example)</Button>
+                    <Button variant="outline" asChild><Link href="/">Find Services</Link></Button>
+                    <Button variant="outline" disabled>My Saved Garages (Example)</Button>
                     <Button variant="outline" disabled>Support Center (Example)</Button>
                 </CardContent>
             </Card>

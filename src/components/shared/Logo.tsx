@@ -1,6 +1,6 @@
 
 import Link from 'next/link';
-import { ShoppingBasket } from 'lucide-react'; // Using ShoppingBasket as a generic store icon
+import { Wrench } from 'lucide-react'; // Using Wrench as a car fix/tool icon
 
 interface LogoProps {
   className?: string;
@@ -11,8 +11,8 @@ interface LogoProps {
 export function Logo({ className, iconSize = 28, textSize = "text-2xl" }: LogoProps) {
   return (
     <Link href="/" className={`flex items-center gap-2 ${className}`}>
-      <ShoppingBasket className="text-primary" size={iconSize} aria-hidden="true" />
-      <span className={`font-bold ${textSize} text-primary`}>StoreSpot</span>
+      <Wrench className="text-primary" size={iconSize} aria-hidden="true" />
+      <span className={`font-bold ${textSize} text-primary`}>Amaxakis</span>
     </Link>
   );
 }

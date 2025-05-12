@@ -16,10 +16,10 @@ import { submitStoreQuery } from './actions'; // Import the server action
 export async function generateMetadata({ params }: { params: { storeId: string } }) {
   const store = getStoreById(params.storeId);
   if (!store) {
-    return { title: 'Store Not Found' };
+    return { title: 'Service Center Not Found' };
   }
   return {
-    title: `${store.name} | StoreSpot`,
+    title: `${store.name} | Amaxakis`,
     description: store.description,
   };
 }
@@ -93,10 +93,10 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="products">Products ({store.products.length})</TabsTrigger>
+          <TabsTrigger value="products">Services/Parts ({store.products.length})</TabsTrigger>
           <TabsTrigger value="pricing">Pricing Plans</TabsTrigger>
           <TabsTrigger value="reviews">Reviews ({store.reviews.length})</TabsTrigger>
-          <TabsTrigger value="contact">Contact Store</TabsTrigger>
+          <TabsTrigger value="contact">Contact Service Center</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -146,8 +146,8 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         <TabsContent value="products">
           <Card>
             <CardHeader>
-              <CardTitle>Our Products</CardTitle>
-              <CardDescription>Browse the selection of products offered by {store.name}.</CardDescription>
+              <CardTitle>Our Services & Parts</CardTitle>
+              <CardDescription>Browse the selection of services and parts offered by {store.name}.</CardDescription>
             </CardHeader>
             <CardContent>
               {store.products.length > 0 ? (
@@ -157,7 +157,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No products listed for this store yet.</p>
+                <p className="text-muted-foreground text-center py-8">No services or parts listed for this center yet.</p>
               )}
             </CardContent>
           </Card>
@@ -177,7 +177,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No pricing plans available for this store.</p>
+                <p className="text-muted-foreground text-center py-8">No pricing plans available for this service center.</p>
               )}
             </CardContent>
           </Card>
@@ -197,7 +197,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No reviews yet for this store.</p>
+                <p className="text-muted-foreground text-center py-8">No reviews yet for this service center.</p>
               )}
             </CardContent>
           </Card>

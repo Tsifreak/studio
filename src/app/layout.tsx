@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'StoreSpot - Discover Amazing Stores',
-  description: 'Your one-stop platform for browsing multiple independent stores and their offerings.',
+  title: 'Amaxakis - Your Car Care Hub',
+  description: 'Your one-stop platform for car repair services, parts, and maintenance.',
 };
 
 export default function RootLayout({

@@ -59,10 +59,10 @@ export default function HomePage() {
     <div className="space-y-8">
       <section className="text-center py-10 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
         <h1 className="text-4xl font-bold tracking-tight text-primary md:text-5xl">
-          Welcome to StoreSpot
+          Welcome to Amaxakis
         </h1>
         <p className="mt-4 text-lg text-foreground/80 md:text-xl">
-          Discover a world of unique stores and services, all in one place.
+          Your trusted partner for car maintenance, repairs, and parts.
         </p>
       </section>
 
@@ -98,7 +98,7 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <h2 className="text-2xl font-semibold text-foreground">No Stores Found</h2>
+          <h2 className="text-2xl font-semibold text-foreground">No Services Found</h2>
           <p className="mt-2 text-muted-foreground">
             Try adjusting your search or filter criteria.
           </p>

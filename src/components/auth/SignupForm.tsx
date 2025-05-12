@@ -60,7 +60,7 @@ export function SignupForm() {
 
         toast({
           title: "Signup Successful!",
-          description: "Welcome to StoreSpot! You can now log in.",
+          description: "Welcome to Amaxakis! You can now log in.",
         });
         router.push("/dashboard"); // Or redirect to login page to explicitly login
       } else {
@@ -83,7 +83,7 @@ export function SignupForm() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
         <CardTitle className="text-3xl font-bold text-primary">Create an Account</CardTitle>
-        <CardDescription>Join StoreSpot today to discover amazing stores.</CardDescription>
+        <CardDescription>Join Amaxakis today to find car services and parts.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

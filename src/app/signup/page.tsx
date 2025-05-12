@@ -3,8 +3,8 @@ import { SignupForm } from '@/components/auth/SignupForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Sign Up | StoreSpot',
-  description: 'Create a new StoreSpot account.',
+  title: 'Sign Up | Amaxakis',
+  description: 'Create a new Amaxakis account.',
 };
 
 export default function SignupPage() {
