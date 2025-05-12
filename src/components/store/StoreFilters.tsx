@@ -5,16 +5,16 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, ArrowUpDown, Filter as FilterIcon } from 'lucide-react';
+import type { StoreCategory } from '@/lib/types';
+import { StoreCategories } from '@/lib/types'; // Import the array of categories
 
 interface StoreFiltersProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
   sortBy: string;
   onSortChange: (value: string) => void;
-  // Placeholder for actual filter options
-  // filterOptions: string[]; 
-  // selectedFilters: string[];
-  // onFilterChange: (filters: string[]) => void;
+  selectedCategory: string; // Can be "all" or a StoreCategory
+  onCategoryChange: (category: string) => void;
 }
 
 export function StoreFilters({
@@ -22,6 +22,8 @@ export function StoreFilters({
   onSearchChange,
   sortBy,
   onSortChange,
+  selectedCategory,
+  onCategoryChange,
 }: StoreFiltersProps) {
   return (
     <div className="mb-8 p-6 bg-card rounded-lg shadow">
@@ -58,20 +60,18 @@ export function StoreFilters({
           </Select>
         </div>
 
-        {/* Placeholder for more complex filters */}
         <div className="space-y-2">
-            <label htmlFor="category-filter" className="text-sm font-medium text-foreground">Filter by Category (Example)</label>
-            <Select disabled> {/* Disabled for now, can be enabled with functionality */}
+            <label htmlFor="category-filter" className="text-sm font-medium text-foreground">Filter by Category</label>
+            <Select value={selectedCategory} onValueChange={onCategoryChange}>
                 <SelectTrigger id="category-filter">
                     <FilterIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                     <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="groceries">Groceries</SelectItem>
-                    <SelectItem value="electronics">Electronics</SelectItem>
-                    <SelectItem value="handmade">Handmade</SelectItem>
-                    <SelectItem value="fitness">Fitness</SelectItem>
+                    {StoreCategories.map(category => (
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
         </div>

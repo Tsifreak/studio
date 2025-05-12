@@ -5,20 +5,21 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { StoreCard } from '@/components/store/StoreCard';
 import { StoreFilters } from '@/components/store/StoreFilters';
 import { getAllStores } from '@/lib/placeholder-data';
-import type { Store } from '@/lib/types';
+import type { Store, StoreCategory } from '@/lib/types';
+import { StoreCategories } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('default'); // e.g., 'rating_desc', 'name_asc'
+  const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' or a StoreCategory
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching data
     const fetchData = async () => {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500)); 
       setStores(getAllStores());
       setIsLoading(false);
     };
@@ -31,8 +32,13 @@ export default function HomePage() {
     if (searchTerm) {
       processedStores = processedStores.filter(store =>
         store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        store.description.toLowerCase().includes(searchTerm.toLowerCase())
+        store.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (store.tags && store.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
       );
+    }
+
+    if (selectedCategory !== 'all') {
+      processedStores = processedStores.filter(store => store.category === selectedCategory);
     }
 
     switch (sortBy) {
@@ -49,11 +55,10 @@ export default function HomePage() {
         processedStores.sort((a, b) => b.name.localeCompare(a.name));
         break;
       default:
-        // Keep original order or apply a default sort if necessary
         break;
     }
     return processedStores;
-  }, [stores, searchTerm, sortBy]);
+  }, [stores, searchTerm, sortBy, selectedCategory]);
 
   return (
     <div className="space-y-8">
@@ -71,6 +76,8 @@ export default function HomePage() {
         onSearchChange={setSearchTerm}
         sortBy={sortBy}
         onSortChange={setSortBy}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
       />
 
       {isLoading ? (

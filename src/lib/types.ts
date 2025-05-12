@@ -32,6 +32,14 @@ export interface Feature {
   icon?: React.ComponentType<{ className?: string }> | string;
 }
 
+export const StoreCategories = [
+  "Mechanic", "Technician", "Electrician", "Painter", "Inspector",
+  "Estimator", "Detailer", "Tuner", "Welder", "Restorer",
+  "Installer", "Fabricator", "Aligner", "Diagnostician", "Assembler"
+] as const;
+
+export type StoreCategory = typeof StoreCategories[number];
+
 export interface Store {
   id: string;
   name:string;
@@ -40,15 +48,15 @@ export interface Store {
   description: string;
   longDescription?: string;
   rating: number; // Average rating 0-5
-  category?: string; // Optional: For filtering
-  tags?: string[]; // Optional: For filtering/search
+  category?: StoreCategory; 
+  tags?: string[]; 
   pricingPlans: PricingPlan[];
   features: Feature[];
   reviews: Review[];
-  products: Product[];
-  contactEmail?: string; // For query form submissions (simulated)
+  products: Product[]; // Products are more like services in this context
+  contactEmail?: string; 
   websiteUrl?: string;
-  address?: string; // Optional physical address
+  address?: string; 
 }
 
 export interface UserProfile {
