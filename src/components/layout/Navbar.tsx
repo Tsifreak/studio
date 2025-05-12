@@ -14,22 +14,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, LogOut, UserCircle, LogIn, UserPlus } from 'lucide-react';
+import { LayoutDashboard, LogOut, UserCircle, LogIn, UserPlus, ShieldCheck } from 'lucide-react'; // Added ShieldCheck for Admin
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react'; // Added
+import { useState, useEffect } from 'react'; 
 
 export function Navbar() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false); // Added
+  const [isClient, setIsClient] = useState(false); 
 
-  useEffect(() => { // Added
+  useEffect(() => { 
     setIsClient(true);
   }, []);
 
   const handleLogout = async () => {
     await logout();
-    router.push('/'); // Redirect to home after logout
+    router.push('/'); 
   };
 
   return (
@@ -37,7 +37,7 @@ export function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <Logo />
         <nav className="flex items-center gap-4">
-          {!isClient || isLoading ? ( // Modified: Render placeholder if not client or still loading from auth
+          {!isClient || isLoading ? ( 
             <div className="h-10 w-24 animate-pulse rounded-md bg-muted"></div>
           ) : user ? (
             <DropdownMenu>
@@ -63,6 +63,13 @@ export function Navbar() {
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   Πίνακας Ελέγχου
                 </DropdownMenuItem>
+                {user.isAdmin && (
+                  <DropdownMenuItem onClick={() => router.push('/admin')}>
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Πίνακας Διαχείρισης
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Αποσύνδεση
@@ -88,4 +95,3 @@ export function Navbar() {
     </header>
   );
 }
-

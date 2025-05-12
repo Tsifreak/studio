@@ -70,6 +70,7 @@ export interface UserProfile {
   name: string;
   email: string;
   avatarUrl?: string;
+  isAdmin?: boolean; // Added for admin role
   preferences?: {
     darkMode?: boolean;
     notifications?: boolean;
@@ -85,3 +86,13 @@ export interface QueryFormData {
   storeId: string;
 }
 
+// For Admin Store Form
+export type StoreFormData = Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & {
+  // Make optional fields explicitly optional if they can be empty in the form
+  longDescription?: string;
+  bannerUrl?: string;
+  contactEmail?: string;
+  websiteUrl?: string;
+  address?: string;
+  tagsInput?: string; // For comma-separated tags
+};

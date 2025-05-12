@@ -33,18 +33,18 @@ const sampleServices: Product[] = [
 
 const servicePricingPlans: PricingPlan[] = [
   { id: 'plan1', name: 'Βασική Συντήρηση', price: '79€/επίσκεψη', features: ['Αλλαγή Λαδιών', 'Περιστροφή Ελαστικών', 'Συμπλήρωση Υγρών'], isFeatured: false },
-  { id: 'plan2', name: 'Πακέτο Pro Care', price: '199€/έτος', features: ['2 Βασικές Συντηρήσεις', 'Ετήσιος Έλεγχος', '10% Έκπτωση σε Επισκευές'], isFeatured: true },
+  { id: 'plan2', name: 'Πακέτο Pro Care', price: '199€/έτος', features: ['2 Βασικές Συντηρήσεις', 'Ετήσιος Έλεγχos', '10% Έκπτωση σε Επισκευές'], isFeatured: true },
   { id: 'plan3', name: 'Διαχείριση Στόλου', price: 'Επικοινωνήστε μαζί μας', features: ['Προσαρμοσμένο Πρόγραμμα Συντήρησης', 'Εκπτώσεις Όγκου', 'Αποκλειστικός Εκπρόσωπος Λογαριασμού'], isFeatured: false },
 ];
 
 
-export const mockStores: Store[] = [
+export let mockStores: Store[] = [
   {
     id: 'store1',
-    name: 'ΤαχύFix Αυτοκινήτων', // Translated example
+    name: 'ΤαχύFix Αυτοκινήτων', 
     logoUrl: 'https://picsum.photos/seed/quickfix_logo/100/100',
     bannerUrl: 'https://picsum.photos/seed/quickfix_banner/800/300',
-    description: 'Γενικές επισκευές αυτοκινήτων και υπηρεσίες συντήρησης. Ο αξιόπιστος τοπικός σας μηχανικός.', // Translated example
+    description: 'Γενικές επισκευές αυτοκινήτων και υπηρεσίες συντήρησης. Ο αξιόπιστος τοπικός σας μηχανικός.', 
     longDescription: 'Το ΤαχύFix Αυτοκινήτων προσφέρει ένα ευρύ φάσμα υπηρεσιών επισκευής και συντήρησης αυτοκινήτων. Από τις τακτικές αλλαγές λαδιών έως τις πολύπλοκες διαγνώσεις κινητήρα, οι πιστοποιημένοι μηχανικοί μας είναι εδώ για να βοηθήσουν. Είμαστε περήφανοι για την έντιμη εργασία και τις δίκαιες τιμές μας.',
     rating: 4.7,
     category: StoreCategories[0], // Mechanic
@@ -97,6 +97,7 @@ export const mockStores: Store[] = [
     id: 'store3',
     name: 'Prestige Auto Painters',
     logoUrl: 'https://picsum.photos/seed/prestige_logo/100/100',
+    bannerUrl: 'https://picsum.photos/seed/prestige_banner/800/300',
     description: 'High-quality auto body painting and finishing services.',
     longDescription: 'At Prestige Auto Painters, we provide showroom-quality paint jobs and finishes for all types of vehicles. Using state-of-the-art equipment and premium paints, our experienced painters ensure a flawless result every time, whether it\'s a touch-up or a full repaint.',
     rating: 4.8,
@@ -154,6 +155,7 @@ export const mockStores: Store[] = [
     id: 'store5',
     name: 'TuneUp Masters',
     logoUrl: 'https://picsum.photos/seed/tuneup_logo/100/100',
+    bannerUrl: 'https://picsum.photos/seed/tuneup_banner/800/300',
     description: 'Performance tuning and ECU remapping for enhanced driving experience.',
     longDescription: 'TuneUp Masters specializes in optimizing your vehicle\'s performance. Our expert tuners use advanced software and dynamometer testing to unlock your engine\'s full potential, improving horsepower, torque, and fuel efficiency.',
     rating: 4.6,
@@ -180,6 +182,7 @@ export const mockStores: Store[] = [
     id: 'store6',
     name: 'InspectRite Vehicle Inspectors',
     logoUrl: 'https://picsum.photos/seed/inspectrite_logo/100/100',
+    bannerUrl: 'https://picsum.photos/seed/inspectrite_banner/800/300',
     description: 'Comprehensive pre-purchase vehicle inspections and safety checks.',
     longDescription: 'InspectRite offers thorough vehicle inspections to give you peace of mind before purchasing a used car or ensuring your current vehicle meets safety standards. Our detailed reports cover all major systems.',
     rating: 4.9,
@@ -209,6 +212,7 @@ export const mockStores: Store[] = [
     id: 'store7',
     name: 'AccuAlign Specialists',
     logoUrl: 'https://picsum.photos/seed/accualign_logo/100/100',
+    bannerUrl: 'https://picsum.photos/seed/accualign_banner/800/300',
     description: 'Precision wheel alignment and suspension services.',
     longDescription: 'AccuAlign Specialists use state-of-the-art laser alignment equipment to ensure your vehicle\'s wheels are perfectly aligned for optimal handling, tire life, and fuel efficiency. We also service and repair suspension systems.',
     rating: 4.7,
@@ -235,6 +239,7 @@ export const mockStores: Store[] = [
     id: 'store8',
     name: 'SoundInstall Pro',
     logoUrl: 'https://picsum.photos/seed/soundinstall_logo/100/100',
+    bannerUrl: 'https://picsum.photos/seed/soundinstall_banner/800/300',
     description: 'Expert installation of car audio, video, and security systems.',
     longDescription: 'Upgrade your ride with SoundInstall Pro. We offer professional installation services for car stereos, speakers, amplifiers, navigation systems, alarms, remote starters, and more. Quality components and clean installations guaranteed.',
     rating: 4.8,
@@ -264,6 +269,47 @@ export const getStoreById = (id: string): Store | undefined => {
 };
 
 export const getAllStores = (): Store[] => {
-  return mockStores;
+  return [...mockStores]; // Return a copy to prevent direct mutation from outside if not intended
 };
 
+// --- Admin Data Modification Functions ---
+// These functions will modify the in-memory mockStores array.
+// In a real application, these would interact with a database via API calls or server actions.
+
+export const addStoreToMockData = (newStoreData: Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & { tagsInput?: string }): Store => {
+  const newId = `store${mockStores.length + 1}_${Date.now()}`; // Simple unique ID generation
+  const newStore: Store = {
+    ...newStoreData,
+    id: newId,
+    rating: 0, // Default rating for new store
+    reviews: [], // Default empty reviews
+    pricingPlans: [], // Default empty pricing plans
+    features: [...commonFeatures], // Default common features
+    products: [...sampleServices.slice(0,1)], // Default sample products
+    tags: newStoreData.tagsInput ? newStoreData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+  };
+  mockStores.push(newStore);
+  return newStore;
+};
+
+export const updateStoreInMockData = (storeId: string, updatedData: Partial<Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & { tagsInput?: string }>): Store | undefined => {
+  const storeIndex = mockStores.findIndex(s => s.id === storeId);
+  if (storeIndex > -1) {
+    const existingStore = mockStores[storeIndex];
+    const newTags = updatedData.tagsInput ? updatedData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : existingStore.tags;
+    
+    mockStores[storeIndex] = { 
+      ...existingStore, 
+      ...updatedData,
+      tags: newTags,
+    };
+    return mockStores[storeIndex];
+  }
+  return undefined;
+};
+
+export const deleteStoreFromMockData = (storeId: string): boolean => {
+  const initialLength = mockStores.length;
+  mockStores = mockStores.filter(s => s.id !== storeId);
+  return mockStores.length < initialLength;
+};
