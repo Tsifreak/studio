@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,8 +23,7 @@ import type { Store, StoreCategory, StoreFormData } from "@/lib/types";
 import { StoreCategories, TranslatedStoreCategories } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { useFormState } from "react-dom"; // For server action state
+import { useEffect, useActionState } from "react"; // For server action state
 
 interface StoreFormProps {
   store?: Store; // Optional: For pre-filling the form in edit mode
@@ -46,12 +46,12 @@ const clientStoreFormSchema = z.object({
 
 type ClientStoreFormValues = z.infer<typeof clientStoreFormSchema>;
 
-const initialFormState = { success: false, message: "", errors: null };
+const initialFormState = { success: false, message: "", errors: null, store: undefined };
 
 export function StoreForm({ store, action }: StoreFormProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const [formState, formAction] = useFormState(action, initialFormState);
+  const [formState, formAction, isPending] = useActionState(action, initialFormState);
 
   const form = useForm<ClientStoreFormValues>({
     resolver: zodResolver(clientStoreFormSchema),
@@ -82,7 +82,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
         },
   });
   
-  const {formState: {isSubmitting, errors: clientErrors}} = form;
+  const {formState: {errors: clientErrors}} = form; // isSubmitting is now isPending from useActionState
 
   useEffect(() => {
     if (formState.success) {
@@ -283,11 +283,11 @@ export function StoreForm({ store, action }: StoreFormProps) {
             {/* Fields for pricingPlans, features, products would be more complex and likely handled separately */}
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="button" variant="outline" onClick={() => router.back()} className="mr-2">
+            <Button type="button" variant="outline" onClick={() => router.back()} className="mr-2" disabled={isPending}>
               Άκυρο
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (store ? "Ενημέρωση..." : "Προσθήκη...") : (store ? "Αποθήκευση Αλλαγών" : "Προσθήκη Κέντρου")}
+            <Button type="submit" disabled={isPending}>
+              {isPending ? (store ? "Ενημέρωση..." : "Προσθήκη...") : (store ? "Αποθήκευση Αλλαγών" : "Προσθήκη Κέντρου")}
             </Button>
           </CardFooter>
         </form>
@@ -295,3 +295,4 @@ export function StoreForm({ store, action }: StoreFormProps) {
     </Card>
   );
 }
+
