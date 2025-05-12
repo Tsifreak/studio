@@ -1,7 +1,6 @@
+"use client"; 
 
-"use client"; // This page involves client-side interactions (confirm dialog, router)
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Edit3, Trash2, Eye, ShieldAlert, Home } from 'lucide-react';
 import { getAllStores } from '@/lib/placeholder-data';
-import type { Store } from '@/lib/types';
+import type { Store, StoreCategory } from '@/lib/types';
+import { StoreCategories, TranslatedStoreCategories } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,11 +21,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
-import { deleteStoreAction } from '../actions'; // Server action for delete
+import { deleteStoreAction, updateStoreCategoryAction } from '../actions'; 
 import { Skeleton } from '@/components/ui/skeleton';
-
-// No metadata export for client components in app router
 
 export default function AdminStoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -33,9 +32,9 @@ export default function AdminStoresPage() {
   const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    // Simulate fetching data
     setIsLoading(true);
     const fetchedStores = getAllStores();
     setStores(fetchedStores);
@@ -45,22 +44,47 @@ export default function AdminStoresPage() {
   const handleDelete = async () => {
     if (!storeToDelete) return;
 
-    const result = await deleteStoreAction(storeToDelete.id);
-    if (result.success) {
-      toast({
-        title: "Επιτυχής Διαγραφή",
-        description: result.message,
-      });
-      setStores(prevStores => prevStores.filter(s => s.id !== storeToDelete!.id));
-    } else {
-      toast({
-        title: "Σφάλμα Διαγραφής",
-        description: result.message,
-        variant: "destructive",
-      });
-    }
-    setStoreToDelete(null); // Close dialog
+    startTransition(async () => {
+        const result = await deleteStoreAction(storeToDelete.id);
+        if (result.success) {
+        toast({
+            title: "Επιτυχής Διαγραφή",
+            description: result.message,
+        });
+        setStores(prevStores => prevStores.filter(s => s.id !== storeToDelete!.id));
+        } else {
+        toast({
+            title: "Σφάλμα Διαγραφής",
+            description: result.message,
+            variant: "destructive",
+        });
+        }
+        setStoreToDelete(null);
+    });
   };
+
+  const handleCategoryChange = async (storeId: string, newCategory: StoreCategory) => {
+    startTransition(async () => {
+        const result = await updateStoreCategoryAction(storeId, newCategory);
+        if (result.success && result.store) {
+            toast({
+                title: "Επιτυχής Ενημέρωση Κατηγορίας",
+                description: result.message,
+            });
+            setStores(prevStores => 
+                prevStores.map(s => s.id === storeId ? { ...s, category: result.store!.category } : s)
+            );
+        } else {
+            toast({
+                title: "Σφάλμα Ενημέρωσης Κατηγορίας",
+                description: result.message,
+                variant: "destructive",
+            });
+            // Optionally revert local state if needed, or re-fetch
+        }
+    });
+  };
+
 
   if (isLoading) {
     return (
@@ -81,6 +105,7 @@ export default function AdminStoresPage() {
                         <div key={i} className="flex items-center justify-between p-2 border-b">
                             <Skeleton className="h-6 w-1/4" />
                             <Skeleton className="h-6 w-1/5" />
+                            <Skeleton className="h-6 w-1/4" /> {/* Placeholder for category select */}
                             <div className="flex gap-2">
                                 <Skeleton className="h-8 w-8 rounded-md" />
                                 <Skeleton className="h-8 w-8 rounded-md" />
@@ -120,7 +145,7 @@ export default function AdminStoresPage() {
       <Card>
         <CardHeader>
           <CardTitle>Λίστα Κέντρων ({stores.length})</CardTitle>
-          <CardDescription>Τα τρέχοντα κέντρα εξυπηρέτησης στην πλατφόρμα.</CardDescription>
+          <CardDescription>Τα τρέχοντα κέντρα εξυπηρέτησης στην πλατφόρμα. Η κατηγορία μπορεί να αλλάξει απευθείας από αυτή τη λίστα.</CardDescription>
         </CardHeader>
         <CardContent>
           {stores.length > 0 ? (
@@ -128,7 +153,7 @@ export default function AdminStoresPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Όνομα Κέντρου</TableHead>
-                  <TableHead>Κατηγορία</TableHead>
+                  <TableHead className="w-[250px]">Κατηγορία</TableHead>
                   <TableHead className="text-right">Ενέργειες</TableHead>
                 </TableRow>
               </TableHeader>
@@ -136,14 +161,31 @@ export default function AdminStoresPage() {
                 {stores.map((store) => (
                   <TableRow key={store.id}>
                     <TableCell className="font-medium">{store.name}</TableCell>
-                    <TableCell>{store.category || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={store.category}
+                        onValueChange={(newCategory) => handleCategoryChange(store.id, newCategory as StoreCategory)}
+                        disabled={isPending}
+                      >
+                        <SelectTrigger className="w-full h-9">
+                          <SelectValue placeholder="Επιλέξτε κατηγορία" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {StoreCategories.map((cat, index) => (
+                            <SelectItem key={cat} value={cat}>
+                              {TranslatedStoreCategories[index]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" asChild title="Προβολή">
                         <Link href={`/stores/${store.id}`} target="_blank">
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
-                      <Button variant="ghost" size="icon" asChild title="Επεξεργασία">
+                      <Button variant="ghost" size="icon" asChild title="Επεξεργασία Λοιπών Στοιχείων">
                         <Link href={`/admin/stores/edit/${store.id}`}>
                           <Edit3 className="h-4 w-4" />
                         </Link>
@@ -151,18 +193,13 @@ export default function AdminStoresPage() {
                       <AlertDialog
                         open={storeToDelete?.id === store.id}
                         onOpenChange={(isOpen) => {
-                          if (isOpen) {
-                            setStoreToDelete(store);
-                          } else {
-                            // Only nullify if this specific dialog was the one being closed
-                            if (storeToDelete?.id === store.id) {
-                              setStoreToDelete(null);
-                            }
+                          if (!isOpen && storeToDelete?.id === store.id) {
+                             setStoreToDelete(null);
                           }
                         }}
                       >
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" title="Διαγραφή" onClick={() => setStoreToDelete(store)}>
+                          <Button variant="ghost" size="icon" title="Διαγραφή" onClick={() => setStoreToDelete(store)} disabled={isPending}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </AlertDialogTrigger>
@@ -175,9 +212,9 @@ export default function AdminStoresPage() {
                           </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Άκυρο</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                Διαγραφή
+                            <AlertDialogCancel disabled={isPending}>Άκυρο</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                                {isPending ? "Διαγραφή..." : "Διαγραφή"}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

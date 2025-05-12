@@ -1,5 +1,4 @@
-
-import type { Store, UserProfile, Product, Review, PricingPlan, Feature, StoreCategory } from './types';
+import type { Store, UserProfile, Product, Review, PricingPlan, Feature, StoreCategory, StoreFormData } from './types';
 import { StoreCategories, TranslatedStoreCategories } from './types';
 import { CheckCircle2, Zap, Award, Users, BarChart3, ShieldCheck, MessageSquare, Car, Paintbrush, Search, Wrench, Settings2, Sparkles, PackageCheck, Scale, ShieldAlert, Combine, AlignCenter, ClipboardCheck, Package } from 'lucide-react';
 
@@ -269,30 +268,30 @@ export const getStoreById = (id: string): Store | undefined => {
 };
 
 export const getAllStores = (): Store[] => {
-  return [...mockStores]; // Return a copy to prevent direct mutation from outside if not intended
+  return [...mockStores]; 
 };
 
-// --- Admin Data Modification Functions ---
-// These functions will modify the in-memory mockStores array.
-// In a real application, these would interact with a database via API calls or server actions.
+// Admin Data Modification Functions
 
-export const addStoreToMockData = (newStoreData: Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & { tagsInput?: string }): Store => {
-  const newId = `store${mockStores.length + 1}_${Date.now()}`; // Simple unique ID generation
+export const addStoreToMockData = (newStoreData: Omit<StoreFormData, 'category'>): Store => {
+  const newId = `store${mockStores.length + 1}_${Date.now()}`;
   const newStore: Store = {
     ...newStoreData,
     id: newId,
-    rating: 0, // Default rating for new store
-    reviews: [], // Default empty reviews
-    pricingPlans: [], // Default empty pricing plans
-    features: [...commonFeatures], // Default common features
-    products: [...sampleServices.slice(0,1)], // Default sample products
+    category: StoreCategories[0], // Default category for new stores
+    rating: 0,
+    reviews: [],
+    pricingPlans: [],
+    features: [...commonFeatures],
+    products: [...sampleServices.slice(0,1)],
     tags: newStoreData.tagsInput ? newStoreData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
   };
   mockStores.push(newStore);
   return newStore;
 };
 
-export const updateStoreInMockData = (storeId: string, updatedData: Partial<Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & { tagsInput?: string }>): Store | undefined => {
+// This function now only updates fields present in StoreFormData (which excludes category)
+export const updateStoreInMockData = (storeId: string, updatedData: Partial<Omit<StoreFormData, 'category'>>): Store | undefined => {
   const storeIndex = mockStores.findIndex(s => s.id === storeId);
   if (storeIndex > -1) {
     const existingStore = mockStores[storeIndex];
@@ -300,7 +299,7 @@ export const updateStoreInMockData = (storeId: string, updatedData: Partial<Omit
     
     mockStores[storeIndex] = { 
       ...existingStore, 
-      ...updatedData,
+      ...updatedData, // Category is not part of updatedData here
       tags: newTags,
     };
     return mockStores[storeIndex];
@@ -312,4 +311,14 @@ export const deleteStoreFromMockData = (storeId: string): boolean => {
   const initialLength = mockStores.length;
   mockStores = mockStores.filter(s => s.id !== storeId);
   return mockStores.length < initialLength;
+};
+
+// New function to specifically update a store's category
+export const updateStoreCategoryInMockData = (storeId: string, newCategory: StoreCategory): Store | undefined => {
+  const storeIndex = mockStores.findIndex(s => s.id === storeId);
+  if (storeIndex > -1) {
+    mockStores[storeIndex].category = newCategory;
+    return mockStores[storeIndex];
+  }
+  return undefined;
 };

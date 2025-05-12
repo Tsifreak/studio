@@ -1,4 +1,3 @@
-
 export interface Review {
   id: string;
   userName: string;
@@ -54,7 +53,7 @@ export interface Store {
   description: string;
   longDescription?: string;
   rating: number; // Average rating 0-5
-  category?: StoreCategory; 
+  category: StoreCategory; // Made category mandatory for a Store object
   tags?: string[]; 
   pricingPlans: PricingPlan[];
   features: Feature[];
@@ -86,8 +85,8 @@ export interface QueryFormData {
   storeId: string;
 }
 
-// For Admin Store Form
-export type StoreFormData = Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & {
+// For Admin Store Form (main form, without category)
+export type StoreFormData = Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products' | 'category'> & {
   // Make optional fields explicitly optional if they can be empty in the form
   longDescription?: string;
   bannerUrl?: string;

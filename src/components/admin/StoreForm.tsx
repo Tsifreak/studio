@@ -15,10 +15,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// Select components are no longer needed here for category
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Store, StoreCategory, StoreFormData } from "@/lib/types";
-import { StoreCategories, TranslatedStoreCategories } from "@/lib/types";
+import type { Store, StoreFormData } from "@/lib/types";
+// StoreCategories and TranslatedStoreCategories are no longer directly used in this form for selection
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useActionState } from "react"; 
@@ -28,13 +28,14 @@ interface StoreFormProps {
   action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: Store }>;
 }
 
+// Client-side schema without category
 const clientStoreFormSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
   logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }).default('https://picsum.photos/seed/new_store_logo/100/100'),
   bannerUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το banner." }).optional().or(z.literal('')).default('https://picsum.photos/seed/new_store_banner/800/300'),
   description: z.string().min(10, { message: "Η περιγραφή πρέπει να έχει τουλάχιστον 10 χαρακτήρες." }),
   longDescription: z.string().optional(),
-  category: z.enum(StoreCategories, { errorMap: () => ({ message: "Παρακαλώ επιλέξτε μια έγκυρη κατηγορία."}) }),
+  // category: z.enum(StoreCategories, { errorMap: () => ({ message: "Παρακαλώ επιλέξτε μια έγκυρη κατηγορία."}) }), // Removed category
   tagsInput: z.string().optional(), 
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
@@ -59,7 +60,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           bannerUrl: store.bannerUrl || '',
           description: store.description,
           longDescription: store.longDescription || '',
-          category: StoreCategories.includes(store.category as StoreCategory) && store.category ? store.category : StoreCategories[0],
+          // category: store.category || StoreCategories[0], // Category removed
           tagsInput: store.tags?.join(', ') || '',
           contactEmail: store.contactEmail || '',
           websiteUrl: store.websiteUrl || '',
@@ -71,7 +72,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           bannerUrl: "https://picsum.photos/seed/new_banner/800/300",
           description: "",
           longDescription: "",
-          category: StoreCategories[0],
+          // category: StoreCategories[0], // Category removed
           tagsInput: "",
           contactEmail: "",
           websiteUrl: "",
@@ -86,7 +87,10 @@ export function StoreForm({ store, action }: StoreFormProps) {
         description: formState.message,
       });
       if (formState.store) {
-        router.push(`/admin/stores/edit/${formState.store.id}`);
+        // If editing, stay on the edit page (or redirect to list if preferred)
+        // For now, staying on edit page, category can be changed from list view.
+        // router.push(`/admin/stores/edit/${formState.store.id}`);
+         router.push('/admin/stores'); // Go back to list after successful update/add
       } else {
         router.push('/admin/stores');
       }
@@ -98,9 +102,12 @@ export function StoreForm({ store, action }: StoreFormProps) {
       });
       Object.keys(formState.errors).forEach((key) => {
         const fieldKey = key as keyof ClientStoreFormValues;
-        const message = formState.errors[key as keyof typeof formState.errors]?.[0];
-        if (message) {
-            form.setError(fieldKey, { type: 'server', message });
+        // Ensure fieldKey is a valid key before calling setError
+        if (clientStoreFormSchema.shape.hasOwnProperty(fieldKey)) {
+            const message = formState.errors[key as keyof typeof formState.errors]?.[0];
+            if (message) {
+                form.setError(fieldKey, { type: 'server', message });
+            }
         }
       });
     } else if (formState.message && !formState.success && !formState.errors) {
@@ -119,7 +126,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           {store ? `Επεξεργασία Κέντρου: ${store.name}` : "Προσθήκη Νέου Κέντρου"}
         </CardTitle>
         <CardDescription>
-          {store ? "Ενημερώστε τα στοιχεία του υπάρχοντος κέντρου." : "Συμπληρώστε τα στοιχεία για το νέο κέντρο εξυπηρέτησης."}
+          {store ? "Ενημερώστε τα στοιχεία του υπάρχοντος κέντρου. Η κατηγορία αλλάζει από τη λίστα κέντρων." : "Συμπληρώστε τα στοιχεία για το νέο κέντρο εξυπηρέτησης. Η κατηγορία μπορεί να οριστεί από τη λίστα κέντρων μετά την προσθήκη."}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -195,13 +202,14 @@ export function StoreForm({ store, action }: StoreFormProps) {
               )}
             />
 
+            {/* Category Field Removed
             <FormField
               control={form.control}
               name="category"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Κατηγορία</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Επιλέξτε κατηγορία" />
@@ -219,6 +227,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 </FormItem>
               )}
             />
+            */}
 
             <FormField
               control={form.control}
