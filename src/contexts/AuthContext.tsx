@@ -45,10 +45,15 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Preserve existing preferences if user object already exists (e.g., from a previous state in the same session)
-        // This is a simple way, a more robust solution might involve Firestore for preferences.
-        const existingPreferences = user?.id === firebaseUser.uid ? user.preferences : undefined;
-        setUser(mapFirebaseUserToUserProfile(firebaseUser, existingPreferences));
+        // Use functional update to access the current state of 'user'
+        // This helps preserve preferences if onAuthStateChanged fires for an already logged-in user
+        // without needing 'user' in the dependency array, which caused the infinite loop.
+        setUser(currentUserState => {
+          const preferencesToUse = (currentUserState && currentUserState.id === firebaseUser.uid)
+            ? currentUserState.preferences
+            : { darkMode: false, notifications: true }; // Default if no current user or different user
+          return mapFirebaseUserToUserProfile(firebaseUser, preferencesToUse);
+        });
       } else {
         setUser(null);
       }
@@ -56,7 +61,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     });
 
     return () => unsubscribe(); // Cleanup subscription on unmount
-  }, [user]); // Add user to dependency array to re-evaluate mapping if preferences logic changes based on existing user state
+  }, []); // CORRECTED: Dependency array is now empty to prevent infinite loop.
 
   const login = useCallback(async (email: string, pass: string) => {
     try {
@@ -75,9 +80,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         displayName: name,
         photoURL: `https://picsum.photos/seed/${userCredential.user.uid}/100/100` // Default avatar
       });
-      // onAuthStateChanged will update the user state, including displayName
-      // For immediate update of local state if needed, though onAuthStateChanged should be quick:
-      setUser(mapFirebaseUserToUserProfile(userCredential.user, { darkMode: false, notifications: true }));
+      // onAuthStateChanged will update the user state.
+      // For a slightly faster UI update, we can set user state here too, but onAuthStateChanged is the source of truth.
+      // setUser(mapFirebaseUserToUserProfile(userCredential.user, { darkMode: false, notifications: true }));
     } catch (error) {
       console.error("Firebase signup error:", error);
       throw error;
@@ -108,18 +113,17 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         await firebaseUpdateProfile(auth.currentUser, profileUpdates);
       }
       
-      // Update local state for preferences immediately as they are not part of Firebase User object
-      // and for displayName/photoURL to reflect changes potentially before onAuthStateChanged fires.
+      // Update local state for preferences immediately as they are not part of Firebase User object.
+      // displayName and photoURL changes will also be picked up by onAuthStateChanged.
       setUser(currentUser => {
         if (!currentUser) return null;
         return {
           ...currentUser,
-          ...(name && { name }),
-          ...(avatarUrl && { avatarUrl }),
-          ...(preferences && { preferences }),
+          ...(name && { name: name }), // Ensure name is updated if provided
+          ...(avatarUrl && { avatarUrl: avatarUrl }), // Ensure avatarUrl is updated
+          ...(preferences && { preferences: preferences }), // Ensure preferences are updated
         };
       });
-      // onAuthStateChanged will also pick up displayName and photoURL changes from Firebase.
 
     } catch (error) {
       console.error("Firebase profile update error:", error);
