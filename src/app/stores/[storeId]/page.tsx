@@ -46,6 +46,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
               fill={true}
               style={{objectFit:"cover"}}
               data-ai-hint="store banner"
+              priority
             />
             <div className="absolute inset-0 bg-black/30" />
           </div>

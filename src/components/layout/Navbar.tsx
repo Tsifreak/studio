@@ -16,10 +16,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LayoutDashboard, LogOut, UserCircle, LogIn, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react'; // Added
 
 export function Navbar() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false); // Added
+
+  useEffect(() => { // Added
+    setIsClient(true);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -31,8 +37,8 @@ export function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <Logo />
         <nav className="flex items-center gap-4">
-          {isLoading ? (
-            <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
+          {!isClient || isLoading ? ( // Modified: Render placeholder if not client or still loading from auth
+            <div className="h-10 w-24 animate-pulse rounded-md bg-muted"></div>
           ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -82,3 +88,4 @@ export function Navbar() {
     </header>
   );
 }
+
