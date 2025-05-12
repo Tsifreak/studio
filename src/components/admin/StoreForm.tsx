@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,7 +80,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
         },
   });
   
-  const {formState: {errors: clientErrors}} = form; // isSubmitting is now isPending from useActionState
+  const {formState: {errors: clientErrors}} = form; 
 
   useEffect(() => {
     if (formState.success) {
@@ -91,14 +89,16 @@ export function StoreForm({ store, action }: StoreFormProps) {
         description: formState.message,
       });
       if (formState.store) {
-        router.push(`/admin/stores/edit/${formState.store.id}`); // Redirect to edit page of the created/updated store
+        // If editing, stay on edit page or go to specific store's admin view
+        // If adding, redirect to edit page of the newly created store
+        router.push(`/admin/stores/edit/${formState.store.id}`); 
       } else {
-        router.push('/admin/stores');
+        router.push('/admin/stores'); // Fallback, should ideally not happen if store is returned
       }
     } else if (formState.message && !formState.success && formState.errors) {
        toast({
         title: "Σφάλμα Φόρμας",
-        description: formState.message,
+        description: formState.message, // This will be "Σφάλμα επικύρωσης."
         variant: "destructive",
       });
       // Set server-side errors to the form
@@ -109,7 +109,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
             form.setError(fieldKey, { type: 'server', message });
         }
       });
-    } else if (formState.message && !formState.success) {
+    } else if (formState.message && !formState.success && !formState.errors) { // Handle generic errors without field specifics
         toast({
             title: "Σφάλμα",
             description: formState.message,
@@ -207,7 +207,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Κατηγορία</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Επιλέξτε κατηγορία" />
@@ -295,4 +295,3 @@ export function StoreForm({ store, action }: StoreFormProps) {
     </Card>
   );
 }
-
