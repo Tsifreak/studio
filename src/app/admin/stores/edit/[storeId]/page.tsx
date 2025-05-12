@@ -7,6 +7,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import type { Store, Feature } from '@/lib/types';
 
 interface EditStorePageProps {
   params: { storeId: string };
@@ -24,12 +25,32 @@ export async function generateMetadata({ params }: EditStorePageProps): Promise<
 }
 
 export default function EditStorePage({ params }: EditStorePageProps) {
-  const store = getStoreById(params.storeId);
+  const storeData = getStoreById(params.storeId);
 
-  if (!store) {
-    notFound(); // Or show a custom "Store not found" message within admin layout
+  if (!storeData) {
+    notFound(); 
   }
   
+  // Create a serializable version of the store for the form
+  // by converting icon components in features to string representations.
+  const storeForForm: Store = {
+    ...storeData,
+    features: storeData.features.map(feature => {
+      let iconRepresentation: string | undefined = undefined;
+      if (typeof feature.icon === 'function') {
+        // Attempt to get a name from the component.
+        // For Lucide icons, displayName is typically available.
+        iconRepresentation = (feature.icon as any).displayName || (feature.icon as Function).name || 'LucideIconComponent';
+      } else if (typeof feature.icon === 'string') {
+        iconRepresentation = feature.icon;
+      }
+      return {
+        ...feature,
+        icon: iconRepresentation, // Now icon is string | undefined, which is serializable
+      };
+    }),
+  };
+
   // Bind the storeId to the server action
   const updateStoreActionWithId = updateStoreAction.bind(null, params.storeId);
 
@@ -44,7 +65,8 @@ export default function EditStorePage({ params }: EditStorePageProps) {
             </Button>
             <h1 className="text-2xl font-semibold">Επεξεργασία Κέντρου</h1>
         </div>
-      <StoreForm store={store} action={updateStoreActionWithId} />
+      <StoreForm store={storeForForm} action={updateStoreActionWithId} />
     </div>
   );
 }
+
