@@ -38,10 +38,11 @@ export function StoreCard({ store }: StoreCardProps) {
       <CardFooter className="p-4 pt-0">
         <Button asChild className="w-full" variant="outline">
           <Link href={`/stores/${store.id}`}>
-            View Store <ArrowRight className="ml-2 h-4 w-4" />
+            Προβολή Καταστήματος <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
       </CardFooter>
     </Card>
   );
 }
+

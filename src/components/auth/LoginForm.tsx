@@ -23,8 +23,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 // import { loginUser } from "@/app/auth/actions"; // Server action no longer used for login
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), 
+  email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
+  password: z.string().min(1, { message: "Ο κωδικός πρόσβασης είναι υποχρεωτικός." }), 
   rememberMe: z.boolean().default(false).optional(), // Firebase handles persistence, this is more for UI
 });
 
@@ -52,28 +52,28 @@ export function LoginForm() {
     try {
       await login(values.email, values.password);
       toast({
-        title: "Login Successful!",
-        description: "Welcome back!",
+        title: "Επιτυχής Σύνδεση!",
+        description: "Καλώς ήρθατε ξανά!",
       });
       router.push(redirectPath);
     } catch (error: any) {
-      let errorMessage = "An unexpected error occurred. Please try again later.";
+      let errorMessage = "Παρουσιάστηκε ένα μη αναμενόμενο σφάλμα. Παρακαλώ προσπαθήστε ξανά αργότερα.";
       if (error.code) {
         switch (error.code) {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
           case 'auth/invalid-credential':
-            errorMessage = "Invalid email or password.";
+            errorMessage = "Μη έγκυρο email ή κωδικός πρόσβασης.";
             break;
           case 'auth/invalid-email':
-            errorMessage = "Please enter a valid email address.";
+            errorMessage = "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email.";
             break;
           default:
             errorMessage = error.message || errorMessage;
         }
       }
       toast({
-        title: "Login Failed",
+        title: "Η Σύνδεση Απέτυχε",
         description: errorMessage,
         variant: "destructive",
       });
@@ -83,8 +83,8 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-bold text-primary">Welcome Back!</CardTitle>
-        <CardDescription>Log in to access your StoreSpot account.</CardDescription>
+        <CardTitle className="text-3xl font-bold text-primary">Καλώς Ορίσατε Ξανά!</CardTitle>
+        <CardDescription>Συνδεθείτε για πρόσβαση στον λογαριασμό σας Amaxakis.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -94,7 +94,7 @@ export function LoginForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>Διεύθυνση Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="you@example.com" {...field} />
                   </FormControl>
@@ -107,7 +107,7 @@ export function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>Κωδικός Πρόσβασης</FormLabel>
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
@@ -129,7 +129,7 @@ export function LoginForm() {
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel className="cursor-pointer">
-                        Remember me
+                        Να με θυμάσαι
                       </FormLabel>
                     </div>
                   </FormItem>
@@ -137,21 +137,21 @@ export function LoginForm() {
               />
               <Link href="/forgot-password" legacyBehavior>
                 <a className="text-sm text-primary hover:underline">
-                  Forgot password?
+                  Ξεχάσατε τον κωδικό;
                 </a>
               </Link>
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Logging in..." : "Log In"}
+              {isSubmitting ? "Σύνδεση σε εξέλιξη..." : "Σύνδεση"}
             </Button>
           </form>
         </Form>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2">
         <p className="text-sm text-muted-foreground">
-          Don't have an account?{" "}
+          Δεν έχετε λογαριασμό;{" "}
           <Link href="/signup" legacyBehavior>
-            <a className="font-medium text-primary hover:underline">Sign up</a>
+            <a className="font-medium text-primary hover:underline">Εγγραφείτε</a>
           </Link>
         </p>
       </CardFooter>

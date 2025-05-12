@@ -3,8 +3,8 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Login | Amaxakis',
-  description: 'Log in to your Amaxakis account.',
+  title: 'Σύνδεση | Amaxakis',
+  description: 'Συνδεθείτε στον λογαριασμό σας Amaxakis.',
 };
 
 export default function LoginPage() {

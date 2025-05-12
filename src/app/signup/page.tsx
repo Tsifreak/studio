@@ -3,8 +3,8 @@ import { SignupForm } from '@/components/auth/SignupForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Sign Up | Amaxakis',
-  description: 'Create a new Amaxakis account.',
+  title: 'Εγγραφή | Amaxakis',
+  description: 'Δημιουργήστε έναν νέο λογαριασμό Amaxakis.',
 };
 
 export default function SignupPage() {

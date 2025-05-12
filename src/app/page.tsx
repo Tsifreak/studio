@@ -66,10 +66,10 @@ export default function HomePage() {
     <div className="space-y-8">
       <section className="text-center py-10 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
         <h1 className="text-4xl font-bold tracking-tight text-primary md:text-5xl">
-          Welcome to Amaxakis
+          Καλώς ήρθατε στην Amaxakis
         </h1>
         <p className="mt-4 text-lg text-foreground/80 md:text-xl">
-          Your trusted partner for all car repair and maintenance needs.
+          Ο αξιόπιστος συνεργάτης σας για όλες τις ανάγκες επισκευής και συντήρησης αυτοκινήτων.
         </p>
       </section>
 
@@ -107,9 +107,9 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <h2 className="text-2xl font-semibold text-foreground">No Service Centers Found</h2>
+          <h2 className="text-2xl font-semibold text-foreground">Δεν Βρέθηκαν Κέντρα Εξυπηρέτησης</h2>
           <p className="mt-2 text-muted-foreground">
-            Try adjusting your search or filter criteria.
+            Δοκιμάστε να προσαρμόσετε τα κριτήρια αναζήτησης ή φίλτρου.
           </p>
         </div>
       )}

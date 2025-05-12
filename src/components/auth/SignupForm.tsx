@@ -22,12 +22,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 // import { signupUser } from "@/app/auth/actions"; // Server action no longer used for signup
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  name: z.string().min(2, { message: "Το όνομα πρέπει να περιέχει τουλάχιστον 2 χαρακτήρες." }),
+  email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
+  password: z.string().min(6, { message: "Ο κωδικός πρόσβασης πρέπει να περιέχει τουλάχιστον 6 χαρακτήρες." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: "Οι κωδικοί πρόσβασης δεν ταιριάζουν",
   path: ["confirmPassword"],
 });
 
@@ -53,29 +53,29 @@ export function SignupForm() {
     try {
       await signup(values.name, values.email, values.password);
       toast({
-        title: "Signup Successful!",
-        description: "Welcome to StoreSpot! You're now logged in.",
+        title: "Επιτυχής Εγγραφή!",
+        description: "Καλώς ήρθατε στην Amaxakis! Είστε πλέον συνδεδεμένοι.",
       });
       router.push("/dashboard"); 
     } catch (error: any) {
-      let errorMessage = "Could not create account. Please try again.";
+      let errorMessage = "Δεν ήταν δυνατή η δημιουργία λογαριασμού. Παρακαλώ προσπαθήστε ξανά.";
        if (error.code) {
         switch (error.code) {
           case 'auth/email-already-in-use':
-            errorMessage = "This email address is already in use.";
+            errorMessage = "Αυτή η διεύθυνση email χρησιμοποιείται ήδη.";
             break;
           case 'auth/invalid-email':
-            errorMessage = "Please enter a valid email address.";
+            errorMessage = "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email.";
             break;
           case 'auth/weak-password':
-            errorMessage = "Password is too weak. Please choose a stronger password.";
+            errorMessage = "Ο κωδικός πρόσβασης είναι πολύ αδύναμος. Παρακαλώ επιλέξτε έναν ισχυρότερο κωδικό.";
             break;
           default:
             errorMessage = error.message || errorMessage;
         }
       }
       toast({
-        title: "Signup Failed",
+        title: "Η Εγγραφή Απέτυχε",
         description: errorMessage,
         variant: "destructive",
       });
@@ -85,8 +85,8 @@ export function SignupForm() {
   return (
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-bold text-primary">Create an Account</CardTitle>
-        <CardDescription>Join StoreSpot today to discover amazing stores.</CardDescription>
+        <CardTitle className="text-3xl font-bold text-primary">Δημιουργία Λογαριασμού</CardTitle>
+        <CardDescription>Εγγραφείτε στην Amaxakis σήμερα για να ανακαλύψετε καταπληκτικά καταστήματα.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -96,7 +96,7 @@ export function SignupForm() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Πλήρες Όνομα</FormLabel>
                   <FormControl>
                     <Input placeholder="John Doe" {...field} />
                   </FormControl>
@@ -109,7 +109,7 @@ export function SignupForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>Διεύθυνση Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="you@example.com" {...field} />
                   </FormControl>
@@ -122,7 +122,7 @@ export function SignupForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>Κωδικός Πρόσβασης</FormLabel>
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
@@ -135,7 +135,7 @@ export function SignupForm() {
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
+                  <FormLabel>Επιβεβαίωση Κωδικού Πρόσβασης</FormLabel>
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
@@ -144,19 +144,20 @@ export function SignupForm() {
               )}
             />
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Creating account..." : "Sign Up"}
+              {isSubmitting ? "Δημιουργία λογαριασμού σε εξέλιξη..." : "Εγγραφή"}
             </Button>
           </form>
         </Form>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2">
         <p className="text-sm text-muted-foreground">
-          Already have an account?{" "}
+          Έχετε ήδη λογαριασμό;{" "}
           <Link href="/login" legacyBehavior>
-            <a className="font-medium text-primary hover:underline">Log in</a>
+            <a className="font-medium text-primary hover:underline">Σύνδεση</a>
           </Link>
         </p>
       </CardFooter>
     </Card>
   );
 }
+

@@ -20,7 +20,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from "@/hooks/useAuth"; // Using AuthContext
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address." }),
+  email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
 });
 
 type ForgotPasswordFormValues = z.infer<typeof formSchema>;
@@ -41,27 +41,27 @@ export function ForgotPasswordForm() {
     try {
       await sendPasswordReset(values.email);
       toast({
-        title: "Password Reset Email Sent",
-        description: "If an account exists for this email, a password reset link has been sent.",
+        title: "Email Επαναφοράς Κωδικού Εστάλη",
+        description: "Εάν υπάρχει λογαριασμός για αυτό το email, έχει σταλεί ένας σύνδεσμος επαναφοράς κωδικού πρόσβασης.",
       });
       form.reset();
     } catch (error: any) {
-      let errorMessage = "Could not process request. Please try again.";
+      let errorMessage = "Δεν ήταν δυνατή η επεξεργασία του αιτήματος. Παρακαλώ προσπαθήστε ξανά.";
        if (error.code) {
         switch (error.code) {
           case 'auth/invalid-email':
-            errorMessage = "Please enter a valid email address.";
+            errorMessage = "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email.";
             break;
           case 'auth/user-not-found':
              // Don't reveal if user exists for security, message is fine as is.
-            errorMessage = "If an account exists for this email, a password reset link has been sent.";
+            errorMessage = "Εάν υπάρχει λογαριασμός για αυτό το email, έχει σταλεί ένας σύνδεσμος επαναφοράς κωδικού πρόσβασης.";
             break;
           default:
             errorMessage = error.message || errorMessage;
         }
       }
       toast({
-        title: "Request Failed",
+        title: "Το Αίτημα Απέτυχε",
         description: errorMessage,
         variant: "destructive",
       });
@@ -71,8 +71,8 @@ export function ForgotPasswordForm() {
   return (
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-bold text-primary">Forgot Your Password?</CardTitle>
-        <CardDescription>Enter your email address and we'll send you a link to reset your password.</CardDescription>
+        <CardTitle className="text-3xl font-bold text-primary">Ξεχάσατε τον Κωδικό σας;</CardTitle>
+        <CardDescription>Εισαγάγετε τη διεύθυνση email σας και θα σας στείλουμε έναν σύνδεσμο για την επαναφορά του κωδικού σας.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -82,7 +82,7 @@ export function ForgotPasswordForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>Διεύθυνση Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="you@example.com" {...field} />
                   </FormControl>
@@ -91,19 +91,20 @@ export function ForgotPasswordForm() {
               )}
             />
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Sending..." : "Send Reset Link"}
+              {isSubmitting ? "Αποστολή σε εξέλιξη..." : "Αποστολή Συνδέσμου Επαναφοράς"}
             </Button>
           </form>
         </Form>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2">
         <p className="text-sm text-muted-foreground">
-          Remembered your password?{" "}
+          Θυμηθήκατε τον κωδικό σας;{" "}
           <Link href="/login" legacyBehavior>
-            <a className="font-medium text-primary hover:underline">Log in</a>
+            <a className="font-medium text-primary hover:underline">Σύνδεση</a>
           </Link>
         </p>
       </CardFooter>
     </Card>
   );
 }
+

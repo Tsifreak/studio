@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { QueryFormData } from "@/lib/types";
-import { Send } from "lucide-react"; // Replaced PaperPlaneIcon with Send from lucide-react
+import { Send } from "lucide-react"; 
 
 // Define the server action prop type
 interface ContactFormProps {
@@ -26,10 +26,10 @@ interface ContactFormProps {
 }
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  subject: z.string().min(5, { message: "Subject must be at least 5 characters." }),
-  message: z.string().min(10, { message: "Message must be at least 10 characters." }).max(500, { message: "Message cannot exceed 500 characters." }),
+  name: z.string().min(2, { message: "Το όνομα πρέπει να είναι τουλάχιστον 2 χαρακτήρες." }),
+  email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
+  subject: z.string().min(5, { message: "Το θέμα πρέπει να είναι τουλάχιστον 5 χαρακτήρες." }),
+  message: z.string().min(10, { message: "Το μήνυμα πρέπει να είναι τουλάχιστον 10 χαρακτήρες." }).max(500, { message: "Το μήνυμα δεν μπορεί να υπερβαίνει τους 500 χαρακτήρες." }),
 });
 
 type ContactFormValues = z.infer<typeof formSchema>;
@@ -56,22 +56,22 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
 
       if (result.success) {
         toast({
-          title: "Query Sent!",
-          description: result.message || "Your message has been successfully sent to the store.",
+          title: "Το μήνυμα εστάλη!",
+          description: result.message || "Το μήνυμά σας εστάλη επιτυχώς στο κατάστημα.",
         });
         form.reset();
       } else {
         toast({
-          title: "Error Sending Query",
-          description: result.message || "There was an issue sending your message. Please try again.",
+          title: "Σφάλμα αποστολής μηνύματος",
+          description: result.message || "Παρουσιάστηκε πρόβλημα κατά την αποστολή του μηνύματός σας. Παρακαλώ προσπαθήστε ξανά.",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error("Contact form submission error:", error);
       toast({
-        title: "Submission Error",
-        description: "An unexpected error occurred. Please try again later.",
+        title: "Σφάλμα Υποβολής",
+        description: "Παρουσιάστηκε ένα μη αναμενόμενο σφάλμα. Παρακαλώ προσπαθήστε ξανά αργότερα.",
         variant: "destructive",
       });
     }
@@ -85,9 +85,9 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel>Ονοματεπώνυμο</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder="Γιάννης Παπαδόπουλος" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -98,7 +98,7 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email Address</FormLabel>
+              <FormLabel>Διεύθυνση Email</FormLabel>
               <FormControl>
                 <Input type="email" placeholder="you@example.com" {...field} />
               </FormControl>
@@ -111,9 +111,9 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
           name="subject"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Subject</FormLabel>
+              <FormLabel>Θέμα</FormLabel>
               <FormControl>
-                <Input placeholder="Regarding your product..." {...field} />
+                <Input placeholder="Σχετικά με την υπηρεσία σας..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -124,10 +124,10 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
           name="message"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Message</FormLabel>
+              <FormLabel>Μήνυμα</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Your detailed query or request..."
+                  placeholder="Το αναλυτικό σας ερώτημα ή αίτημα..."
                   className="min-h-[120px]"
                   {...field}
                 />
@@ -137,9 +137,9 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
           )}
         />
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Sending..." : (
+          {isSubmitting ? "Αποστολή..." : (
             <>
-              <Send className="mr-2 h-4 w-4" /> Send Message
+              <Send className="mr-2 h-4 w-4" /> Αποστολή Μηνύματος
             </>
           )}
         </Button>

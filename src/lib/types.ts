@@ -8,7 +8,7 @@ export interface Review {
   date: string; // ISO date string
 }
 
-export interface Product {
+export interface Product { // Renamed from Service to Product for consistency with existing usage, but represents services
   id: string;
   name: string;
   imageUrl: string;
@@ -36,6 +36,12 @@ export const StoreCategories = [
   "Mechanic", "Technician", "Electrician", "Painter", "Inspector",
   "Estimator", "Detailer", "Tuner", "Welder", "Restorer",
   "Installer", "Fabricator", "Aligner", "Diagnostician", "Assembler"
+] as const;
+
+export const TranslatedStoreCategories = [
+  "Μηχανικός", "Τεχνικός", "Ηλεκτρολόγος", "Βαφέας", "Επιθεωρητής",
+  "Εκτιμητής", "Ειδικός Περιποίησης", "Βελτιωτής", "Συγκολλητής", "Αναπαλαιωτής",
+  "Εγκαταστάτης", "Κατασκευαστής", "Ευθυγραμμιστής", "Διαγνώστης", "Συναρμολογητής"
 ] as const;
 
 export type StoreCategory = typeof StoreCategories[number];
@@ -78,3 +84,4 @@ export interface QueryFormData {
   message: string;
   storeId: string;
 }
+

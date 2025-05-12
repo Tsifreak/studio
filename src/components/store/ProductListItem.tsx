@@ -29,8 +29,9 @@ export function ProductListItem({ product }: ProductListItemProps) {
         <p className="text-lg font-semibold text-primary">{product.price}</p>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Button variant="outline" className="w-full">View Product</Button>
+        <Button variant="outline" className="w-full">Προβολή Υπηρεσίας</Button>
       </CardFooter>
     </Card>
   );
 }
+

@@ -15,7 +15,7 @@ export function PricingCard({ plan }: PricingCardProps) {
       <CardHeader className="p-6">
         <CardTitle className={cn("text-2xl", plan.isFeatured && "text-primary")}>{plan.name}</CardTitle>
         <CardDescription className="text-4xl font-bold text-foreground pt-2">{plan.price}</CardDescription>
-        {plan.isFeatured && <p className="text-sm text-primary font-semibold">Most Popular</p>}
+        {plan.isFeatured && <p className="text-sm text-primary font-semibold">Δημοφιλέστερο</p>}
       </CardHeader>
       <CardContent className="p-6 flex-grow">
         <ul className="space-y-2">
@@ -29,9 +29,10 @@ export function PricingCard({ plan }: PricingCardProps) {
       </CardContent>
       <CardFooter className="p-6">
         <Button className={cn("w-full", plan.isFeatured ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/90 text-accent-foreground")}>
-          Choose Plan
+          Επιλογή Πακέτου
         </Button>
       </CardFooter>
     </Card>
   );
 }
+

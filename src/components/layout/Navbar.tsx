@@ -44,7 +44,7 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.avatarUrl || ''} alt={user.name} data-ai-hint="avatar" />
+                    <AvatarImage src={user.avatarUrl || ''} alt={user.name || 'User Avatar'} data-ai-hint="avatar" />
                     <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
@@ -61,11 +61,11 @@ export function Navbar() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push('/dashboard')}>
                   <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Dashboard
+                  Πίνακας Ελέγχου
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Log out
+                  Αποσύνδεση
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -73,12 +73,12 @@ export function Navbar() {
             <>
               <Button variant="ghost" asChild>
                 <Link href="/login">
-                  <LogIn className="mr-2 h-4 w-4" /> Login
+                  <LogIn className="mr-2 h-4 w-4" /> Σύνδεση
                 </Link>
               </Button>
               <Button asChild>
                 <Link href="/signup">
-                 <UserPlus className="mr-2 h-4 w-4" /> Sign Up
+                 <UserPlus className="mr-2 h-4 w-4" /> Εγγραφή
                 </Link>
               </Button>
             </>

@@ -1,6 +1,6 @@
 
 import type { Store, UserProfile, Product, Review, PricingPlan, Feature, StoreCategory } from './types';
-import { StoreCategories } from './types';
+import { StoreCategories, TranslatedStoreCategories } from './types';
 import { CheckCircle2, Zap, Award, Users, BarChart3, ShieldCheck, MessageSquare, Car, Paintbrush, Search, Wrench, Settings2, Sparkles, PackageCheck, Scale, ShieldAlert, Combine, AlignCenter, ClipboardCheck, Package } from 'lucide-react';
 
 export const mockUser: UserProfile = {
@@ -15,53 +15,53 @@ export const mockUser: UserProfile = {
 };
 
 const commonFeatures: Feature[] = [
-  { id: 'f1', name: 'Certified Technicians', icon: Award },
-  { id: 'f2', name: 'Warranty on Parts & Labor', icon: ShieldCheck },
-  { id: 'f3', name: 'Customer Lounge & WiFi', icon: Users },
+  { id: 'f1', name: 'Πιστοποιημένοι Τεχνικοί', icon: Award },
+  { id: 'f2', name: 'Εγγύηση σε Ανταλλακτικά & Εργασία', icon: ShieldCheck },
+  { id: 'f3', name: 'Χώρος Αναμονής Πελατών & WiFi', icon: Users },
 ];
 
 const automotiveReviews: Review[] = [
-  { id: 'r1', userName: 'Mike Wheeler', rating: 5, comment: 'Fast and reliable service! My car runs like new.', date: new Date(2023, 10, 15).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/mike_w/40/40' },
-  { id: 'r2', userName: 'Eleven Hopper', rating: 4, comment: 'Good work, fair prices. Would recommend.', date: new Date(2023, 11, 1).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/eleven_h/40/40' },
+  { id: 'r1', userName: 'Mike Wheeler', rating: 5, comment: 'Γρήγορη και αξιόπιστη εξυπηρέτηση! Το αυτοκίνητό μου λειτουργεί σαν καινούργιο.', date: new Date(2023, 10, 15).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/mike_w/40/40' },
+  { id: 'r2', userName: 'Eleven Hopper', rating: 4, comment: 'Καλή δουλειά, λογικές τιμές. Θα το πρότεινα.', date: new Date(2023, 11, 1).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/eleven_h/40/40' },
 ];
 
 const sampleServices: Product[] = [
-  { id: 's1', name: 'Oil Change & Filter', imageUrl: 'https://picsum.photos/seed/oil_change/200/150', price: '$49.99', description: 'Premium synthetic oil change with filter replacement.' },
-  { id: 's2', name: 'Brake Pad Replacement', imageUrl: 'https://picsum.photos/seed/brake_pads/200/150', price: '$129.99 (per axle)', description: 'High-quality brake pad replacement for optimal stopping power.' },
-  { id: 's3', name: 'Full Car Detailing', imageUrl: 'https://picsum.photos/seed/car_detailing/200/150', price: '$199.00', description: 'Interior and exterior cleaning, wax, and polish.' },
+  { id: 's1', name: 'Αλλαγή Λαδιών & Φίλτρου', imageUrl: 'https://picsum.photos/seed/oil_change/200/150', price: '49.99€', description: 'Premium αλλαγή συνθετικού λαδιού με αντικατάσταση φίλτρου.' },
+  { id: 's2', name: 'Αντικατάσταση Τακακιών Φρένων', imageUrl: 'https://picsum.photos/seed/brake_pads/200/150', price: '129.99€ (ανά άξονα)', description: 'Αντικατάσταση τακακιών φρένων υψηλής ποιότητας για βέλτιστη ισχύ φρεναρίσματος.' },
+  { id: 's3', name: 'Πλήρης Καθαρισμός Αυτοκινήτου', imageUrl: 'https://picsum.photos/seed/car_detailing/200/150', price: '199.00€', description: 'Εσωτερικός και εξωτερικός καθαρισμός, κέρωμα και γυάλισμα.' },
 ];
 
 const servicePricingPlans: PricingPlan[] = [
-  { id: 'plan1', name: 'Basic Maintenance', price: '$79/visit', features: ['Oil Change', 'Tire Rotation', 'Fluid Top-up'], isFeatured: false },
-  { id: 'plan2', name: 'Pro Care Package', price: '$199/year', features: ['2 Basic Maintenances', 'Annual Inspection', '10% Off Repairs'], isFeatured: true },
-  { id: 'plan3', name: 'Fleet Management', price: 'Contact Us', features: ['Custom Service Schedule', 'Volume Discounts', 'Dedicated Account Rep'], isFeatured: false },
+  { id: 'plan1', name: 'Βασική Συντήρηση', price: '79€/επίσκεψη', features: ['Αλλαγή Λαδιών', 'Περιστροφή Ελαστικών', 'Συμπλήρωση Υγρών'], isFeatured: false },
+  { id: 'plan2', name: 'Πακέτο Pro Care', price: '199€/έτος', features: ['2 Βασικές Συντηρήσεις', 'Ετήσιος Έλεγχος', '10% Έκπτωση σε Επισκευές'], isFeatured: true },
+  { id: 'plan3', name: 'Διαχείριση Στόλου', price: 'Επικοινωνήστε μαζί μας', features: ['Προσαρμοσμένο Πρόγραμμα Συντήρησης', 'Εκπτώσεις Όγκου', 'Αποκλειστικός Εκπρόσωπος Λογαριασμού'], isFeatured: false },
 ];
 
 
 export const mockStores: Store[] = [
   {
     id: 'store1',
-    name: 'QuickFix Auto Mechanics',
+    name: 'ΤαχύFix Αυτοκινήτων', // Translated example
     logoUrl: 'https://picsum.photos/seed/quickfix_logo/100/100',
     bannerUrl: 'https://picsum.photos/seed/quickfix_banner/800/300',
-    description: 'General auto repairs and maintenance services. Your trusted local mechanic.',
-    longDescription: 'QuickFix Auto Mechanics offers a wide range of automotive repair and maintenance services. From routine oil changes to complex engine diagnostics, our certified mechanics are here to help. We pride ourselves on honest work and fair prices.',
+    description: 'Γενικές επισκευές αυτοκινήτων και υπηρεσίες συντήρησης. Ο αξιόπιστος τοπικός σας μηχανικός.', // Translated example
+    longDescription: 'Το ΤαχύFix Αυτοκινήτων προσφέρει ένα ευρύ φάσμα υπηρεσιών επισκευής και συντήρησης αυτοκινήτων. Από τις τακτικές αλλαγές λαδιών έως τις πολύπλοκες διαγνώσεις κινητήρα, οι πιστοποιημένοι μηχανικοί μας είναι εδώ για να βοηθήσουν. Είμαστε περήφανοι για την έντιμη εργασία και τις δίκαιες τιμές μας.',
     rating: 4.7,
-    category: 'Mechanic',
-    tags: ['engine repair', 'brakes', 'diagnostics', 'oil change', 'Mechanic'],
+    category: StoreCategories[0], // Mechanic
+    tags: ['επισκευή κινητήρα', 'φρένα', 'διαγνωστικά', 'αλλαγή λαδιών', 'Μηχανικός'],
     pricingPlans: servicePricingPlans.slice(0,2),
     features: [
       ...commonFeatures,
-      { id: 'f4', name: 'Advanced Diagnostics', icon: Search }
+      { id: 'f4', name: 'Προηγμένες Διαγνώσεις', icon: Search }
     ],
     reviews: [
       ...automotiveReviews,
-      { id: 'r3', userName: 'Dustin Henderson', rating: 5, comment: 'They fixed my car super fast! Great service.', date: new Date(2023, 9, 5).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/dustin_h/40/40' },
+      { id: 'r3', userName: 'Dustin Henderson', rating: 5, comment: 'Επισκεύασαν το αμάξι μου πολύ γρήγορα! Εξαιρετική εξυπηρέτηση.', date: new Date(2023, 9, 5).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/dustin_h/40/40' },
     ],
     products: sampleServices.slice(0,2),
     contactEmail: 'service@quickfixauto.com',
     websiteUrl: 'https://quickfixauto.example.com',
-    address: '123 Repair Rd, Autoville'
+    address: 'Οδός Επισκευών 123, Αυτοκινητούπολη'
   },
   {
     id: 'store2',
@@ -71,7 +71,7 @@ export const mockStores: Store[] = [
     description: 'Specializing in automotive electrical systems, wiring, and electronics.',
     longDescription: 'Sparky Auto Electricians are experts in diagnosing and repairing all automotive electrical issues. From battery problems to complex wiring harnesses and sensor malfunctions, we have the tools and expertise to get your car\'s electronics working perfectly.',
     rating: 4.9,
-    category: 'Electrician',
+    category: StoreCategories[2], // Electrician
     tags: ['electrical repair', 'battery', 'alternator', 'wiring', 'sensors', 'Electrician'],
     pricingPlans: [
       { id: 'planA', name: 'Diagnostic Check', price: '$89.00', features: ['Full Electrical System Scan', 'Issue Report', 'Repair Estimate'], isFeatured: true },
@@ -100,7 +100,7 @@ export const mockStores: Store[] = [
     description: 'High-quality auto body painting and finishing services.',
     longDescription: 'At Prestige Auto Painters, we provide showroom-quality paint jobs and finishes for all types of vehicles. Using state-of-the-art equipment and premium paints, our experienced painters ensure a flawless result every time, whether it\'s a touch-up or a full repaint.',
     rating: 4.8,
-    category: 'Painter',
+    category: StoreCategories[3], // Painter
     tags: ['auto painting', 'body work', 'custom paint', 'scratch repair', 'Painter'],
     pricingPlans: [], 
     features: [
@@ -127,7 +127,7 @@ export const mockStores: Store[] = [
     description: 'Professional auto detailing services for a showroom shine.',
     longDescription: 'ShineTime Auto Detailing offers comprehensive cleaning and detailing services to make your car look its best, inside and out. We use premium products and meticulous techniques for a lasting shine and protection.',
     rating: 4.9,
-    category: 'Detailer',
+    category: StoreCategories[6], // Detailer
     tags: ['car wash', 'detailing', 'interior cleaning', 'waxing', 'ceramic coating', 'Detailer'],
     pricingPlans: [
        { id: 'planC', name: 'Exterior Wash & Wax', price: '$75', features: ['Hand Wash', 'Wheel Cleaning', 'Carnauba Wax'], isFeatured: false },
@@ -157,7 +157,7 @@ export const mockStores: Store[] = [
     description: 'Performance tuning and ECU remapping for enhanced driving experience.',
     longDescription: 'TuneUp Masters specializes in optimizing your vehicle\'s performance. Our expert tuners use advanced software and dynamometer testing to unlock your engine\'s full potential, improving horsepower, torque, and fuel efficiency.',
     rating: 4.6,
-    category: 'Tuner',
+    category: StoreCategories[7], // Tuner
     tags: ['performance tuning', 'ECU remapping', 'dyno tuning', 'engine upgrades', 'Tuner'],
     pricingPlans: [],
     features: [
@@ -183,7 +183,7 @@ export const mockStores: Store[] = [
     description: 'Comprehensive pre-purchase vehicle inspections and safety checks.',
     longDescription: 'InspectRite offers thorough vehicle inspections to give you peace of mind before purchasing a used car or ensuring your current vehicle meets safety standards. Our detailed reports cover all major systems.',
     rating: 4.9,
-    category: 'Inspector',
+    category: StoreCategories[4], // Inspector
     tags: ['pre-purchase inspection', 'safety check', 'vehicle assessment', 'Inspector'],
     pricingPlans: [
        { id: 'planE', name: 'Standard Inspection', price: '$150', features: ['Mechanical Check', 'Body & Frame', 'Test Drive', 'Basic Report'], isFeatured: false },
@@ -212,7 +212,7 @@ export const mockStores: Store[] = [
     description: 'Precision wheel alignment and suspension services.',
     longDescription: 'AccuAlign Specialists use state-of-the-art laser alignment equipment to ensure your vehicle\'s wheels are perfectly aligned for optimal handling, tire life, and fuel efficiency. We also service and repair suspension systems.',
     rating: 4.7,
-    category: 'Aligner',
+    category: StoreCategories[12], // Aligner
     tags: ['wheel alignment', 'suspension', 'tire balancing', 'steering', 'Aligner'],
     pricingPlans: [],
     features: [
@@ -238,7 +238,7 @@ export const mockStores: Store[] = [
     description: 'Expert installation of car audio, video, and security systems.',
     longDescription: 'Upgrade your ride with SoundInstall Pro. We offer professional installation services for car stereos, speakers, amplifiers, navigation systems, alarms, remote starters, and more. Quality components and clean installations guaranteed.',
     rating: 4.8,
-    category: 'Installer',
+    category: StoreCategories[10], // Installer
     tags: ['car audio', 'security systems', 'navigation', 'remote start', 'Installer'],
     pricingPlans: [],
     features: [
@@ -266,3 +266,4 @@ export const getStoreById = (id: string): Store | undefined => {
 export const getAllStores = (): Store[] => {
   return mockStores;
 };
+

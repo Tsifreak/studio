@@ -24,9 +24,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { useEffect } from "react";
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  avatarUrl: z.string().url({ message: "Please enter a valid URL for your avatar." }).optional().or(z.literal('')),
+  name: z.string().min(2, { message: "Το όνομα πρέπει να περιέχει τουλάχιστον 2 χαρακτήρες." }),
+  email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
+  avatarUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για τη φωτογραφία προφίλ σας." }).optional().or(z.literal('')),
   preferences: z.object({
     darkMode: z.boolean().optional(),
     notifications: z.boolean().optional(),
@@ -73,8 +73,8 @@ export function ProfileForm() {
 
     if (Object.keys(changedValues).length === 0) {
         toast({
-          title: "No Changes",
-          description: "You haven't made any changes to your profile.",
+          title: "Καμία Αλλαγή",
+          description: "Δεν έχετε κάνει αλλαγές στο προφίλ σας.",
         });
         return;
     }
@@ -82,14 +82,14 @@ export function ProfileForm() {
     try {
       await contextUpdateUserProfile(changedValues);
       toast({
-        title: "Profile Updated",
-        description: "Your profile information has been successfully updated.",
+        title: "Το προφίλ ενημερώθηκε",
+        description: "Οι πληροφορίες του προφίλ σας ενημερώθηκαν επιτυχώς.",
       });
       form.reset(values); // Reset form with new values to clear dirty state
     } catch (error: any) {
       toast({
-        title: "Update Failed",
-        description: error.message || "Could not update profile. Please try again.",
+        title: "Η ενημέρωση απέτυχε",
+        description: error.message || "Δεν ήταν δυνατή η ενημέρωση του προφίλ. Παρακαλώ προσπαθήστε ξανά.",
         variant: "destructive",
       });
     }
@@ -98,11 +98,11 @@ export function ProfileForm() {
   if (isLoading) return (
     <Card className="w-full max-w-2xl shadow-lg">
       <CardHeader>
-        <CardTitle className="text-2xl">Your Profile</CardTitle>
-        <CardDescription>Manage your account settings and preferences.</CardDescription>
+        <CardTitle className="text-2xl">Το Προφίλ σας</CardTitle>
+        <CardDescription>Διαχειριστείτε τις ρυθμίσεις και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Loading profile...</p>
+        <p>Φόρτωση προφίλ...</p>
       </CardContent>
     </Card>
   );
@@ -110,10 +110,10 @@ export function ProfileForm() {
   if (!user) return (
      <Card className="w-full max-w-2xl shadow-lg">
       <CardHeader>
-        <CardTitle className="text-2xl">Profile Not Available</CardTitle>
+        <CardTitle className="text-2xl">Προφίλ Μη Διαθέσιμο</CardTitle>
       </CardHeader>
       <CardContent>
-        <p>Please log in to view your profile.</p>
+        <p>Παρακαλούμε συνδεθείτε για να δείτε το προφίλ σας.</p>
       </CardContent>
     </Card>
   );
@@ -122,8 +122,8 @@ export function ProfileForm() {
   return (
     <Card className="w-full max-w-2xl shadow-lg">
       <CardHeader>
-        <CardTitle className="text-2xl">Your Profile</CardTitle>
-        <CardDescription>Manage your account settings and preferences.</CardDescription>
+        <CardTitle className="text-2xl">Το Προφίλ σας</CardTitle>
+        <CardDescription>Διαχειριστείτε τις ρυθμίσεις και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -138,7 +138,7 @@ export function ProfileForm() {
                 name="avatarUrl"
                 render={({ field }) => (
                   <FormItem className="flex-grow">
-                    <FormLabel>Avatar URL</FormLabel>
+                    <FormLabel>URL Φωτογραφίας Προφίλ</FormLabel>
                     <FormControl>
                       <Input placeholder="https://example.com/avatar.png" {...field} />
                     </FormControl>
@@ -153,9 +153,9 @@ export function ProfileForm() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Πλήρες Όνομα</FormLabel>
                   <FormControl>
-                    <Input placeholder="Your full name" {...field} />
+                    <Input placeholder="Το πλήρες όνομά σας" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -166,26 +166,26 @@ export function ProfileForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>Διεύθυνση Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="your@email.com" {...field} disabled />
                   </FormControl>
                   <FormMessage />
-                  <p className="text-xs text-muted-foreground pt-1">Email cannot be changed.</p>
+                  <p className="text-xs text-muted-foreground pt-1">Το Email δεν μπορεί να αλλάξει.</p>
                 </FormItem>
               )}
             />
             
             <div className="space-y-4 rounded-md border p-4">
-              <h3 className="text-lg font-medium">Preferences</h3>
+              <h3 className="text-lg font-medium">Προτιμήσεις</h3>
                <FormField
                 control={form.control}
                 name="preferences.darkMode"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between">
                     <div className="space-y-0.5">
-                      <FormLabel>Dark Mode</FormLabel>
-                      <p className="text-xs text-muted-foreground">Enable dark theme for the application.</p>
+                      <FormLabel>Σκοτεινή Λειτουργία</FormLabel>
+                      <p className="text-xs text-muted-foreground">Ενεργοποίηση σκοτεινού θέματος για την εφαρμογή.</p>
                     </div>
                     <FormControl>
                        <Switch
@@ -202,8 +202,8 @@ export function ProfileForm() {
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between">
                     <div className="space-y-0.5">
-                      <FormLabel>Email Notifications</FormLabel>
-                      <p className="text-xs text-muted-foreground">Receive updates and newsletters via email.</p>
+                      <FormLabel>Ειδοποιήσεις μέσω Email</FormLabel>
+                      <p className="text-xs text-muted-foreground">Λήψη ενημερώσεων και ενημερωτικών δελτίων μέσω email.</p>
                     </div>
                     <FormControl>
                        <Switch
@@ -217,7 +217,7 @@ export function ProfileForm() {
             </div>
 
             <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || !form.formState.isDirty}>
-              {isSubmitting ? "Saving..." : "Save Changes"}
+              {isSubmitting ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}
             </Button>
           </form>
         </Form>
@@ -225,3 +225,4 @@ export function ProfileForm() {
     </Card>
   );
 }
+

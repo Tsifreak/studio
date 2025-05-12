@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({ // Same as above for Geist_Mono.
 });
 
 export const metadata: Metadata = {
-  title: 'Amaxakis - Your Trusted Car Repair Service',
-  description: 'Amaxakis provides reliable car repair and maintenance services. Find expert mechanics and book your service.',
+  title: 'Amaxakis - Η Αξιόπιστη Υπηρεσία Επισκευής Αυτοκινήτων Σας',
+  description: 'Η Amaxakis παρέχει αξιόπιστες υπηρεσίες επισκευής και συντήρησης αυτοκινήτων. Βρείτε έμπειρους μηχανικούς και κλείστε το ραντεβού σας.',
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="el" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
           <AppWrapper>

@@ -12,11 +12,12 @@ import { ReviewItem } from '@/components/store/ReviewItem';
 import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
 import { submitStoreQuery } from './actions'; 
+import { TranslatedStoreCategories, StoreCategories } from '@/lib/types';
 
 export async function generateMetadata({ params }: { params: { storeId: string } }) {
   const store = getStoreById(params.storeId);
   if (!store) {
-    return { title: 'Service Center Not Found | Amaxakis' };
+    return { title: 'Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε | Amaxakis' };
   }
   return {
     title: `${store.name} | Amaxakis`,
@@ -34,6 +35,9 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
   const averageRating = store.reviews.length > 0 
     ? store.reviews.reduce((acc, review) => acc + review.rating, 0) / store.reviews.length
     : store.rating; 
+
+  const categoryIndex = store.category ? StoreCategories.indexOf(store.category) : -1;
+  const translatedCategory = categoryIndex !== -1 ? TranslatedStoreCategories[categoryIndex] : store.category;
 
   return (
     <div className="space-y-8">
@@ -66,12 +70,12 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               {averageRating > 0 && (
                 <span className="flex items-center">
-                  <Star className="w-5 h-5 mr-1 fill-yellow-400 text-yellow-400" /> {averageRating.toFixed(1)} ({store.reviews.length} reviews)
+                  <Star className="w-5 h-5 mr-1 fill-yellow-400 text-yellow-400" /> {averageRating.toFixed(1)} ({store.reviews.length} κριτικές)
                 </span>
               )}
               {store.category && (
                 <span className="flex items-center">
-                  <ShoppingBag className="w-4 h-4 mr-1 text-primary" /> {store.category}
+                  <ShoppingBag className="w-4 h-4 mr-1 text-primary" /> {translatedCategory}
                 </span>
               )}
               {store.address && (
@@ -81,7 +85,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
               )}
               {store.websiteUrl && (
                 <a href={store.websiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-primary transition-colors">
-                  <Globe className="w-4 h-4 mr-1" /> Visit Website
+                  <Globe className="w-4 h-4 mr-1" /> Επισκεφθείτε την Ιστοσελίδα
                 </a>
               )}
             </div>
@@ -91,23 +95,23 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="products">Services ({store.products.length})</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing Plans</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews ({store.reviews.length})</TabsTrigger>
-          <TabsTrigger value="contact">Contact Center</TabsTrigger>
+          <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
+          <TabsTrigger value="products">Υπηρεσίες ({store.products.length})</TabsTrigger>
+          <TabsTrigger value="pricing">Πακέτα Τιμολόγησης</TabsTrigger>
+          <TabsTrigger value="reviews">Κριτικές ({store.reviews.length})</TabsTrigger>
+          <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>About {store.name}</CardTitle>
+              <CardTitle>Σχετικά με το {store.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground whitespace-pre-line">{store.longDescription || store.description}</p>
               {store.tags && store.tags.length > 0 && (
                  <div className="mt-4">
-                    <h3 className="text-sm font-semibold mb-2 text-foreground">Tags:</h3>
+                    <h3 className="text-sm font-semibold mb-2 text-foreground">Ετικέτες:</h3>
                     <div className="flex flex-wrap gap-2">
                     {store.tags.map(tag => (
                         <span key={tag} className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-full">
@@ -122,7 +126,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
           {store.features && store.features.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Key Features</CardTitle>
+                <CardTitle>Βασικά Χαρακτηριστικά</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {store.features.map(feature => (
@@ -145,8 +149,8 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         <TabsContent value="products">
           <Card>
             <CardHeader>
-              <CardTitle>Our Services</CardTitle>
-              <CardDescription>Browse the selection offered by {store.name}.</CardDescription>
+              <CardTitle>Οι Υπηρεσίες μας</CardTitle>
+              <CardDescription>Περιηγηθείτε στις επιλογές που προσφέρει το {store.name}.</CardDescription>
             </CardHeader>
             <CardContent>
               {store.products.length > 0 ? (
@@ -156,7 +160,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No services listed for this center yet.</p>
+                <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν καταχωρημένες υπηρεσίες για αυτό το κέντρο ακόμη.</p>
               )}
             </CardContent>
           </Card>
@@ -165,8 +169,8 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         <TabsContent value="pricing">
            <Card>
             <CardHeader>
-              <CardTitle>Pricing Plans</CardTitle>
-              <CardDescription>Find a plan that suits your needs from {store.name}.</CardDescription>
+              <CardTitle>Πακέτα Τιμολόγησης</CardTitle>
+              <CardDescription>Βρείτε ένα πακέτο που ταιριάζει στις ανάγκες σας από το {store.name}.</CardDescription>
             </CardHeader>
             <CardContent>
               {store.pricingPlans && store.pricingPlans.length > 0 ? (
@@ -176,7 +180,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No pricing plans available for this service center.</p>
+                <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν διαθέσιμα πακέτα τιμολόγησης για αυτό το κέντρο εξυπηρέτησης.</p>
               )}
             </CardContent>
           </Card>
@@ -185,8 +189,8 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         <TabsContent value="reviews">
           <Card>
             <CardHeader>
-              <CardTitle>Customer Reviews</CardTitle>
-              <CardDescription>See what others are saying about {store.name}.</CardDescription>
+              <CardTitle>Κριτικές Πελατών</CardTitle>
+              <CardDescription>Δείτε τι λένε οι άλλοι για το {store.name}.</CardDescription>
             </CardHeader>
             <CardContent>
               {store.reviews && store.reviews.length > 0 ? (
@@ -196,7 +200,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No reviews yet for this service center.</p>
+                <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν ακόμη κριτικές για αυτό το κέντρο εξυπηρέτησης.</p>
               )}
             </CardContent>
           </Card>
@@ -205,8 +209,8 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         <TabsContent value="contact">
           <Card>
             <CardHeader>
-              <CardTitle>Contact {store.name}</CardTitle>
-              <CardDescription>Have a question or a specific request? Send them a message directly.</CardDescription>
+              <CardTitle>Επικοινωνήστε με το {store.name}</CardTitle>
+              <CardDescription>Έχετε κάποια ερώτηση ή συγκεκριμένο αίτημα; Στείλτε τους απευθείας μήνυμα.</CardDescription>
             </CardHeader>
             <CardContent>
               <ContactForm storeId={store.id} onSubmitAction={submitStoreQuery} />
