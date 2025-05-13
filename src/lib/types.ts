@@ -107,7 +107,7 @@ export interface Store {
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
-  ownerId?: string; // Added ownerId field
+  ownerId?: string; 
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
@@ -134,12 +134,14 @@ export interface UserProfile {
 }
 
 export interface QueryFormData {
-  name: string; // Name from the form
-  email: string; // Email from the form
+  name: string; 
+  email: string; 
   subject: string;
   message: string;
   storeId: string;
-  userId?: string; // Optional: Firebase UID of the logged-in user
+  userId?: string; 
+  userName?: string; // Added userName for chat
+  userAvatarUrl?: string; // Added userAvatarUrl for chat
 }
 
 export interface StoreFormData {
@@ -152,9 +154,37 @@ export interface StoreFormData {
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
+  ownerId?: string; 
 }
 
 export interface ReviewFormData {
   rating: number;
   comment: string;
+}
+
+// Chat related types
+export interface Chat {
+  id: string;
+  storeId: string;
+  storeName: string;
+  storeLogoUrl?: string;
+  userId: string;          // Customer's Firebase UID
+  userName: string;        // Customer's name
+  userAvatarUrl?: string;
+  ownerId: string;         // Store Owner's Firebase UID
+  lastMessageAt: string;   // ISO string for client, Timestamp for Firestore
+  lastMessageText: string;
+  userUnreadCount: number;
+  ownerUnreadCount: number;
+  // Participant UIDs for easier querying if needed, e.g., [userId, ownerId] sorted
+  participantIds: string[]; 
+}
+
+export interface ChatMessage {
+  id: string;
+  // chatId: string; // Not needed if messages are a subcollection of a chat
+  senderId: string;    // userId or ownerId
+  senderName: string;
+  text: string;
+  createdAt: string;   // ISO string for client, Timestamp for Firestore
 }

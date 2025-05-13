@@ -2,11 +2,11 @@
 "use server";
 
 import type { QueryFormData, Review } from '@/lib/types';
-import { addReviewToStoreInDB, getStoreByIdFromDB } from '@/lib/storeService'; // Added getStoreByIdFromDB
+import { addReviewToStoreInDB, getStoreByIdFromDB } from '@/lib/storeService'; 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { collection, doc, addDoc, Timestamp } from 'firebase/firestore'; // Added addDoc, Timestamp
-import { db } from '@/lib/firebase'; // Added db
+import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, serverTimestamp, limit } from 'firebase/firestore'; 
+import { db } from '@/lib/firebase'; 
 
 // Basic rate limiting (example - in-memory, would need a persistent store in production)
 const submissionAttempts = new Map<string, { count: number, lastAttempt: number }>();
@@ -14,7 +14,6 @@ const MAX_ATTEMPTS = 5;
 const COOLDOWN_PERIOD = 60 * 1000; // 1 minute
 
 export async function submitStoreQuery(formData: QueryFormData): Promise<{ success: boolean; message: string }> {
-  // Rate limiting logic (remains unchanged for now)
   const userIdentifier = formData.email; 
   const now = Date.now();
   const attemptRecord = submissionAttempts.get(userIdentifier);
@@ -32,44 +31,104 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
   
   try {
     const store = await getStoreByIdFromDB(formData.storeId);
-
     if (!store) {
       return { success: false, message: "Το κέντρο εξυπηρέτησης δεν βρέθηκε." };
     }
 
-    if (store.ownerId) {
-      // Store has an owner, save the message to Firestore
+    // Chat logic: if store has owner and user is logged in
+    if (store.ownerId && formData.userId && formData.userName) {
+      const chatsRef = collection(db, 'chats');
+      const q = query(
+        chatsRef,
+        where('storeId', '==', store.id),
+        where('userId', '==', formData.userId),
+        where('ownerId', '==', store.ownerId),
+        limit(1)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const fullMessageText = `Θέμα: ${formData.subject}\n\n${formData.message}`;
+      const batch = writeBatch(db);
+      let chatDocRef;
+
+      if (!querySnapshot.empty) {
+        // Chat exists, add message and update chat
+        chatDocRef = querySnapshot.docs[0].ref;
+        const messagesColRef = collection(chatDocRef, 'messages');
+        const newMessageRef = doc(messagesColRef); // Auto-generate ID for new message
+
+        batch.set(newMessageRef, {
+          senderId: formData.userId,
+          senderName: formData.userName,
+          text: fullMessageText,
+          createdAt: Timestamp.now(),
+        });
+        batch.update(chatDocRef, {
+          lastMessageText: fullMessageText.substring(0, 100), // Snippet
+          lastMessageAt: Timestamp.now(),
+          ownerUnreadCount: querySnapshot.docs[0].data().ownerUnreadCount + 1,
+          userUnreadCount: 0, // User sending the message has read it
+        });
+      } else {
+        // Chat doesn't exist, create new chat and add first message
+        chatDocRef = doc(chatsRef); // Auto-generate ID for new chat
+        batch.set(chatDocRef, {
+          storeId: store.id,
+          storeName: store.name,
+          storeLogoUrl: store.logoUrl,
+          userId: formData.userId,
+          userName: formData.userName,
+          userAvatarUrl: formData.userAvatarUrl || null,
+          ownerId: store.ownerId,
+          lastMessageText: fullMessageText.substring(0, 100),
+          lastMessageAt: Timestamp.now(),
+          userUnreadCount: 0,
+          ownerUnreadCount: 1,
+          participantIds: [formData.userId, store.ownerId].sort(), // For querying
+          createdAt: Timestamp.now(), // When chat was created
+        });
+
+        const messagesColRef = collection(chatDocRef, 'messages');
+        const firstMessageRef = doc(messagesColRef);
+        batch.set(firstMessageRef, {
+          senderId: formData.userId,
+          senderName: formData.userName,
+          text: fullMessageText,
+          createdAt: Timestamp.now(),
+        });
+      }
+
+      await batch.commit();
+      setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
+      return { success: true, message: "Το μήνυμά σας εστάλη. Μπορείτε να δείτε αυτήν τη συνομιλία στον πίνακα ελέγχου σας." };
+
+    } else {
+      // Fallback: Store has no owner OR user is not logged in, save to 'storeMessages'
       const messageData = {
         storeId: formData.storeId,
-        storeName: store.name, // For context for the owner
+        storeName: store.name, 
         subject: formData.subject,
         message: formData.message,
-        senderName: formData.name,    // Name from the form
-        senderEmail: formData.email,  // Email from the form
-        ...(formData.userId && { senderUserId: formData.userId }), // Firebase UID if user was logged in
-        recipientOwnerId: store.ownerId,
+        senderName: formData.name,    
+        senderEmail: formData.email,  
+        ...(formData.userId && { senderUserId: formData.userId }), 
+        recipientOwnerId: store.ownerId || null, // Can be null if no owner
         createdAt: Timestamp.now(),
         isReadByOwner: false,
       };
       await addDoc(collection(db, "storeMessages"), messageData);
       
-      // Clear rate limiting attempt on success (optional, or let it expire)
       setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
       
-      return { success: true, message: "Το ερώτημά σας έχει σταλεί στον ιδιοκτήτη του κέντρου." };
-    } else {
-      // Store has no owner, fallback to console log or a different notification
-      console.log(`Query for store ${formData.storeId} (no owner) by ${formData.email} with subject "${formData.subject}" logged.`);
-      
-      // Clear rate limiting attempt (optional)
-      setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
-      
-      return { success: true, message: "Το ερώτημά σας έχει καταγραφεί. (Το κέντρο δεν έχει διαμορφωμένο ιδιοκτήτη για άμεση ειδοποίηση)." };
+      if (store.ownerId) {
+        return { success: true, message: "Το ερώτημά σας έχει σταλεί στον ιδιοκτήτη του κέντρου." };
+      } else {
+        return { success: true, message: "Το ερώτημά σας έχει καταγραφεί. (Το κέντρο δεν έχει διαμορφωμένο ιδιοκτήτη για άμεση ειδοποίηση)." };
+      }
     }
 
   } catch (error) {
-    console.error("Error processing store query:", error);
-    // Do not clear rate limiting on server error, to prevent abuse
+    console.error("Error processing store query/chat:", error);
     return { success: false, message: "Παρουσιάστηκε σφάλμα κατά την επεξεργασία του ερωτήματός σας." };
   }
 }

@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { QueryFormData } from "@/lib/types";
 import { Send } from "lucide-react"; 
-import { useAuth } from "@/hooks/useAuth"; // Import useAuth
+import { useAuth } from "@/hooks/useAuth"; 
 
 interface ContactFormProps {
   storeId: string;
@@ -36,13 +36,13 @@ type ContactFormValues = z.infer<typeof formSchema>;
 
 export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
   const { toast } = useToast();
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth(); 
 
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: user?.name || "", // Pre-fill name if user is logged in
-      email: user?.email || "", // Pre-fill email if user is logged in
+      name: user?.name || "", 
+      email: user?.email || "", 
       subject: "",
       message: "",
     },
@@ -55,7 +55,11 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
       const queryData: QueryFormData = { 
         ...values, 
         storeId,
-        ...(user && { userId: user.id }) // Include userId if user is logged in
+        ...(user && { 
+            userId: user.id,
+            userName: user.name, // Pass userName
+            userAvatarUrl: user.avatarUrl // Pass userAvatarUrl
+        }) 
       };
       
       const result = await onSubmitAction(queryData);
