@@ -17,7 +17,7 @@ export function CategoryCard({ categorySlug, translatedCategoryName, description
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
       <CardHeader className="pb-3 pt-4 text-center">
         <div className="flex flex-col items-center gap-3">
-          <CardTitle className="text-2xl font-bold">{translatedCategoryName}</CardTitle>
+          <CardTitle className="text-2xl font-bold text-[hsl(217,54%,18%)]">{translatedCategoryName}</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="flex-grow p-4 pt-0 text-center">
