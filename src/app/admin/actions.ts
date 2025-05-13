@@ -9,28 +9,24 @@ import {
   getStoreByIdFromDB, 
   updateStoreCategoryInDB, 
   updateStoreInDB 
-} from '@/lib/storeService'; // Import Firestore service functions
+} from '@/lib/storeService'; 
 import type { Store, StoreCategory, StoreFormData, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
 import { StoreCategories } from '@/lib/types';
 
 // Helper function to convert Store to SerializedStore for client components
-// (especially for features, as client might expect component icons if not careful)
-// However, since Firestore stores icon names, this might just pass through if Store from DB already has string icons.
 function serializeStoreForClient(store: Store): SerializedStore {
-   // Assuming store.features from DB are already SerializedFeature[] (icon is string)
   return {
     ...store,
-    features: store.features.map((feature): SerializedFeature => ({ // Ensure it matches SerializedFeature structure
+    features: store.features.map((feature): SerializedFeature => ({ 
         id: feature.id,
         name: feature.name,
         description: feature.description,
-        icon: typeof feature.icon === 'string' ? feature.icon : undefined, // Ensure icon is string or undefined
+        icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
     }))
   };
 }
 
-
-// Zod schema for store creation and update (without category)
+// Zod schema for store creation and update (matches StoreFormData interface)
 const storeFormSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
   logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }),
@@ -46,15 +42,15 @@ const storeFormSchema = z.object({
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
   const validatedFields = storeFormSchema.safeParse({
-    name: formData.get('name'),
-    logoUrl: formData.get('logoUrl'),
-    bannerUrl: formData.get('bannerUrl'),
-    description: formData.get('description'),
-    longDescription: formData.get('longDescription'),
-    tagsInput: formData.get('tagsInput'),
-    contactEmail: formData.get('contactEmail'),
-    websiteUrl: formData.get('websiteUrl'),
-    address: formData.get('address'),
+    name: formData.get('name') || '',
+    logoUrl: formData.get('logoUrl') || '',
+    bannerUrl: formData.get('bannerUrl') || '', // Use || '' for optional URLs that can be empty
+    description: formData.get('description') || '',
+    longDescription: formData.get('longDescription') ?? undefined, // Use ?? undefined for truly optional strings
+    tagsInput: formData.get('tagsInput') ?? undefined,
+    contactEmail: formData.get('contactEmail') || '',
+    websiteUrl: formData.get('websiteUrl') || '',
+    address: formData.get('address') ?? undefined,
   });
 
   if (!validatedFields.success) {
@@ -66,8 +62,8 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
   }
 
   try {
-    // This data is Omit<StoreFormData, 'category'>
-    const storeDataForDB = validatedFields.data as Omit<StoreFormData, 'category'>;
+    // validatedFields.data now conforms to StoreFormData
+    const storeDataForDB = validatedFields.data as StoreFormData; 
     const newRawStore = await addStoreToDB(storeDataForDB); 
     const newSerializedStore = serializeStoreForClient(newRawStore);
     
@@ -89,15 +85,15 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   }
 
   const validatedFields = storeFormSchema.safeParse({
-    name: formData.get('name'),
-    logoUrl: formData.get('logoUrl'),
-    bannerUrl: formData.get('bannerUrl'),
-    description: formData.get('description'),
-    longDescription: formData.get('longDescription'),
-    tagsInput: formData.get('tagsInput'),
-    contactEmail: formData.get('contactEmail'),
-    websiteUrl: formData.get('websiteUrl'),
-    address: formData.get('address'),
+    name: formData.get('name') || '',
+    logoUrl: formData.get('logoUrl') || '',
+    bannerUrl: formData.get('bannerUrl') || '',
+    description: formData.get('description') || '',
+    longDescription: formData.get('longDescription') ?? undefined,
+    tagsInput: formData.get('tagsInput') ?? undefined,
+    contactEmail: formData.get('contactEmail') || '',
+    websiteUrl: formData.get('websiteUrl') || '',
+    address: formData.get('address') ?? undefined,
   });
 
   if (!validatedFields.success) {
@@ -109,7 +105,8 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   }
   
   try {
-    const storeDataForUpdate = validatedFields.data as Partial<Omit<StoreFormData, 'category'>>;
+    // validatedFields.data conforms to StoreFormData, so use Partial<StoreFormData>
+    const storeDataForUpdate = validatedFields.data as Partial<StoreFormData>;
     const updatedRawStore = await updateStoreInDB(storeId, storeDataForUpdate);
 
     if (!updatedRawStore) {
@@ -158,6 +155,7 @@ export async function updateStoreCategoryAction(
     return {
       success: false,
       message: "Μη έγκυρη κατηγορία.",
+       errors: validatedCategory.error.flatten().fieldErrors,
     }
   }
 

@@ -15,7 +15,7 @@ import {
 import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan } from '@/lib/types';
 import { StoreCategories } from './types';
 
-const STORE_COLLECTION = 'StoreInfo'; // Changed from 'storeinfo' to 'StoreInfo'
+const STORE_COLLECTION = 'StoreInfo'; 
 
 // Helper to convert Firestore Timestamps to ISO strings for dates in nested objects
 const convertTimestampsInReviews = (reviews: any[]): Review[] => {
@@ -34,33 +34,31 @@ const serializeFeaturesForDB = (features: Feature[]): SerializedFeature[] => {
     if (typeof originalIcon === 'string') {
       iconName = originalIcon;
     } else if (originalIcon && typeof originalIcon === 'function') {
+      // Attempt to get name from component, fallback if needed
       iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'UnknownIcon';
     }
     return {
       id: feature.id,
       name: feature.name,
       description: feature.description,
-      icon: iconName,
+      icon: iconName, // This will be string or undefined
     };
   });
 };
 
-// Helper to deserialize feature icons (if needed, though RenderFeatureIcon handles strings)
-// For now, we assume icons are stored as strings and RenderFeatureIcon handles them.
 
 const mapDocToStore = (docSnapshot: any): Store => {
   const data = docSnapshot.data();
   const store: Store = {
     id: docSnapshot.id,
-    name: data.name,
-    logoUrl: data.logoUrl,
+    name: data.name || '',
+    logoUrl: data.logoUrl || '',
     bannerUrl: data.bannerUrl,
-    description: data.description,
+    description: data.description || '',
     longDescription: data.longDescription,
     rating: data.rating || 0,
-    category: data.category,
+    category: data.category || StoreCategories[0], // Default category if not set
     tags: data.tags || [],
-    // Firestore stores features as an array of objects (SerializedFeature)
     features: data.features || [], 
     reviews: data.reviews ? convertTimestampsInReviews(data.reviews) : [],
     products: data.products || [],
@@ -78,7 +76,7 @@ export const getAllStoresFromDB = async (): Promise<Store[]> => {
     return querySnapshot.docs.map(mapDocToStore);
   } catch (error) {
     console.error("Error fetching stores from DB:", error);
-    return []; // Return empty array on error
+    return []; 
   }
 };
 
@@ -96,68 +94,83 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
   }
 };
 
-// Placeholder for common features to be used if a new store doesn't provide them
 const defaultFeatures: Feature[] = [
-  { id: 'f1', name: 'Πιστοποιημένοι Τεχνικοί', icon: "Award" },
-  { id: 'f2', name: 'Εγγύηση σε Ανταλλακτικά & Εργασία', icon: "ShieldCheck" },
-  { id: 'f3', name: 'Χώρος Αναμονής Πελατών & WiFi', icon: "Users" },
+  { id: 'f1_default', name: 'Πιστοποιημένοι Τεχνικοί', icon: "Award" },
+  { id: 'f2_default', name: 'Εγγύηση σε Ανταλλακτικά & Εργασία', icon: "ShieldCheck" },
+  { id: 'f3_default', name: 'Χώρος Αναμονής Πελατών & WiFi', icon: "Users" },
 ];
 const defaultSerializedFeatures = serializeFeaturesForDB(defaultFeatures);
 
 const defaultProducts: Product[] = [
-    { id: 's1_default', name: 'Αλλαγή Λαδιών & Φίλτρου', imageUrl: 'https://picsum.photos/seed/default_oil/200/150', price: '49.99€', description: 'Premium αλλαγή συνθετικού λαδιού.' },
+    { id: 'prod1_default', name: 'Αλλαγή Λαδιών & Φίλτρου', imageUrl: 'https://picsum.photos/seed/default_oil_service/200/150', price: '49.99€', description: 'Premium αλλαγή συνθετικού λαδιού και φίλτρου.' },
+    { id: 'prod2_default', name: 'Διαγνωστικός Έλεγχος', imageUrl: 'https://picsum.photos/seed/default_diag_service/200/150', price: '29.99€', description: 'Πλήρης διαγνωστικός έλεγχος με σύγχρονο εξοπλισμό.' },
+];
+
+const defaultPricingPlans: PricingPlan[] = [
+    { id: 'plan1_default', name: 'Βασικό Πακέτο Συντήρησης', price: '79€', features: ['Αλλαγή Λαδιών & Φίλτρου', 'Έλεγχος 20 Σημείων', 'Περιστροφή Ελαστικών'], isFeatured: false },
+    { id: 'plan2_default', name: 'Premium Πακέτο Συντήρησης', price: '129€', features: ['Όλα από το Βασικό Πακέτο', 'Καθαρισμός Κινητήρα', 'Έλεγχος Φρένων & Αντικατάσταση (εάν χρειάζεται με επιπλέον χρέωση υλικών)'], isFeatured: true },
 ];
 
 
-export const addStoreToDB = async (storeData: Omit<StoreFormData, 'category'>): Promise<Store> => {
-  const newStorePayload: Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & {
-    category: StoreCategory; // Explicitly include category for new store
-    rating: number;
-    reviews: Review[];
-    pricingPlans: PricingPlan[];
-    features: SerializedFeature[];
-    products: Product[];
-    tags: string[];
-  } = {
+// addStoreToDB now takes StoreFormData as its main data argument
+export const addStoreToDB = async (storeData: StoreFormData): Promise<Store> => {
+  // Construct the full Store object for Firestore, including defaults
+  const newStoreForFirestore: Omit<Store, 'id'> = {
     name: storeData.name,
     logoUrl: storeData.logoUrl,
-    bannerUrl: storeData.bannerUrl,
+    bannerUrl: storeData.bannerUrl || '', // Ensure empty string if undefined
     description: storeData.description,
-    longDescription: storeData.longDescription,
-    contactEmail: storeData.contactEmail,
-    websiteUrl: storeData.websiteUrl,
-    address: storeData.address,
+    longDescription: storeData.longDescription || '',
+    contactEmail: storeData.contactEmail || '',
+    websiteUrl: storeData.websiteUrl || '',
+    address: storeData.address || '',
     category: StoreCategories[0], // Default category for a new store
-    rating: 0, // Default rating
-    reviews: [], // Default empty reviews
-    pricingPlans: [], // Default empty pricing plans
-    features: defaultSerializedFeatures, // Use serialized default features
-    products: defaultProducts, // Use default products
+    rating: 0, 
+    reviews: [], 
+    pricingPlans: defaultPricingPlans, 
+    features: defaultSerializedFeatures, 
+    products: defaultProducts, 
     tags: storeData.tagsInput ? storeData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
   };
 
   try {
-    const docRef = await addDoc(collection(db, STORE_COLLECTION), newStorePayload);
-    return { ...newStorePayload, id: docRef.id };
+    const docRef = await addDoc(collection(db, STORE_COLLECTION), newStoreForFirestore);
+    return { ...newStoreForFirestore, id: docRef.id };
   } catch (error) {
     console.error("Error adding store to DB:", error);
     throw error;
   }
 };
 
-export const updateStoreInDB = async (storeId: string, updatedData: Partial<Omit<StoreFormData, 'category'>>): Promise<Store | undefined> => {
+// updateStoreInDB now takes Partial<StoreFormData>
+export const updateStoreInDB = async (storeId: string, updatedData: Partial<StoreFormData>): Promise<Store | undefined> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   
-  // Create an update payload, ensuring tagsInput is converted to tags array
-  const updatePayload: Partial<Omit<Store, 'id' | 'category'>> = { ...updatedData };
+  // Create an update payload for Firestore
+  // This explicitly maps fields from StoreFormData to what Firestore expects in the Store document
+  const firestoreUpdatePayload: { [key: string]: any } = {};
+
+  if (updatedData.name !== undefined) firestoreUpdatePayload.name = updatedData.name;
+  if (updatedData.logoUrl !== undefined) firestoreUpdatePayload.logoUrl = updatedData.logoUrl;
+  if (updatedData.bannerUrl !== undefined) firestoreUpdatePayload.bannerUrl = updatedData.bannerUrl;
+  if (updatedData.description !== undefined) firestoreUpdatePayload.description = updatedData.description;
+  if (updatedData.longDescription !== undefined) firestoreUpdatePayload.longDescription = updatedData.longDescription;
+  if (updatedData.contactEmail !== undefined) firestoreUpdatePayload.contactEmail = updatedData.contactEmail;
+  if (updatedData.websiteUrl !== undefined) firestoreUpdatePayload.websiteUrl = updatedData.websiteUrl;
+  if (updatedData.address !== undefined) firestoreUpdatePayload.address = updatedData.address;
+  
   if (updatedData.tagsInput !== undefined) {
-    updatePayload.tags = updatedData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
-    delete (updatePayload as any).tagsInput; // Remove tagsInput from payload
+    firestoreUpdatePayload.tags = updatedData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+  }
+  
+  if (Object.keys(firestoreUpdatePayload).length === 0) {
+    // No actual data to update, just fetch and return existing store
+    const existingDoc = await getDoc(storeRef);
+    return existingDoc.exists() ? mapDocToStore(existingDoc) : undefined;
   }
 
-
   try {
-    await updateDoc(storeRef, updatePayload);
+    await updateDoc(storeRef, firestoreUpdatePayload);
     const updatedDoc = await getDoc(storeRef);
     if (updatedDoc.exists()) {
       return mapDocToStore(updatedDoc);
@@ -195,31 +208,29 @@ export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
   }
 };
 
-// Function to seed initial data (optional, call once if needed)
-// import { mockStores as initialMockStores } from './placeholder-data'; // Adjust path if needed
-// export const seedInitialStores = async () => {
-//   const storesInDb = await getAllStoresFromDB();
-//   if (storesInDb.length > 0) {
-//     console.log("Firestore already has stores. Seeding skipped.");
-//     return;
-//   }
-
-//   console.log("Seeding initial stores to Firestore...");
-//   for (const store of initialMockStores) {
-//     const { id, ...storeDataForDb } = store; // exclude mock ID
-
-//     const storePayloadForDb = {
-//         ...storeDataForDb,
-//         features: serializeFeaturesForDB(storeDataForDb.features), // Serialize icons
-//         reviews: storeDataForDb.reviews.map(r => ({...r, date: Timestamp.fromDate(new Date(r.date))})) // Convert date strings to Timestamps
+// Example of how to seed data (call once manually if needed via an admin utility or script)
+// async function seedDatabase() {
+//   const stores = await getAllStoresFromDB();
+//   if (stores.length === 0) { // Only seed if DB is empty
+//     const sampleStoreData: StoreFormData = {
+//       name: "Παράδειγμα Κέντρου Επισκευής",
+//       logoUrl: "https://picsum.photos/seed/sample_logo/100/100",
+//       bannerUrl: "https://picsum.photos/seed/sample_banner/800/300",
+//       description: "Ένα πλήρως εξοπλισμένο κέντρο επισκευής για όλες τις ανάγκες του αυτοκινήτου σας.",
+//       longDescription: "Προσφέρουμε μια ευρεία γκάμα υπηρεσιών, από απλές αλλαγές λαδιών μέχρι σύνθετες επισκευές κινητήρα. Η ομάδα μας αποτελείται από έμπειρους και πιστοποιημένους τεχνικούς.",
+//       tagsInput: "επισκευές,συντήρηση,λάδια,φρένα",
+//       contactEmail: "contact@samplegarage.com",
+//       websiteUrl: "https://www.samplegarage.com",
+//       address: "Οδός Παραδείγματος 1, 12345 Αθήνα"
 //     };
-
 //     try {
-//       await addDoc(collection(db, STORE_COLLECTION), storePayloadForDb);
+//       await addStoreToDB(sampleStoreData);
+//       console.log("Sample store seeded successfully.");
 //     } catch (error) {
-//       console.error("Error seeding store:", store.name, error);
+//       console.error("Error seeding sample store:", error);
 //     }
+//   } else {
+//     console.log("Database already contains stores. Seeding skipped.");
 //   }
-//   console.log("Initial stores seeded.");
-// };
-// Call seedInitialStores() from a suitable place, e.g., a temporary admin page or script.
+// }
+// seedDatabase(); // Don't call this automatically in production code

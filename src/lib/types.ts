@@ -95,12 +95,16 @@ export interface QueryFormData {
   storeId: string;
 }
 
-// For Admin Store Form (main form, without category)
-export type StoreFormData = Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products' | 'category'> & {
-  longDescription?: string;
+// Represents the data structure submitted by the store creation/editing form.
+// Category is handled separately by updateStoreCategoryAction or defaulted on creation.
+export interface StoreFormData {
+  name: string;
+  logoUrl: string;
   bannerUrl?: string;
+  description: string;
+  longDescription?: string;
+  tagsInput?: string; // Input for tags, converted to string[] in the action/service
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
-  tagsInput?: string; 
-};
+}
