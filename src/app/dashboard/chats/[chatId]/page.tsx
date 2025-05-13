@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
 import type { Unsubscribe } from 'firebase/firestore';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Added import
 
 export default function ChatPage() {
   const params = useParams();
