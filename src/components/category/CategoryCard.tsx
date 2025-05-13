@@ -15,12 +15,12 @@ interface CategoryCardProps {
 export function CategoryCard({ categorySlug, translatedCategoryName, description }: CategoryCardProps) {
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
-      <CardHeader className="pb-3 pt-4 text-center"> {/* Added text-center here */}
-        <div className="flex flex-col items-center gap-3"> {/* Changed to flex-col and items-center for title */}
-          <CardTitle className="text-lg font-semibold">{translatedCategoryName}</CardTitle>
+      <CardHeader className="pb-3 pt-4 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <CardTitle className="text-xl font-bold">{translatedCategoryName}</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow p-4 pt-0 text-center"> {/* Added text-center for description as well for consistency */}
+      <CardContent className="flex-grow p-4 pt-0 text-center">
         <CardDescription className="text-sm text-muted-foreground">
           {description}
         </CardDescription>
