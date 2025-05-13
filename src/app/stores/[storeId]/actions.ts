@@ -7,13 +7,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, limit } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase'; 
+import { submitMessageToChat } from '@/lib/chatService'; // Import the new chat service function
 
 // Basic rate limiting (example - in-memory, would need a persistent store in production)
 const submissionAttempts = new Map<string, { count: number, lastAttempt: number }>();
 const MAX_ATTEMPTS = 5;
 const COOLDOWN_PERIOD = 60 * 1000; // 1 minute
 
-export async function submitStoreQuery(formData: QueryFormData): Promise<{ success: boolean; message: string }> {
+export async function submitStoreQuery(formData: QueryFormData): Promise<{ success: boolean; message: string; chatId?: string }> {
   const userIdentifier = formData.email; 
   const now = Date.now();
   const attemptRecord = submissionAttempts.get(userIdentifier);
@@ -35,72 +36,21 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
       return { success: false, message: "Το κέντρο εξυπηρέτησης δεν βρέθηκε." };
     }
 
-    // Chat logic: if store has owner and user is logged in
+    // Use new chat service if store has owner and user is logged in
     if (store.ownerId && formData.userId && formData.userName) {
-      const chatsRef = collection(db, 'chats');
-      const q = query(
-        chatsRef,
-        where('storeId', '==', store.id),
-        where('userId', '==', formData.userId),
-        where('ownerId', '==', store.ownerId),
-        limit(1)
+      const chatResult = await submitMessageToChat(
+        store.id,
+        store.name,
+        store.logoUrl,
+        store.ownerId,
+        formData.userId,
+        formData.userName,
+        formData.userAvatarUrl,
+        formData.subject,
+        formData.message
       );
-
-      const querySnapshot = await getDocs(q);
-      const fullMessageText = `Θέμα: ${formData.subject}\n\n${formData.message}`;
-      const batch = writeBatch(db);
-      let chatDocRef;
-
-      if (!querySnapshot.empty) {
-        // Chat exists, add message and update chat
-        chatDocRef = querySnapshot.docs[0].ref;
-        const messagesColRef = collection(chatDocRef, 'messages');
-        const newMessageRef = doc(messagesColRef); // Auto-generate ID for new message
-
-        batch.set(newMessageRef, {
-          senderId: formData.userId,
-          senderName: formData.userName, // User's name
-          text: fullMessageText,
-          createdAt: Timestamp.now(),
-        });
-        batch.update(chatDocRef, {
-          lastMessageText: fullMessageText.substring(0, 100), // Snippet
-          lastMessageAt: Timestamp.now(),
-          ownerUnreadCount: querySnapshot.docs[0].data().ownerUnreadCount + 1,
-          userUnreadCount: 0, // User sending the message has read it
-        });
-      } else {
-        // Chat doesn't exist, create new chat and add first message
-        chatDocRef = doc(chatsRef); // Auto-generate ID for new chat
-        batch.set(chatDocRef, {
-          storeId: store.id,
-          storeName: store.name,
-          storeLogoUrl: store.logoUrl,
-          userId: formData.userId,
-          userName: formData.userName, // User's name
-          userAvatarUrl: formData.userAvatarUrl || null, // User's avatar
-          ownerId: store.ownerId,
-          lastMessageText: fullMessageText.substring(0, 100),
-          lastMessageAt: Timestamp.now(),
-          userUnreadCount: 0,
-          ownerUnreadCount: 1,
-          participantIds: [formData.userId, store.ownerId].sort(), // For querying
-          createdAt: Timestamp.now(), // When chat was created
-        });
-
-        const messagesColRef = collection(chatDocRef, 'messages');
-        const firstMessageRef = doc(messagesColRef);
-        batch.set(firstMessageRef, {
-          senderId: formData.userId,
-          senderName: formData.userName, // User's name
-          text: fullMessageText,
-          createdAt: Timestamp.now(),
-        });
-      }
-
-      await batch.commit();
       setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
-      return { success: true, message: "Το μήνυμά σας εστάλη. Μπορείτε να δείτε αυτήν τη συνομιλία στον πίνακα ελέγχου σας." };
+      return chatResult;
 
     } else {
       // Fallback: Store has no owner OR user is not logged in, save to 'storeMessages'

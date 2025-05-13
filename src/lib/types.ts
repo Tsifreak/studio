@@ -172,20 +172,23 @@ export interface Chat {
   userName: string;        // Customer's name
   userAvatarUrl?: string;
   ownerId: string;         // Store Owner's Firebase UID
-  lastMessageAt: string;   // ISO string for client, Timestamp for Firestore
+  lastMessageAt: string;   // ISO string for client (converted from Timestamp)
   lastMessageText: string;
+  lastMessageSenderId?: string; // ID of the user who sent the last message
   userUnreadCount: number;
   ownerUnreadCount: number;
-  // Participant UIDs for easier querying if needed, e.g., [userId, ownerId] sorted
   participantIds: string[]; 
-  createdAt: string; // ISO string for client, Timestamp for Firestore
+  createdAt: string; // ISO string for client (converted from Timestamp)
 }
 
 export interface ChatMessage {
   id: string;
-  // chatId: string; // Not needed if messages are a subcollection of a chat
   senderId: string;    // userId or ownerId
   senderName: string;
   text: string;
-  createdAt: string;   // ISO string for client, Timestamp for Firestore
+  createdAt: string;   // ISO string for client (converted from Timestamp)
+}
+
+export interface ChatMessageFormData {
+  text: string;
 }

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import type { Metadata } from 'next'; // For potential future use if moving to RSC with dynamic metadata
+import { MessageSquare } from 'lucide-react'; // Import MessageSquare icon
 
 // export const metadata: Metadata = { // Cannot be used in client component like this
 //   title: 'Πίνακας Ελέγχου | Amaxakis',
@@ -82,6 +83,20 @@ export default function DashboardPage() {
                     <Button variant="link" className="p-0 h-auto text-primary" disabled>Προβολή Ιστορικού Επισκευών (Παράδειγμα)</Button>
                 </CardContent>
             </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <MessageSquare className="mr-2 h-5 w-5 text-primary" />
+                      Οι Συνομιλίες μου
+                    </CardTitle>
+                    <CardDescription>Δείτε και απαντήστε στις συνομιλίες σας με τα κέντρα εξυπηρέτησης.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/dashboard/chats">Προβολή Συνομιλιών</Link>
+                    </Button>
+                </CardContent>
+            </Card>
              <Card>
                 <CardHeader>
                     <CardTitle>Γρήγοροι Σύνδεσμοι</CardTitle>
@@ -97,4 +112,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
