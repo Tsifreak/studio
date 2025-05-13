@@ -1,11 +1,10 @@
-
 "use client";
 
 import React from 'react';
 import { AppCategories } from '@/lib/types'; // Import the new AppCategories
 import { CategoryCard } from '@/components/category/CategoryCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Send, CalendarDays } from 'lucide-react';
+import { Users, Send, CalendarDays, ChevronRight, ChevronDown } from 'lucide-react';
 
 export default function HomePage() {
   const howItWorksSteps = [
@@ -42,17 +41,28 @@ export default function HomePage() {
 
       <section className="py-10">
         <h2 className="text-3xl font-bold text-center mb-10 text-primary">Πώς Λειτουργεί;</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {howItWorksSteps.map((item) => (
-            <Card key={item.step} className="text-center shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col items-center p-6">
-              {item.icon}
-              <CardHeader className="p-0 mb-2">
-                <CardTitle className="text-xl font-semibold text-primary">{item.step}: {item.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <p className="text-foreground">{item.description}</p> {/* Changed from text-muted-foreground to text-foreground */}
-              </CardContent>
-            </Card>
+        <div className="flex flex-col md:flex-row items-stretch justify-center gap-y-4 md:gap-y-0 md:gap-x-2">
+          {howItWorksSteps.map((item, index) => (
+            <React.Fragment key={item.step}>
+              <div className="flex-1 md:max-w-xs lg:max-w-sm">
+                <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col items-center p-6 h-full">
+                  {item.icon}
+                  <CardHeader className="p-0 mb-2">
+                    <CardTitle className="text-xl font-semibold text-primary">{item.step}: {item.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-grow">
+                    <p className="text-foreground">{item.description}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {index < howItWorksSteps.length - 1 && (
+                <div className="flex items-center justify-center shrink-0">
+                  <ChevronDown className="h-8 w-8 text-primary/70 md:hidden my-2" />
+                  <ChevronRight className="h-10 w-10 text-primary/70 hidden md:block mx-2" />
+                </div>
+              )}
+            </React.Fragment>
           ))}
         </div>
       </section>
@@ -60,13 +70,13 @@ export default function HomePage() {
       <div className="mb-8 p-6 bg-card rounded-lg shadow">
         <h2 className="text-2xl font-semibold text-center mb-6 text-primary">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6"> {/* Adjusted lg:grid-cols-3 for 7 categories */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
             {AppCategories.map((category) => (
               <CategoryCard
                 key={category.slug}
                 categorySlug={category.slug}
                 translatedCategoryName={category.translatedName}
-                description={category.description} // Pass the description
+                description={category.description}
               />
             ))}
           </div>
@@ -82,4 +92,3 @@ export default function HomePage() {
     </div>
   );
 }
-
