@@ -28,7 +28,7 @@ export default function HomePage() {
                 categorySlug={category.slug}
                 translatedCategoryName={category.translatedName}
                 description={category.description} // Pass the description
-                iconName={category.icon} // Pass the icon name
+                // Removed iconName prop: iconName={category.icon} 
               />
             ))}
           </div>
@@ -44,3 +44,4 @@ export default function HomePage() {
     </div>
   );
 }
+

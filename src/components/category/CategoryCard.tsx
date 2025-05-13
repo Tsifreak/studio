@@ -5,21 +5,21 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon'; // Re-use for consistency
+// Removed RenderFeatureIcon import
 
 interface CategoryCardProps {
   categorySlug: string;
   translatedCategoryName: string;
   description: string; // New prop for short description
-  iconName?: string; // Optional icon name
+  // Removed iconName prop
 }
 
-export function CategoryCard({ categorySlug, translatedCategoryName, description, iconName }: CategoryCardProps) {
+export function CategoryCard({ categorySlug, translatedCategoryName, description }: CategoryCardProps) {
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
       <CardHeader className="pb-3 pt-4">
         <div className="flex items-center gap-3">
-          {iconName && <RenderFeatureIcon iconName={iconName} className="w-7 h-7 text-primary" />}
+          {/* Removed RenderFeatureIcon component usage */}
           <CardTitle className="text-lg font-semibold">{translatedCategoryName}</CardTitle>
         </div>
       </CardHeader>
@@ -38,3 +38,4 @@ export function CategoryCard({ categorySlug, translatedCategoryName, description
     </Card>
   );
 }
+
