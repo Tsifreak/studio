@@ -1,6 +1,7 @@
 
 export interface Review {
   id: string;
+  userId: string; // Added userId to associate review with a user
   userName: string;
   userAvatarUrl?: string;
   rating: number; // 1-5
@@ -57,7 +58,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "panel-beater",
     translatedName: "🛠️ Φανοποιοί",
     description: "Διορθώσεις αμαξώματος, τρακαρίσματα.",
-    icon: "Car" // Using Car icon as a generic one, can be more specific
+    icon: "Car" 
   },
   {
     slug: "diagnostics",
@@ -69,7 +70,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "vulcanizer",
     translatedName: "🛞 Βουλκανιζατέρ",
     description: "Ελαστικά, ζυγοστάθμιση, ευθυγράμμιση.",
-    icon: "Disc" // Placeholder, could be more specific like 'CircleDot' or a custom SVG
+    icon: "Disc" 
   },
   {
     slug: "detailer",
@@ -81,7 +82,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "tuning",
     translatedName: "🚀 Tuning",
     description: "Βελτιώσεις ECU, εξάτμιση, απόδοση.",
-    icon: "Gauge" // Placeholder, could be more specific
+    icon: "Gauge" 
   }
 ];
 
@@ -153,4 +154,11 @@ export interface StoreFormData {
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
+}
+
+// Represents the data structure for submitting a new review
+export interface ReviewFormData {
+  rating: number;
+  comment: string;
+  // storeId, userId, userName, userAvatarUrl will be added in the action or form
 }

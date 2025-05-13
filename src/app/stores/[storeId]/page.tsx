@@ -3,14 +3,15 @@ import { getStoreByIdFromDB } from '@/lib/storeService';
 import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review } from '@/lib/types'; 
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag } from 'lucide-react';
+import { Star, MapPin, Globe, ShoppingBag, Edit } from 'lucide-react'; // Added Edit icon
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
 import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
-import { submitStoreQuery } from './actions'; 
-import { AppCategories } from '@/lib/types'; // Use AppCategories
+import { ReviewForm } from '@/components/store/ReviewForm'; // Import ReviewForm
+import { submitStoreQuery, addReviewAction } from './actions'; 
+import { AppCategories } from '@/lib/types'; 
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import type { Metadata } from 'next';
 
@@ -41,6 +42,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
       icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
     })),
     products: storeData.products || [],
+    reviews: storeData.reviews || [], // Ensure reviews is an array
   };
 
 
@@ -106,11 +108,12 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
       </Card>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 mb-6"> {/* Adjusted grid-cols */}
           <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
           <TabsTrigger value="products">Υπηρεσίες ({serializableStore.products?.length || 0})</TabsTrigger>
           <TabsTrigger value="pricing">Πακέτα Τιμολόγησης</TabsTrigger>
           <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
+          <TabsTrigger value="add-review"><Edit className="w-4 h-4 mr-1 sm:mr-2" />Γράψε Κριτική</TabsTrigger>
           <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
         </TabsList>
 
@@ -164,7 +167,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
             <CardContent>
               {serializableStore.products && serializableStore.products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {serializableStore.products.map((product: ProductType, index: number) => ( // Added index for key
+                  {serializableStore.products.map((product: ProductType, index: number) => ( 
                     <ProductListItem key={`${product.id}-${index}`} product={product} />
                   ))}
                 </div>
@@ -228,6 +231,10 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="add-review">
+            <ReviewForm storeId={serializableStore.id} action={addReviewAction} />
         </TabsContent>
         
         <TabsContent value="contact">

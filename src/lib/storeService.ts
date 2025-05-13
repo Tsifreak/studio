@@ -11,6 +11,7 @@ import {
   query,
   where,
   Timestamp,
+  arrayUnion,
 } from 'firebase/firestore';
 import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan } from '@/lib/types';
 import { AppCategories } from './types'; // Use AppCategories to get the default category slug
@@ -97,33 +98,33 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
 // addStoreToDB now takes StoreFormData as its main data argument
 export async function addStoreToDB(data: StoreFormData): Promise<Store> {
   // Ensure a default category is set if not provided, use the slug from AppCategories
-  const defaultCategorySlug = AppCategories.length > 0 ? AppCategories[0].slug : "mechanic"; // Fallback if AppCategories is empty
+  const defaultCategorySlug = AppCategories.length > 0 ? AppCategories[0].slug : "mechanic"; 
 
-  const storeData: Omit<Store, 'id'> = { // Omit id initially as Firestore generates it
+  const storeDataForDB: Omit<Store, 'id'> = { 
     name: data.name,
     logoUrl: data.logoUrl,
-    bannerUrl: data.bannerUrl || "",
+    bannerUrl: data.bannerUrl || "https://picsum.photos/seed/default_banner/800/300", // Provide a default
     description: data.description,
     longDescription: data.longDescription || "",
-    rating: 0,
-    category: defaultCategorySlug as StoreCategory, // default, ensure type assertion
+    rating: 0, 
+    category: defaultCategorySlug as StoreCategory, 
     tags: data.tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
     contactEmail: data.contactEmail || "",
     websiteUrl: data.websiteUrl || "",
     address: data.address || "",
-    features: [], // Default to empty array for new stores
-    pricingPlans: [], // Default to empty array for new stores
-    reviews: [], // Default to empty array for new stores
-    products: [] // Default to empty array for new stores
+    // Default empty arrays for complex fields, can be populated later via admin
+    features: [], 
+    pricingPlans: [], 
+    reviews: [], 
+    products: [] 
   };
 
   try {
-    const docRef = await addDoc(collection(db, STORE_COLLECTION), storeData);
-    // Construct the full Store object to return, including the new ID
-    return { ...storeData, id: docRef.id };
+    const docRef = await addDoc(collection(db, STORE_COLLECTION), storeDataForDB);
+    return { ...storeDataForDB, id: docRef.id };
   } catch (error) {
     console.error("Error adding store to DB:", error);
-    throw error; // Re-throw the error to be caught by the caller
+    throw error; 
   }
 }
 
@@ -187,6 +188,31 @@ export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error(`Error deleting store ${storeId} from DB:`, error);
+    return false;
+  }
+};
+
+export const addReviewToStoreInDB = async (storeId: string, newReview: Review): Promise<boolean> => {
+  const storeRef = doc(db, STORE_COLLECTION, storeId);
+  try {
+    // Atomically add a new review to the "reviews" array field.
+    await updateDoc(storeRef, {
+      reviews: arrayUnion(newReview)
+    });
+    
+    // Optional: Recalculate and update average store rating
+    const storeSnap = await getDoc(storeRef);
+    if (storeSnap.exists()) {
+      const storeData = storeSnap.data();
+      if (storeData.reviews && storeData.reviews.length > 0) {
+        const totalRating = storeData.reviews.reduce((acc: number, review: Review) => acc + review.rating, 0);
+        const newAverageRating = totalRating / storeData.reviews.length;
+        await updateDoc(storeRef, { rating: newAverageRating });
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error(`Error adding review to store ${storeId} in DB:`, error);
     return false;
   }
 };
