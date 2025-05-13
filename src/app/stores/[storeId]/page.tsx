@@ -1,13 +1,13 @@
 
 import { getStoreByIdFromDB } from '@/lib/storeService'; // Changed import
-import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType } from '@/lib/types'; // Added ProductType
+import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review } from '@/lib/types'; // Added ProductType and Review
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Star, MapPin, Globe, ShoppingBag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
-import { ReviewItem } from '@/components/store/ReviewItem';
+// import { ReviewItem } from '@/components/store/ReviewItem'; // Commented out as per new requirement
 import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
 import { submitStoreQuery } from './actions'; 
@@ -209,9 +209,15 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
             </CardHeader>
             <CardContent>
               {serializableStore.reviews && serializableStore.reviews.length > 0 ? (
-                <div className="space-y-0"> 
-                  {serializableStore.reviews.map(review => (
-                    <ReviewItem key={review.id} review={review} />
+                <div className="space-y-4"> 
+                  {serializableStore.reviews.map((review: Review) => (
+                    <div key={review.id} className="p-4 border rounded-md bg-muted/50">
+                      <p className="font-semibold">{review.userName}</p>
+                      <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
+                      <p className="text-xs text-amber-600">{review.rating} stars</p>
+                       {/* Optionally, add date if available and formatted */}
+                       {/* <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString()}</p> */}
+                    </div>
                   ))}
                 </div>
               ) : (
