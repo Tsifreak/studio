@@ -178,6 +178,7 @@ export interface Chat {
   ownerUnreadCount: number;
   // Participant UIDs for easier querying if needed, e.g., [userId, ownerId] sorted
   participantIds: string[]; 
+  createdAt: string; // ISO string for client, Timestamp for Firestore
 }
 
 export interface ChatMessage {

@@ -53,12 +53,12 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
   async function onSubmit(values: ContactFormValues) {
     try {
       const queryData: QueryFormData = { 
-        ...values, 
+        ...values, // name, email, subject, message from form fields
         storeId,
-        ...(user && { 
+        ...(user && { // If user is logged in, add their full details from auth context
             userId: user.id,
-            userName: user.name, // Pass userName
-            userAvatarUrl: user.avatarUrl // Pass userAvatarUrl
+            userName: user.name, // This is the user's display name from AuthContext
+            userAvatarUrl: user.avatarUrl // User's avatar from AuthContext
         }) 
       };
       

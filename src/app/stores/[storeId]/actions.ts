@@ -5,7 +5,7 @@ import type { QueryFormData, Review } from '@/lib/types';
 import { addReviewToStoreInDB, getStoreByIdFromDB } from '@/lib/storeService'; 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, serverTimestamp, limit } from 'firebase/firestore'; 
+import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, limit } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase'; 
 
 // Basic rate limiting (example - in-memory, would need a persistent store in production)
@@ -59,7 +59,7 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
 
         batch.set(newMessageRef, {
           senderId: formData.userId,
-          senderName: formData.userName,
+          senderName: formData.userName, // User's name
           text: fullMessageText,
           createdAt: Timestamp.now(),
         });
@@ -77,8 +77,8 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
           storeName: store.name,
           storeLogoUrl: store.logoUrl,
           userId: formData.userId,
-          userName: formData.userName,
-          userAvatarUrl: formData.userAvatarUrl || null,
+          userName: formData.userName, // User's name
+          userAvatarUrl: formData.userAvatarUrl || null, // User's avatar
           ownerId: store.ownerId,
           lastMessageText: fullMessageText.substring(0, 100),
           lastMessageAt: Timestamp.now(),
@@ -92,7 +92,7 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
         const firstMessageRef = doc(messagesColRef);
         batch.set(firstMessageRef, {
           senderId: formData.userId,
-          senderName: formData.userName,
+          senderName: formData.userName, // User's name
           text: fullMessageText,
           createdAt: Timestamp.now(),
         });
@@ -109,10 +109,10 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
         storeName: store.name, 
         subject: formData.subject,
         message: formData.message,
-        senderName: formData.name,    
-        senderEmail: formData.email,  
+        senderName: formData.name, // Name from form field    
+        senderEmail: formData.email, // Email from form field  
         ...(formData.userId && { senderUserId: formData.userId }), 
-        recipientOwnerId: store.ownerId || null, // Can be null if no owner
+        recipientOwnerId: store.ownerId || null, 
         createdAt: Timestamp.now(),
         isReadByOwner: false,
       };
