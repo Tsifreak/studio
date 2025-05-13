@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -72,7 +71,8 @@ export function ReviewForm({ storeId, action }: ReviewFormProps) {
         if (formState.errors) {
           Object.keys(formState.errors).forEach((key) => {
             const fieldKey = key as keyof ClientReviewFormValues;
-            const message = formState.errors[fieldKey]?.[0];
+            const errorObject = formState.errors as Record<keyof ClientReviewFormValues, string[] | undefined>;
+            const message = errorObject[fieldKey]?.[0];
             if (message) {
               form.setError(fieldKey, { type: 'server', message });
             }
@@ -113,10 +113,16 @@ export function ReviewForm({ storeId, action }: ReviewFormProps) {
             <FormField
               control={form.control}
               name="rating"
-              render={({ field }) => (
+              render={({ field }) => ( // field.value is number (from RHF), field.onChange expects number
                 <FormItem>
                   <FormLabel>Βαθμολογία</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value > 0 ? String(field.value) : undefined}>
+                  <Select
+                    // onValueChange from Select gives a string (e.g., "4")
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    // Select's value prop needs a string; convert RHF's numeric field.value
+                    // If field.value is 0 (initial/unselected), use "" to show placeholder
+                    value={field.value === 0 ? "" : String(field.value)}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Επιλέξτε βαθμολογία (1-5)" />
