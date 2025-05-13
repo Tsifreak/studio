@@ -1,4 +1,3 @@
-
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -25,6 +24,8 @@ const convertTimestampsInReviews = (reviews: any[]): Review[] => {
   }));
 };
 
+// This function is not strictly needed if features are already serialized before DB interaction,
+// but kept for potential use or if direct Feature[] type is passed.
 const serializeFeaturesForDB = (features: Feature[]): SerializedFeature[] => {
   return features.map((feature: Feature): SerializedFeature => {
     const originalIcon = feature.icon;
@@ -33,6 +34,7 @@ const serializeFeaturesForDB = (features: Feature[]): SerializedFeature[] => {
     if (typeof originalIcon === 'string') {
       iconName = originalIcon;
     } else if (originalIcon && typeof originalIcon === 'function') {
+      // Attempt to get a name for function components, fallback if not possible.
       iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'UnknownIcon';
     }
     return {
@@ -57,6 +59,7 @@ const mapDocToStore = (docSnapshot: any): Store => {
     rating: data.rating || 0,
     category: data.category || AppCategories[0].slug, 
     tags: data.tags || [],
+    // Assuming features are stored as SerializedFeature[] in DB
     features: data.features || [], 
     reviews: data.reviews ? convertTimestampsInReviews(data.reviews) : [],
     products: data.products || [],
@@ -93,7 +96,8 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
   }
 };
 
-export async function addStoreToDB(data: StoreFormData): Promise<Store> {
+// Modified to accept ownerId
+export async function addStoreToDB(data: StoreFormData, ownerId?: string): Promise<Store> {
   const defaultCategorySlug = AppCategories.length > 0 ? AppCategories[0].slug : "mechanic"; 
 
   const storeDataForDB: Omit<Store, 'id'> = { 
@@ -112,7 +116,7 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
     pricingPlans: [], 
     reviews: [], 
     products: [],
-    ownerId: undefined, // Initialize ownerId as undefined
+    ownerId: ownerId || undefined, // Set ownerId here
   };
 
   try {
@@ -143,10 +147,15 @@ export const updateStoreInDB = async (storeId: string, updatedData: Partial<Stor
     firestoreUpdatePayload.tags = updatedData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
   }
   
-  // Specific field for ownerId (if it's part of the update, not in StoreFormData)
-  if (updatedData.ownerId !== undefined) firestoreUpdatePayload.ownerId = updatedData.ownerId;
+  // Specific field for ownerId (if it's part of the update)
+  // Allow ownerId to be set to an empty string (to remove it) or a new UID.
+  if (updatedData.ownerId !== undefined) {
+    firestoreUpdatePayload.ownerId = updatedData.ownerId === '' ? null : updatedData.ownerId; // Store null if empty string to clear
+  }
+
 
   if (Object.keys(firestoreUpdatePayload).length === 0) {
+    // No actual data to update, just fetch and return the current store
     const existingDoc = await getDoc(storeRef);
     return existingDoc.exists() ? mapDocToStore(existingDoc) : undefined;
   }
@@ -193,10 +202,17 @@ export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
 export const addReviewToStoreInDB = async (storeId: string, newReview: Review): Promise<boolean> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   try {
+    // Ensure review date is a Firestore Timestamp for proper querying/ordering if needed
+    const reviewWithTimestamp = {
+      ...newReview,
+      date: Timestamp.fromDate(new Date(newReview.date)),
+    };
+
     await updateDoc(storeRef, {
-      reviews: arrayUnion(newReview)
+      reviews: arrayUnion(reviewWithTimestamp)
     });
     
+    // Recalculate average rating
     const storeSnap = await getDoc(storeRef);
     if (storeSnap.exists()) {
       const storeData = storeSnap.data();
@@ -204,6 +220,8 @@ export const addReviewToStoreInDB = async (storeId: string, newReview: Review): 
         const totalRating = storeData.reviews.reduce((acc: number, review: Review) => acc + review.rating, 0);
         const newAverageRating = totalRating / storeData.reviews.length;
         await updateDoc(storeRef, { rating: newAverageRating });
+      } else {
+        await updateDoc(storeRef, { rating: 0 }); // Reset rating if no reviews
       }
     }
     return true;

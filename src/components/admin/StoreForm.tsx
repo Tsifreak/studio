@@ -37,6 +37,7 @@ const clientStoreFormSchema = z.object({
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
   address: z.string().optional(),
+  ownerId: z.string().optional().or(z.literal('')), // Firebase UID of the store owner
 });
 
 type ClientStoreFormValues = z.infer<typeof clientStoreFormSchema>;
@@ -67,6 +68,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           contactEmail: store.contactEmail || '',
           websiteUrl: store.websiteUrl || '',
           address: store.address || '',
+          ownerId: store.ownerId || '',
         }
       : {
           name: "",
@@ -78,6 +80,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           contactEmail: "",
           websiteUrl: "",
           address: "",
+          ownerId: "",
         },
   });
   
@@ -88,13 +91,12 @@ export function StoreForm({ store, action }: StoreFormProps) {
         description: formState.message,
       });
       
-      // Navigate first, then refresh the new page.
-      if (store) { // If editing, go back to admin stores list
+      if (store) { 
         router.push('/admin/stores');
-      } else { // If adding, also go to admin stores list
+      } else { 
         router.push('/admin/stores');
       }
-      router.refresh(); // This should refresh /admin/stores
+      router.refresh(); 
 
     } else if (formState.message && !formState.success && formState.errors) {
        toast({
@@ -253,6 +255,20 @@ export function StoreForm({ store, action }: StoreFormProps) {
                   <FormControl>
                     <Input placeholder="Οδός Παραδείγματος 123, Πόλη" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="ownerId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Owner User ID (Firebase UID - Προαιρετικό)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Firebase UID του ιδιοκτήτη" {...field} />
+                  </FormControl>
+                  <FormDescription>Αντιστοιχίστε έναν χρήστη ως ιδιοκτήτη αυτού του κέντρου.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
