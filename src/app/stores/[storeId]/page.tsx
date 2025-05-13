@@ -1,6 +1,6 @@
 
 import { getStoreByIdFromDB } from '@/lib/storeService'; // Changed import
-import type { Store, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
+import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType } from '@/lib/types'; // Added ProductType
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Star, MapPin, Globe, ShoppingBag } from 'lucide-react';
@@ -45,6 +45,8 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
       description: feature.description,
       icon: typeof feature.icon === 'string' ? feature.icon : undefined, // Ensure icon is string for SerializedFeature
     })),
+    // Ensure products array is handled, even if it's not explicitly in SerializedStore type definition (it's in Store)
+    products: storeData.products || [],
   };
 
 
@@ -168,8 +170,8 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
             <CardContent>
               {serializableStore.products && serializableStore.products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {serializableStore.products.map(product => (
-                    <ProductListItem key={product.id} product={product} />
+                  {serializableStore.products.map((product: ProductType, index: number) => (
+                    <ProductListItem key={`${product.id}-${index}`} product={product} />
                   ))}
                 </div>
               ) : (
