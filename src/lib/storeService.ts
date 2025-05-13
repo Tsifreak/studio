@@ -94,53 +94,36 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
   }
 };
 
-const defaultFeatures: Feature[] = [
-  { id: 'f1_default', name: 'Πιστοποιημένοι Τεχνικοί', icon: "Award" },
-  { id: 'f2_default', name: 'Εγγύηση σε Ανταλλακτικά & Εργασία', icon: "ShieldCheck" },
-  { id: 'f3_default', name: 'Χώρος Αναμονής Πελατών & WiFi', icon: "Users" },
-];
-const defaultSerializedFeatures = serializeFeaturesForDB(defaultFeatures);
-
-const defaultProducts: Product[] = [
-    { id: 'prod1_default', name: 'Αλλαγή Λαδιών & Φίλτρου', imageUrl: 'https://picsum.photos/seed/default_oil_service/200/150', price: '49.99€', description: 'Premium αλλαγή συνθετικού λαδιού και φίλτρου.' },
-    { id: 'prod2_default', name: 'Διαγνωστικός Έλεγχος', imageUrl: 'https://picsum.photos/seed/default_diag_service/200/150', price: '29.99€', description: 'Πλήρης διαγνωστικός έλεγχος με σύγχρονο εξοπλισμό.' },
-];
-
-const defaultPricingPlans: PricingPlan[] = [
-    { id: 'plan1_default', name: 'Βασικό Πακέτο Συντήρησης', price: '79€', features: ['Αλλαγή Λαδιών & Φίλτρου', 'Έλεγχος 20 Σημείων', 'Περιστροφή Ελαστικών'], isFeatured: false },
-    { id: 'plan2_default', name: 'Premium Πακέτο Συντήρησης', price: '129€', features: ['Όλα από το Βασικό Πακέτο', 'Καθαρισμός Κινητήρα', 'Έλεγχος Φρένων & Αντικατάσταση (εάν χρειάζεται με επιπλέον χρέωση υλικών)'], isFeatured: true },
-];
-
-
 // addStoreToDB now takes StoreFormData as its main data argument
-export const addStoreToDB = async (storeData: StoreFormData): Promise<Store> => {
-  // Construct the full Store object for Firestore, including defaults
-  const newStoreForFirestore: Omit<Store, 'id'> = {
-    name: storeData.name,
-    logoUrl: storeData.logoUrl,
-    bannerUrl: storeData.bannerUrl || '', // Ensure empty string if undefined
-    description: storeData.description,
-    longDescription: storeData.longDescription || '',
-    contactEmail: storeData.contactEmail || '',
-    websiteUrl: storeData.websiteUrl || '',
-    address: storeData.address || '',
-    category: StoreCategories[0], // Default category for a new store
-    rating: 0, 
-    reviews: [], 
-    pricingPlans: defaultPricingPlans, 
-    features: defaultSerializedFeatures, 
-    products: defaultProducts, 
-    tags: storeData.tagsInput ? storeData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+export async function addStoreToDB(data: StoreFormData): Promise<Store> {
+  const storeData: Omit<Store, 'id'> = { // Omit id initially as Firestore generates it
+    name: data.name,
+    logoUrl: data.logoUrl,
+    bannerUrl: data.bannerUrl || "",
+    description: data.description,
+    longDescription: data.longDescription || "",
+    rating: 0,
+    category: "Technician" as StoreCategory, // default, ensure type assertion
+    tags: data.tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
+    contactEmail: data.contactEmail || "",
+    websiteUrl: data.websiteUrl || "",
+    address: data.address || "",
+    features: [], // Default to empty array for new stores
+    pricingPlans: [], // Default to empty array for new stores
+    reviews: [], // Default to empty array for new stores
+    products: [] // Default to empty array for new stores
   };
 
   try {
-    const docRef = await addDoc(collection(db, STORE_COLLECTION), newStoreForFirestore);
-    return { ...newStoreForFirestore, id: docRef.id };
+    const docRef = await addDoc(collection(db, STORE_COLLECTION), storeData);
+    // Construct the full Store object to return, including the new ID
+    return { ...storeData, id: docRef.id };
   } catch (error) {
     console.error("Error adding store to DB:", error);
-    throw error;
+    throw error; // Re-throw the error to be caught by the caller
   }
-};
+}
+
 
 // updateStoreInDB now takes Partial<StoreFormData>
 export const updateStoreInDB = async (storeId: string, updatedData: Partial<StoreFormData>): Promise<Store | undefined> => {
