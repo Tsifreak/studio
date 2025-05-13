@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -113,14 +114,12 @@ export function ReviewForm({ storeId, action }: ReviewFormProps) {
             <FormField
               control={form.control}
               name="rating"
-              render={({ field }) => ( // field.value is number (from RHF), field.onChange expects number
+              render={({ field }) => ( 
                 <FormItem>
                   <FormLabel>Βαθμολογία</FormLabel>
                   <Select
-                    // onValueChange from Select gives a string (e.g., "4")
+                    name="rating" // Added name="rating" here
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    // Select's value prop needs a string; convert RHF's numeric field.value
-                    // If field.value is 0 (initial/unselected), use "" to show placeholder
                     value={field.value === 0 ? "" : String(field.value)}
                   >
                     <FormControl>
