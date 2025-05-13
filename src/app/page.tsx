@@ -50,7 +50,7 @@ export default function HomePage() {
                 <CardTitle className="text-xl font-semibold text-primary">{item.step}: {item.title}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <p className="text-muted-foreground">{item.description}</p>
+                <p className="text-foreground">{item.description}</p> {/* Changed from text-muted-foreground to text-foreground */}
               </CardContent>
             </Card>
           ))}
@@ -82,3 +82,4 @@ export default function HomePage() {
     </div>
   );
 }
+
