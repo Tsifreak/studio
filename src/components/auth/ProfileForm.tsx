@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,7 +36,7 @@ const formSchema = z.object({
 type ProfileFormValues = z.infer<typeof formSchema>;
 
 export function ProfileForm() {
-  const { user, updateUserProfile, isLoading } = useAuth();
+  const { user, updateUserProfile, isLoading } = useAuth(); // Correctly destructure updateUserProfile
   const { toast } = useToast();
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -122,7 +123,7 @@ export function ProfileForm() {
     }
 
     try {
-      await contextUpdateUserProfile(changedValues);
+      await updateUserProfile(changedValues); // Use updateUserProfile from useAuth
       toast({
         title: "Το προφίλ ενημερώθηκε",
         description: "Οι πληροφορίες του προφίλ σας ενημερώθηκαν επιτυχώς.",
@@ -278,3 +279,4 @@ export function ProfileForm() {
     </Card>
   );
 }
+
