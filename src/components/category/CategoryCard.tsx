@@ -5,25 +5,22 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-// Removed RenderFeatureIcon import
 
 interface CategoryCardProps {
   categorySlug: string;
   translatedCategoryName: string;
   description: string; // New prop for short description
-  // Removed iconName prop
 }
 
 export function CategoryCard({ categorySlug, translatedCategoryName, description }: CategoryCardProps) {
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
-      <CardHeader className="pb-3 pt-4">
-        <div className="flex items-center gap-3">
-          {/* Removed RenderFeatureIcon component usage */}
+      <CardHeader className="pb-3 pt-4 text-center"> {/* Added text-center here */}
+        <div className="flex flex-col items-center gap-3"> {/* Changed to flex-col and items-center for title */}
           <CardTitle className="text-lg font-semibold">{translatedCategoryName}</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow p-4 pt-0">
+      <CardContent className="flex-grow p-4 pt-0 text-center"> {/* Added text-center for description as well for consistency */}
         <CardDescription className="text-sm text-muted-foreground">
           {description}
         </CardDescription>
