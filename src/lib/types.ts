@@ -175,6 +175,7 @@ export interface Chat {
   lastMessageAt: string;   // ISO string for client (converted from Timestamp)
   lastMessageText: string;
   lastMessageSenderId?: string; // ID of the user who sent the last message
+  lastImageUrl?: string; // URL of the last image sent
   userUnreadCount: number;
   ownerUnreadCount: number;
   participantIds: string[]; 
@@ -186,9 +187,11 @@ export interface ChatMessage {
   senderId: string;    // userId or ownerId
   senderName: string;
   text: string;
+  imageUrl?: string; // Optional URL for an image
   createdAt: string;   // ISO string for client (converted from Timestamp)
 }
 
 export interface ChatMessageFormData {
   text: string;
+  imageFile?: File | null; // Optional file for image upload
 }

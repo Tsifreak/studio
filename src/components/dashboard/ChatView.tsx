@@ -11,26 +11,37 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Send, UserCircle, Store } from 'lucide-react';
+import { Send, UserCircle, Image as ImageIcon, XCircle } from 'lucide-react'; // Added ImageIcon, XCircle
 import { format } from 'date-fns';
 import { el } from 'date-fns/locale';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image'; // For displaying images
+import { useToast } from '@/hooks/use-toast';
+
 
 interface ChatViewProps {
   messages: ChatMessage[];
   currentUserId: string;
-  onSendMessage: (formData: ChatMessageFormData) => Promise<void>;
+  onSendMessage: (formData: { text: string; imageFile?: File | null }) => Promise<void>;
 }
 
+// Zod schema now only validates text for max length. Min length handled in onSubmit.
 const messageFormSchema = z.object({
-  text: z.string().min(1, { message: "Το μήνυμα δεν μπορεί να είναι κενό." }).max(1000, { message: "Το μήνυμα υπερβαίνει το όριο των 1000 χαρακτήρων." }),
+  text: z.string().max(1000, { message: "Το μήνυμα υπερβαίνει το όριο των 1000 χαρακτήρων." }),
 });
 
-export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewProps) {
-  const { user } = useAuth(); // To get current user's avatar if needed, or senderName consistency
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+type ClientMessageFormValues = z.infer<typeof messageFormSchema>;
 
-  const form = useForm<ChatMessageFormData>({
+
+export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewProps) {
+  const { user } = useAuth(); 
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const form = useForm<ClientMessageFormValues>({ // Changed to ClientMessageFormValues
     resolver: zodResolver(messageFormSchema),
     defaultValues: {
       text: '',
@@ -38,14 +49,49 @@ export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewPro
   });
   const {formState: {isSubmitting}} = form;
 
-  const onSubmit = async (data: ChatMessageFormData) => {
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "Σφάλμα Φόρτωσης Εικόνας",
+          description: "Το μέγεθος του αρχείου δεν πρέπει να υπερβαίνει τα 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // Reset file input
+    }
+  };
+
+  const onSubmit = async (data: ClientMessageFormValues) => {
+    if (!data.text && !selectedImage) {
+      form.setError("text", { type: "manual", message: "Πρέπει να εισάγετε ένα μήνυμα ή να επιλέξετε μια εικόνα." });
+      return;
+    }
     try {
-      await onSendMessage(data);
+      await onSendMessage({ text: data.text, imageFile: selectedImage });
       form.reset();
+      removeSelectedImage();
     } catch (error) {
-      // Error handling is typically done in the parent component that calls onSendMessage
       console.error("ChatView: Failed to send message", error);
-      // form.setError("text", { type: "server", message: "Failed to send."}) // Optionally set error on form
+       toast({
+        title: "Αποτυχία Αποστολής",
+        description: "Δεν ήταν δυνατή η αποστολή του μηνύματος. Προσπαθήστε ξανά.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -71,10 +117,6 @@ export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewPro
         )}
         {messages.map((msg) => {
           const isCurrentUserSender = msg.senderId === currentUserId;
-          // This part needs context of who the "other" user is. For now, assume senderName is sufficient.
-          // We might need to pass otherParticipant's avatar/name if we want to show it per message.
-          // However, typically avatars are only shown for the *other* person's messages.
-
           return (
             <div
               key={msg.id}
@@ -82,28 +124,37 @@ export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewPro
             >
               {!isCurrentUserSender && (
                 <Avatar className="h-8 w-8 border self-start">
-                  {/* Simplified: Assume if not current user, it's the "other" person. Avatar logic might need more context if group chat. */}
-                  {/* For now, let's assume senderName is enough to find avatar if we enhance this. */}
                    <AvatarFallback>
-                    {/* Heuristic: if sender is not current user, and current user is a customer, sender must be store. And vice-versa. */}
-                    {/* This is a bit simplistic and might need refinement if chatDetails were passed down. */}
-                    {user && user.id !== msg.senderId ? ( // Message from the other person
+                    {user && user.id !== msg.senderId ? ( 
                          msg.senderName.charAt(0).toUpperCase()
                     ) : (
-                        <UserCircle className="h-5 w-5" /> // Fallback if senderName is not clear for avatar
+                        <UserCircle className="h-5 w-5" /> 
                     )}
                   </AvatarFallback>
                 </Avatar>
               )}
               <div
-                className={`max-w-[70%] p-3 rounded-lg shadow ${
+                className={`max-w-[70%] p-1 rounded-lg shadow ${
                   isCurrentUserSender
                     ? 'bg-primary text-primary-foreground rounded-br-none'
                     : 'bg-muted text-foreground rounded-bl-none'
                 }`}
               >
-                <p className="text-sm whitespace-pre-line">{msg.text}</p>
-                <p className={`text-xs mt-1 ${isCurrentUserSender ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground/80 text-left'}`}>
+                {msg.imageUrl && (
+                  <div className="m-2 rounded-md overflow-hidden">
+                    <Image 
+                        src={msg.imageUrl} 
+                        alt="Συνημμένη εικόνα" 
+                        width={200} 
+                        height={200} 
+                        className="object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => window.open(msg.imageUrl, '_blank')}
+                        data-ai-hint="chat image"
+                    />
+                  </div>
+                )}
+                {msg.text && <p className="text-sm whitespace-pre-line px-2 py-1">{msg.text}</p>}
+                <p className={`text-xs mt-1 px-2 pb-1 ${isCurrentUserSender ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground/80 text-left'}`}>
                   {format(new Date(msg.createdAt), 'p, MMM d', { locale: el })}
                 </p>
               </div>
@@ -117,9 +168,41 @@ export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewPro
           );
         })}
       </ScrollArea>
+      {previewUrl && (
+        <div className="p-2 border-t bg-background relative">
+          <Image src={previewUrl} alt="Προεπισκόπηση εικόνας" width={80} height={80} className="rounded-md object-cover" data-ai-hint="image preview"/>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-0 right-0 text-muted-foreground hover:text-destructive"
+            onClick={removeSelectedImage}
+          >
+            <XCircle className="h-5 w-5" />
+            <span className="sr-only">Κατάργηση εικόνας</span>
+          </Button>
+        </div>
+      )}
       <div className="p-4 border-t bg-background">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSubmitting}
+            >
+              <ImageIcon className="h-5 w-5" />
+              <span className="sr-only">Επισύναψη εικόνας</span>
+            </Button>
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={fileInputRef} 
+              onChange={handleImageChange} 
+              className="hidden" 
+              disabled={isSubmitting}
+            />
             <FormField
               control={form.control}
               name="text"
@@ -131,13 +214,14 @@ export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewPro
                       autoComplete="off"
                       {...field}
                       className="h-10"
+                      disabled={isSubmitting}
                     />
                   </FormControl>
                   <FormMessage className="text-xs px-1" />
                 </FormItem>
               )}
             />
-            <Button type="submit" size="icon" disabled={isSubmitting || !form.formState.isValid}>
+            <Button type="submit" size="icon" disabled={isSubmitting || (!form.getValues("text") && !selectedImage) }>
               <Send className="h-5 w-5" />
               <span className="sr-only">Αποστολή</span>
             </Button>
@@ -148,7 +232,6 @@ export function ChatView({ messages, currentUserId, onSendMessage }: ChatViewPro
   );
 }
 
-// Helper icon if needed, not used by default now in ChatView to avoid clutter.
 const MessageSquareOff = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"

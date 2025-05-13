@@ -1,5 +1,5 @@
 
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase'; // Import storage
 import {
   collection,
   query,
@@ -19,7 +19,8 @@ import {
   QuerySnapshot,
   DocumentData,
 } from 'firebase/firestore';
-import type { Chat, ChatMessage } from '@/lib/types';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Firebase Storage imports
+import type { Chat, ChatMessage, ChatMessageFormData } from '@/lib/types';
 
 const CHATS_COLLECTION = 'chats';
 const MESSAGES_SUBCOLLECTION = 'messages';
@@ -39,6 +40,7 @@ const mapDocToChat = (docSnapshot: DocumentData): Chat => {
     lastMessageAt: (data.lastMessageAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
     lastMessageText: data.lastMessageText,
     lastMessageSenderId: data.lastMessageSenderId,
+    lastImageUrl: data.lastImageUrl,
     userUnreadCount: data.userUnreadCount || 0,
     ownerUnreadCount: data.ownerUnreadCount || 0,
     participantIds: data.participantIds || [],
@@ -54,6 +56,7 @@ const mapDocToChatMessage = (docSnapshot: DocumentData): ChatMessage => {
     senderId: data.senderId,
     senderName: data.senderName,
     text: data.text,
+    imageUrl: data.imageUrl, // Add imageUrl
     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
   };
 };
@@ -109,17 +112,34 @@ export const sendMessage = async (
   senderId: string,
   senderName: string,
   text: string,
-  recipientId: string // The ID of the user who is NOT sending the message
+  recipientId: string, // The ID of the user who is NOT sending the message
+  imageFile?: File | null // Optional image file
 ): Promise<ChatMessage> => {
   const batch = writeBatch(db);
   const chatRef = doc(db, CHATS_COLLECTION, chatId);
   const messagesColRef = collection(chatRef, MESSAGES_SUBCOLLECTION);
   const newMessageRef = doc(messagesColRef); // Auto-generate ID
 
-  const newMessageData = {
+  let imageUrl: string | undefined = undefined;
+
+  if (imageFile) {
+    try {
+      const imageStoragePath = `chats/${chatId}/images/${Date.now()}-${imageFile.name}`;
+      const imageSisyphusRef = storageRef(storage, imageStoragePath); // Corrected variable name
+      await uploadBytes(imageSisyphusRef, imageFile);
+      imageUrl = await getDownloadURL(imageSisyphusRef);
+    } catch (error) {
+      console.error("Error uploading image to Firebase Storage:", error);
+      // Decide if you want to throw or send message without image
+      // For now, we'll send without image if upload fails
+    }
+  }
+
+  const newMessageData: Omit<ChatMessage, 'id' | 'createdAt'> & { createdAt: any } = {
     senderId,
     senderName,
-    text,
+    text: text || "", // Ensure text is not undefined
+    ...(imageUrl && { imageUrl }),
     createdAt: serverTimestamp(), // Use serverTimestamp for consistency
   };
   batch.set(newMessageRef, newMessageData);
@@ -132,10 +152,15 @@ export const sendMessage = async (
 
 
   const updateData: Partial<Record<keyof Chat, any>> = {
-    lastMessageText: text.substring(0, 100),
+    lastMessageText: text ? text.substring(0, 100) : (imageUrl ? "Εικόνα" : ""),
     lastMessageAt: serverTimestamp(),
     lastMessageSenderId: senderId,
+    ...(imageUrl && { lastImageUrl: imageUrl }), // Update lastImageUrl if an image was sent
   };
+  if (!imageUrl && updateData.hasOwnProperty('lastImageUrl')) { // Clear lastImageUrl if no image sent
+    updateData.lastImageUrl = null;
+  }
+
 
   // Increment unread count for the recipient
   if (senderId === chatData.userId) { // Message from user to owner
@@ -150,14 +175,12 @@ export const sendMessage = async (
 
   try {
     await batch.commit();
-    // For returning the created message, we need to fetch it or construct it
-    // Since serverTimestamp is used, we'll construct with current client time for immediate UI update
-    // A more robust way would be to fetch the message after commit if exact server time is critical client-side immediately.
     return {
         id: newMessageRef.id,
         senderId,
         senderName,
-        text,
+        text: text || "",
+        ...(imageUrl && { imageUrl }),
         createdAt: new Date().toISOString(), // Approximate, actual will be server time
     };
   } catch (error) {
@@ -236,6 +259,7 @@ export async function submitMessageToChat(
       lastMessageText: fullMessageText.substring(0, 100),
       lastMessageAt: serverTimestamp(),
       lastMessageSenderId: userId,
+      lastImageUrl: null, // Initial contact form message doesn't include an image
       ownerUnreadCount: (existingChatData.ownerUnreadCount || 0) + 1,
       userUnreadCount: 0, // User sending the message has read it
     });
@@ -253,6 +277,7 @@ export async function submitMessageToChat(
       lastMessageText: fullMessageText.substring(0, 100),
       lastMessageAt: serverTimestamp(),
       lastMessageSenderId: userId,
+      lastImageUrl: null, // No image for initial contact
       userUnreadCount: 0,
       ownerUnreadCount: 1,
       participantIds: [userId, storeOwnerId].sort(),
