@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,14 +16,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Store, StoreFormData, SerializedStore } from "@/lib/types"; 
+import type { SerializedStore } from '@/lib/types'; 
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useActionState } from "react"; 
 
 interface StoreFormProps {
-  store?: SerializedStore; // Changed from Store to SerializedStore
-  action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: Store }>;
+  store?: SerializedStore;
+  action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }>; // Changed Store to SerializedStore here
 }
 
 // Client-side schema without category
@@ -42,7 +41,13 @@ const clientStoreFormSchema = z.object({
 
 type ClientStoreFormValues = z.infer<typeof clientStoreFormSchema>;
 
-const initialFormState = { success: false, message: "", errors: null, store: undefined };
+const initialFormState: { success: boolean; message: string; errors?: any; store?: SerializedStore } = { 
+  success: false, 
+  message: "", 
+  errors: null, 
+  store: undefined 
+};
+
 
 export function StoreForm({ store, action }: StoreFormProps) {
   const { toast } = useToast();

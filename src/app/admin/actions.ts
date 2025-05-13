@@ -3,8 +3,33 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { addStoreToMockData, deleteStoreFromMockData, getStoreById, updateStoreCategoryInMockData, updateStoreInMockData } from '@/lib/placeholder-data';
-import type { Store, StoreCategory, StoreFormData } from '@/lib/types';
+import type { Store, StoreCategory, StoreFormData, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
 import { StoreCategories } from '@/lib/types';
+
+// Helper function to convert Store to SerializedStore
+function serializeStore(store: Store): SerializedStore {
+  return {
+    ...store,
+    features: store.features.map((feature: Feature): SerializedFeature => {
+      const originalIcon = feature.icon;
+      let iconName: string | undefined = undefined;
+
+      if (typeof originalIcon === 'string') {
+        iconName = originalIcon;
+      } else if (typeof originalIcon === 'function') {
+        // Attempt to get displayName (common for React components), then name, then fallback
+        iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'UnknownIcon'; // Match logic in EditStorePage/StoreDetailPage
+      }
+      return {
+        id: feature.id,
+        name: feature.name,
+        description: feature.description,
+        icon: iconName,
+      };
+    }),
+  };
+}
+
 
 // Zod schema for store creation and update (without category)
 const storeFormSchema = z.object({
@@ -13,7 +38,6 @@ const storeFormSchema = z.object({
   bannerUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το banner." }).optional().or(z.literal('')),
   description: z.string().min(10, { message: "Η περιγραφή πρέπει να έχει τουλάχιστον 10 χαρακτήρες." }),
   longDescription: z.string().optional(),
-  // category: z.enum(StoreCategories, { errorMap: () => ({ message: "Παρακαλώ επιλέξτε μια έγκυρη κατηγορία."}) }), // Category removed from form schema
   tagsInput: z.string().optional(),
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
@@ -21,14 +45,13 @@ const storeFormSchema = z.object({
 });
 
 
-export async function addStoreAction(prevState: any, formData: FormData) {
+export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
   const validatedFields = storeFormSchema.safeParse({
     name: formData.get('name'),
     logoUrl: formData.get('logoUrl'),
     bannerUrl: formData.get('bannerUrl'),
     description: formData.get('description'),
     longDescription: formData.get('longDescription'),
-    // category: formData.get('category'), // Category removed
     tagsInput: formData.get('tagsInput'),
     contactEmail: formData.get('contactEmail'),
     websiteUrl: formData.get('websiteUrl'),
@@ -44,22 +67,22 @@ export async function addStoreAction(prevState: any, formData: FormData) {
   }
 
   try {
-    const storeData = validatedFields.data as Omit<StoreFormData, 'category'>; // Category removed from type
-    // Category will be set to a default by addStoreToMockData
-    const newStore = addStoreToMockData(storeData); 
+    const storeData = validatedFields.data as Omit<StoreFormData, 'category'>;
+    const newRawStore = addStoreToMockData(storeData); 
+    const newSerializedStore = serializeStore(newRawStore);
     
     revalidatePath('/admin/stores');
     revalidatePath('/');
-    revalidatePath(`/stores/${newStore.id}`);
+    revalidatePath(`/stores/${newSerializedStore.id}`);
 
-    return { success: true, message: `Το κέντρο "${newStore.name}" προστέθηκε επιτυχώς.`, store: newStore };
+    return { success: true, message: `Το κέντρο "${newSerializedStore.name}" προστέθηκε επιτυχώς.`, store: newSerializedStore };
   } catch (error) {
     console.error("Error adding store:", error);
     return { success: false, message: "Αποτυχία προσθήκης κέντρου. Παρακαλώ δοκιμάστε ξανά." };
   }
 }
 
-export async function updateStoreAction(storeId: string, prevState: any, formData: FormData) {
+export async function updateStoreAction(storeId: string, prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
   const existingStore = getStoreById(storeId);
   if (!existingStore) {
     return { success: false, message: "Το κέντρο δεν βρέθηκε." };
@@ -71,7 +94,6 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     bannerUrl: formData.get('bannerUrl'),
     description: formData.get('description'),
     longDescription: formData.get('longDescription'),
-    // category: formData.get('category'), // Category removed
     tagsInput: formData.get('tagsInput'),
     contactEmail: formData.get('contactEmail'),
     websiteUrl: formData.get('websiteUrl'),
@@ -87,19 +109,19 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   }
   
   try {
-    // Category is not updated here, only other fields
     const storeData = validatedFields.data as Partial<Omit<StoreFormData, 'category'>>;
-    const updatedStore = updateStoreInMockData(storeId, storeData);
+    const updatedRawStore = updateStoreInMockData(storeId, storeData);
 
-    if (!updatedStore) {
+    if (!updatedRawStore) {
       return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Το κέντρο δεν βρέθηκε." };
     }
+    const updatedSerializedStore = serializeStore(updatedRawStore);
     
     revalidatePath('/admin/stores');
     revalidatePath('/');
     revalidatePath(`/stores/${storeId}`);
 
-    return { success: true, message: `Το κέντρο "${updatedStore.name}" ενημερώθηκε επιτυχώς (εκτός κατηγορίας).`, store: updatedStore };
+    return { success: true, message: `Το κέντρο "${updatedSerializedStore.name}" ενημερώθηκε επιτυχώς (εκτός κατηγορίας).`, store: updatedSerializedStore };
   } catch (error) {
     console.error("Error updating store:", error);
     return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά." };
@@ -122,7 +144,6 @@ export async function deleteStoreAction(storeId: string): Promise<{ success: boo
   }
 }
 
-// New action to update only the store category
 const categoryUpdateSchema = z.object({
   category: z.enum(StoreCategories, { errorMap: () => ({ message: "Παρακαλώ επιλέξτε μια έγκυρη κατηγορία."}) }),
 });
@@ -130,7 +151,7 @@ const categoryUpdateSchema = z.object({
 export async function updateStoreCategoryAction(
   storeId: string, 
   newCategory: StoreCategory
-): Promise<{ success: boolean; message: string; store?: Store }> {
+): Promise<{ success: boolean; message: string; store?: SerializedStore }> {
   const validatedCategory = categoryUpdateSchema.safeParse({ category: newCategory });
 
   if(!validatedCategory.success) {
@@ -141,16 +162,17 @@ export async function updateStoreCategoryAction(
   }
 
   try {
-    const updatedStore = updateStoreCategoryInMockData(storeId, validatedCategory.data.category);
-    if (!updatedStore) {
+    const updatedRawStore = updateStoreCategoryInMockData(storeId, validatedCategory.data.category);
+    if (!updatedRawStore) {
       return { success: false, message: "Αποτυχία ενημέρωσης κατηγορίας. Το κέντρο δεν βρέθηκε." };
     }
+    const updatedSerializedStore = serializeStore(updatedRawStore);
     
     revalidatePath('/admin/stores');
     revalidatePath('/');
     revalidatePath(`/stores/${storeId}`);
 
-    return { success: true, message: `Η κατηγορία του κέντρου "${updatedStore.name}" ενημερώθηκε επιτυχώς.`, store: updatedStore };
+    return { success: true, message: `Η κατηγορία του κέντρου "${updatedSerializedStore.name}" ενημερώθηκε επιτυχώς.`, store: updatedSerializedStore };
   } catch (error) {
     console.error("Error updating store category:", error);
     return { success: false, message: "Αποτυχία ενημέρωσης κατηγορίας. Παρακαλώ δοκιμάστε ξανά." };
