@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'; // Import usePathname
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -33,13 +33,14 @@ export default function AdminStoresPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const pathname = usePathname(); // Get current pathname
 
   useEffect(() => {
     setIsLoading(true);
     const fetchedStores = getAllStores();
     setStores(fetchedStores);
     setIsLoading(false);
-  }, []);
+  }, [pathname]); // Add pathname as a dependency
 
   const handleDelete = async () => {
     if (!storeToDelete) return;
@@ -80,7 +81,6 @@ export default function AdminStoresPage() {
                 description: result.message,
                 variant: "destructive",
             });
-            // Optionally revert local state if needed, or re-fetch
         }
     });
   };

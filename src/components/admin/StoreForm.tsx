@@ -23,7 +23,7 @@ import { useEffect, useActionState } from "react";
 
 interface StoreFormProps {
   store?: SerializedStore;
-  action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }>; // Changed Store to SerializedStore here
+  action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }>;
 }
 
 // Client-side schema without category
@@ -87,11 +87,15 @@ export function StoreForm({ store, action }: StoreFormProps) {
         title: store ? "Επιτυχής Ενημέρωση" : "Επιτυχής Προσθήκη",
         description: formState.message,
       });
-      if (formState.store) {
-         router.push('/admin/stores'); 
-      } else {
+      
+      // Navigate first, then refresh the new page.
+      if (store) { // If editing, go back to admin stores list
+        router.push('/admin/stores');
+      } else { // If adding, also go to admin stores list
         router.push('/admin/stores');
       }
+      router.refresh(); // This should refresh /admin/stores
+
     } else if (formState.message && !formState.success && formState.errors) {
        toast({
         title: "Σφάλμα Φόρμας",

@@ -1,13 +1,12 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { StoreCard } from '@/components/store/StoreCard';
 import { StoreFilters } from '@/components/store/StoreFilters';
 import { getAllStores } from '@/lib/placeholder-data';
-import type { Store, StoreCategory } from '@/lib/types';
-// import { StoreCategories } from '@/lib/types'; // Already imported in StoreFilters
+import type { Store } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePathname } from 'next/navigation'; // Import usePathname
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,6 +14,7 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' or a StoreCategory
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const pathname = usePathname(); // Get current pathname
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,7 +25,7 @@ export default function HomePage() {
       setIsLoading(false);
     };
     fetchData();
-  }, []);
+  }, [pathname]); // Add pathname as a dependency
 
   const filteredAndSortedStores = useMemo(() => {
     let processedStores = [...stores];
@@ -116,4 +116,3 @@ export default function HomePage() {
     </div>
   );
 }
-
