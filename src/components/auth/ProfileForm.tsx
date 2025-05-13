@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,14 +17,14 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-// import type { UserProfile } from "@/lib/types"; // Not strictly needed here now
-// import { updateUserProfile as serverUpdateUserProfile } from "@/app/auth/actions"; // Server action no longer used
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
-import { useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { UploadCloud, X } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Το όνομα πρέπει να περιέχει τουλάχιστον 2 χαρακτήρες." }),
   email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
+  // avatarUrl is kept in schema for form reset/initial display but not as a direct input field for URL anymore
   avatarUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για τη φωτογραφία προφίλ σας." }).optional().or(z.literal('')),
   preferences: z.object({
     darkMode: z.boolean().optional(),
@@ -36,18 +35,21 @@ const formSchema = z.object({
 type ProfileFormValues = z.infer<typeof formSchema>;
 
 export function ProfileForm() {
-  const { user, updateUserProfile: contextUpdateUserProfile, isLoading } = useAuth();
+  const { user, updateUserProfile, isLoading } = useAuth();
   const { toast } = useToast();
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
-      avatarUrl: "", // Initialize with an empty string
+      avatarUrl: "", 
       preferences: {
         darkMode: false,
-        notifications: true, // Default to true as in AuthContext
+        notifications: true,
       },
     },
   });
@@ -63,25 +65,55 @@ export function ProfileForm() {
           notifications: user.preferences?.notifications === undefined ? true : user.preferences.notifications,
         },
       });
+      setAvatarPreview(null); // Clear preview when user data changes/resets
+      setSelectedAvatarFile(null);
     }
   }, [user, form.reset]);
 
-
   const {formState: {isSubmitting, dirtyFields}} = form;
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "Σφάλμα Φόρτωσης Εικόνας",
+          description: "Το μέγεθος του αρχείου δεν πρέπει να υπερβαίνει τα 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+      form.setValue('avatarUrl', URL.createObjectURL(file), { shouldDirty: true }); // Mark form as dirty
+    }
+  };
+
+  const clearAvatarSelection = () => {
+    setSelectedAvatarFile(null);
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    // Reset avatarUrl field to original user avatarUrl or empty if none
+    form.setValue('avatarUrl', user?.avatarUrl || "", { shouldDirty: true });
+  };
 
   async function onSubmit(values: ProfileFormValues) {
     if (!user) return;
 
-    // Only include fields that have actually changed to send for update
-    const changedValues: { name?: string; avatarUrl?: string; preferences?: ProfileFormValues['preferences'] } = {};
+    const changedValues: { name?: string; preferences?: ProfileFormValues['preferences']; avatarFile?: File | null } = {};
+    
     if (dirtyFields.name) changedValues.name = values.name;
-    if (dirtyFields.avatarUrl || (dirtyFields.avatarUrl === undefined && values.avatarUrl === "")) { // handle case where avatarUrl becomes empty string
-      changedValues.avatarUrl = values.avatarUrl;
-    }
     if (dirtyFields.preferences) changedValues.preferences = values.preferences;
+    if (selectedAvatarFile) changedValues.avatarFile = selectedAvatarFile;
 
-
-    if (Object.keys(changedValues).length === 0) {
+    // Check if there are any actual changes including file selection
+    const hasFormChanges = dirtyFields.name || dirtyFields.preferences;
+    if (!hasFormChanges && !selectedAvatarFile) {
         toast({
           title: "Καμία Αλλαγή",
           description: "Δεν έχετε κάνει αλλαγές στο προφίλ σας.",
@@ -95,7 +127,8 @@ export function ProfileForm() {
         title: "Το προφίλ ενημερώθηκε",
         description: "Οι πληροφορίες του προφίλ σας ενημερώθηκαν επιτυχώς.",
       });
-      form.reset(values); // Reset form with new values to clear dirty state
+      setSelectedAvatarFile(null); // Clear selected file after successful upload
+      // form.reset will be called by useEffect due to user state change
     } catch (error: any) {
       toast({
         title: "Η ενημέρωση απέτυχε",
@@ -138,24 +171,34 @@ export function ProfileForm() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="flex items-center space-x-4 mb-6">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={form.watch("avatarUrl") || ""} alt={user.name || "User"} data-ai-hint="avatar"/>
-                <AvatarFallback>{user.name?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+            <div className="flex flex-col items-center space-y-4 mb-6">
+              <Avatar className="h-32 w-32 border-2 border-primary shadow-md">
+                <AvatarImage 
+                  src={avatarPreview || user.avatarUrl || ""} 
+                  alt={user.name || "User"} 
+                  data-ai-hint="avatar"
+                />
+                <AvatarFallback className="text-4xl">{user.name?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
               </Avatar>
-              <FormField
-                control={form.control}
-                name="avatarUrl"
-                render={({ field }) => (
-                  <FormItem className="flex-grow">
-                    <FormLabel>URL Φωτογραφίας Προφίλ</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/avatar.png" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleAvatarChange} 
+                ref={fileInputRef} 
+                className="hidden" 
+                id="avatarUpload"
               />
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
+                  <UploadCloud className="mr-2 h-4 w-4" /> Αλλαγή Φωτογραφίας
+                </Button>
+                {avatarPreview && (
+                  <Button type="button" variant="ghost" size="icon" onClick={clearAvatarSelection} title="Αφαίρεση επιλεγμένης εικόνας" disabled={isSubmitting}>
+                    <X className="h-5 w-5 text-destructive" />
+                  </Button>
+                )}
+              </div>
+              {form.formState.errors.avatarUrl && <FormMessage>{form.formState.errors.avatarUrl.message}</FormMessage>}
             </div>
 
             <FormField
@@ -226,7 +269,7 @@ export function ProfileForm() {
               />
             </div>
 
-            <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || !form.formState.isDirty}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || (!form.formState.isDirty && !selectedAvatarFile) }>
               {isSubmitting ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}
             </Button>
           </form>
@@ -235,4 +278,3 @@ export function ProfileForm() {
     </Card>
   );
 }
-

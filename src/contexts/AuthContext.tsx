@@ -1,8 +1,7 @@
-
 "use client";
 
 import type { UserProfile } from '@/lib/types';
-import { auth } from '@/lib/firebase';
+import { auth, storage } from '@/lib/firebase'; // Import storage
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -12,9 +11,10 @@ import {
   sendPasswordResetEmail,
   type User as FirebaseUser 
 } from 'firebase/auth';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Firebase Storage imports
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
-import { ADMIN_EMAIL } from '@/lib/constants'; // Import admin email
+import { ADMIN_EMAIL } from '@/lib/constants';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -22,21 +22,24 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   signup: (name: string, email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUserProfile: (updatedProfileData: { name?: string; avatarUrl?: string; preferences?: UserProfile['preferences'] }) => Promise<void>;
+  updateUserProfile: (updatedProfileData: { 
+    name?: string; 
+    avatarFile?: File | null; // Changed from avatarUrl to avatarFile
+    preferences?: UserProfile['preferences']; 
+  }) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to map Firebase User to our UserProfile type
 const mapFirebaseUserToUserProfile = (firebaseUser: FirebaseUser, currentPreferences?: UserProfile['preferences']): UserProfile => {
   return {
     id: firebaseUser.uid,
     name: firebaseUser.displayName || 'User',
     email: firebaseUser.email || '',
     avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
-    isAdmin: firebaseUser.email === ADMIN_EMAIL, // Set isAdmin based on email
-    preferences: currentPreferences || { darkMode: false, notifications: true }, // Preserve or default preferences
+    isAdmin: firebaseUser.email === ADMIN_EMAIL,
+    preferences: currentPreferences || { darkMode: false, notifications: true },
   };
 };
 
@@ -78,6 +81,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         displayName: name,
         photoURL: `https://picsum.photos/seed/${userCredential.user.uid}/100/100` 
       });
+      // After signup, the onAuthStateChanged listener will update the user state
     } catch (error) {
       console.error("Firebase signup error:", error);
       throw error;
@@ -93,30 +97,44 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }
   }, []);
   
-  const updateUserProfile = useCallback(async (updatedProfileData: { name?: string; avatarUrl?: string; preferences?: UserProfile['preferences'] }) => {
-    if (!auth.currentUser) {
+  const updateUserProfile = useCallback(async (updatedProfileData: { 
+    name?: string; 
+    avatarFile?: File | null; 
+    preferences?: UserProfile['preferences'] 
+  }) => {
+    const currentUserAuth = auth.currentUser;
+    if (!currentUserAuth) {
       throw new Error("No user logged in to update profile.");
     }
-    try {
-      const { name, avatarUrl, preferences } = updatedProfileData;
-      const profileUpdates: { displayName?: string; photoURL?: string } = {};
-      if (name) profileUpdates.displayName = name;
-      if (avatarUrl) profileUpdates.avatarUrl = avatarUrl; // Corrected to use avatarUrl
 
-      if (Object.keys(profileUpdates).length > 0) {
-        await firebaseUpdateProfile(auth.currentUser, profileUpdates);
+    try {
+      const { name, avatarFile, preferences } = updatedProfileData;
+      const profileUpdatesForFirebaseAuth: { displayName?: string; photoURL?: string } = {};
+      let newAvatarUrl: string | undefined = undefined;
+
+      if (avatarFile) {
+        const imagePath = `avatars/${currentUserAuth.uid}/${Date.now()}_${avatarFile.name}`;
+        const fileStorageRef = storageRef(storage, imagePath);
+        const uploadResult = await uploadBytes(fileStorageRef, avatarFile);
+        newAvatarUrl = await getDownloadURL(uploadResult.ref);
+        profileUpdatesForFirebaseAuth.photoURL = newAvatarUrl;
+      }
+
+      if (name) profileUpdatesForFirebaseAuth.displayName = name;
+      
+      if (Object.keys(profileUpdatesForFirebaseAuth).length > 0) {
+        await firebaseUpdateProfile(currentUserAuth, profileUpdatesForFirebaseAuth);
       }
       
-      setUser(currentUser => {
-        if (!currentUser) return null;
-        // Ensure isAdmin status is preserved during profile updates
-        const isAdmin = currentUser.isAdmin; 
+      // Update local user state
+      setUser(currentUserState => {
+        if (!currentUserState) return null;
         return {
-          ...currentUser,
-          ...(name && { name: name }), 
-          ...(avatarUrl && { avatarUrl: avatarUrl }), 
+          ...currentUserState,
+          ...(name && { name: name }),
+          ...(newAvatarUrl && { avatarUrl: newAvatarUrl }),
           ...(preferences && { preferences: preferences }),
-          isAdmin, // Preserve admin status
+          isAdmin: currentUserAuth.email === ADMIN_EMAIL, // Ensure isAdmin status is preserved
         };
       });
 
