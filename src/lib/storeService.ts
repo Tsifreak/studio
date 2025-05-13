@@ -15,7 +15,7 @@ import {
 import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan } from '@/lib/types';
 import { StoreCategories } from './types';
 
-const STORE_COLLECTION = 'storeinfo';
+const STORE_COLLECTION = 'StoreInfo'; // Changed from 'storeinfo' to 'StoreInfo'
 
 // Helper to convert Firestore Timestamps to ISO strings for dates in nested objects
 const convertTimestampsInReviews = (reviews: any[]): Review[] => {
@@ -110,8 +110,8 @@ const defaultProducts: Product[] = [
 
 
 export const addStoreToDB = async (storeData: Omit<StoreFormData, 'category'>): Promise<Store> => {
-  const newStorePayload: Omit<Store, 'id' | 'category' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & {
-    category: StoreCategory;
+  const newStorePayload: Omit<Store, 'id' | 'rating' | 'reviews' | 'pricingPlans' | 'features' | 'products'> & {
+    category: StoreCategory; // Explicitly include category for new store
     rating: number;
     reviews: Review[];
     pricingPlans: PricingPlan[];
@@ -127,10 +127,10 @@ export const addStoreToDB = async (storeData: Omit<StoreFormData, 'category'>): 
     contactEmail: storeData.contactEmail,
     websiteUrl: storeData.websiteUrl,
     address: storeData.address,
-    category: StoreCategories[0], // Default category
-    rating: 0,
-    reviews: [],
-    pricingPlans: [],
+    category: StoreCategories[0], // Default category for a new store
+    rating: 0, // Default rating
+    reviews: [], // Default empty reviews
+    pricingPlans: [], // Default empty pricing plans
     features: defaultSerializedFeatures, // Use serialized default features
     products: defaultProducts, // Use default products
     tags: storeData.tagsInput ? storeData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
