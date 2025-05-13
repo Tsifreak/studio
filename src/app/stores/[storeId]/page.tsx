@@ -13,6 +13,7 @@ import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
 import { submitStoreQuery } from './actions'; 
 import { TranslatedStoreCategories, StoreCategories } from '@/lib/types';
+import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 
 export async function generateMetadata({ params }: { params: { storeId: string } }) {
   const store = getStoreById(params.storeId);
@@ -26,27 +27,49 @@ export async function generateMetadata({ params }: { params: { storeId: string }
 }
 
 export default function StoreDetailPage({ params }: { params: { storeId: string } }) {
-  const store = getStoreById(params.storeId);
+  const storeData = getStoreById(params.storeId);
 
-  if (!store) {
+  if (!storeData) {
     notFound();
   }
 
-  const averageRating = store.reviews.length > 0 
-    ? store.reviews.reduce((acc, review) => acc + review.rating, 0) / store.reviews.length
-    : store.rating; 
+  // Serialize features: convert icon components to string names
+  const serializableStore = {
+    ...storeData,
+    features: storeData.features.map(feature => {
+      let iconRepresentation: string | undefined = undefined;
+      if (feature.icon) {
+        if (typeof feature.icon === 'function') {
+          // Attempt to get a name from the component.
+          // For Lucide icons, displayName or name should be available.
+          iconRepresentation = (feature.icon as any).displayName || (feature.icon as Function).name || 'UnknownIcon';
+        } else if (typeof feature.icon === 'string') {
+          iconRepresentation = feature.icon; // Already a string
+        }
+      }
+      return {
+        ...feature,
+        icon: iconRepresentation, // icon is now a string name or undefined
+      };
+    }),
+  };
 
-  const categoryIndex = store.category ? StoreCategories.indexOf(store.category) : -1;
-  const translatedCategory = categoryIndex !== -1 ? TranslatedStoreCategories[categoryIndex] : store.category;
+
+  const averageRating = serializableStore.reviews.length > 0 
+    ? serializableStore.reviews.reduce((acc, review) => acc + review.rating, 0) / serializableStore.reviews.length
+    : serializableStore.rating; 
+
+  const categoryIndex = serializableStore.category ? StoreCategories.indexOf(serializableStore.category) : -1;
+  const translatedCategory = categoryIndex !== -1 ? TranslatedStoreCategories[categoryIndex] : serializableStore.category;
 
   return (
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl">
-        {store.bannerUrl && (
+        {serializableStore.bannerUrl && (
           <div className="relative h-48 md:h-64 w-full">
             <Image
-              src={store.bannerUrl}
-              alt={`${store.name} banner`}
+              src={serializableStore.bannerUrl}
+              alt={`${serializableStore.name} banner`}
               fill={true}
               style={{objectFit:"cover"}}
               data-ai-hint="store banner"
@@ -57,34 +80,34 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         )}
         <CardHeader className="p-6 relative mt-[-48px] sm:mt-[-64px] z-10 flex flex-col sm:flex-row items-start sm:items-end gap-4">
           <Image
-            src={store.logoUrl}
-            alt={`${store.name} logo`}
+            src={serializableStore.logoUrl}
+            alt={`${serializableStore.name} logo`}
             width={128}
             height={128}
             className="rounded-full border-4 border-background shadow-lg bg-background"
             data-ai-hint="logo"
           />
           <div className="flex-1 pt-4 sm:pt-0">
-            <CardTitle className="text-3xl md:text-4xl font-bold text-foreground">{store.name}</CardTitle>
-            <CardDescription className="text-md text-muted-foreground mt-1">{store.description}</CardDescription>
+            <CardTitle className="text-3xl md:text-4xl font-bold text-foreground">{serializableStore.name}</CardTitle>
+            <CardDescription className="text-md text-muted-foreground mt-1">{serializableStore.description}</CardDescription>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               {averageRating > 0 && (
                 <span className="flex items-center">
-                  <Star className="w-5 h-5 mr-1 fill-yellow-400 text-yellow-400" /> {averageRating.toFixed(1)} ({store.reviews.length} κριτικές)
+                  <Star className="w-5 h-5 mr-1 fill-yellow-400 text-yellow-400" /> {averageRating.toFixed(1)} ({serializableStore.reviews.length} κριτικές)
                 </span>
               )}
-              {store.category && (
+              {serializableStore.category && (
                 <span className="flex items-center">
                   <ShoppingBag className="w-4 h-4 mr-1 text-primary" /> {translatedCategory}
                 </span>
               )}
-              {store.address && (
+              {serializableStore.address && (
                 <span className="flex items-center">
-                  <MapPin className="w-4 h-4 mr-1 text-primary" /> {store.address}
+                  <MapPin className="w-4 h-4 mr-1 text-primary" /> {serializableStore.address}
                 </span>
               )}
-              {store.websiteUrl && (
-                <a href={store.websiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-primary transition-colors">
+              {serializableStore.websiteUrl && (
+                <a href={serializableStore.websiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-primary transition-colors">
                   <Globe className="w-4 h-4 mr-1" /> Επισκεφθείτε την Ιστοσελίδα
                 </a>
               )}
@@ -96,24 +119,24 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6">
           <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
-          <TabsTrigger value="products">Υπηρεσίες ({store.products.length})</TabsTrigger>
+          <TabsTrigger value="products">Υπηρεσίες ({serializableStore.products.length})</TabsTrigger>
           <TabsTrigger value="pricing">Πακέτα Τιμολόγησης</TabsTrigger>
-          <TabsTrigger value="reviews">Κριτικές ({store.reviews.length})</TabsTrigger>
+          <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews.length})</TabsTrigger>
           <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Σχετικά με το {store.name}</CardTitle>
+              <CardTitle>Σχετικά με το {serializableStore.name}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground whitespace-pre-line">{store.longDescription || store.description}</p>
-              {store.tags && store.tags.length > 0 && (
+              <p className="text-muted-foreground whitespace-pre-line">{serializableStore.longDescription || serializableStore.description}</p>
+              {serializableStore.tags && serializableStore.tags.length > 0 && (
                  <div className="mt-4">
                     <h3 className="text-sm font-semibold mb-2 text-foreground">Ετικέτες:</h3>
                     <div className="flex flex-wrap gap-2">
-                    {store.tags.map(tag => (
+                    {serializableStore.tags.map(tag => (
                         <span key={tag} className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-full">
                         {tag}
                         </span>
@@ -123,18 +146,15 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
               )}
             </CardContent>
           </Card>
-          {store.features && store.features.length > 0 && (
+          {serializableStore.features && serializableStore.features.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Βασικά Χαρακτηριστικά</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {store.features.map(feature => (
+                {serializableStore.features.map(feature => (
                   <div key={feature.id} className="flex items-start gap-3 p-3 bg-secondary/50 rounded-lg">
-                    {feature.icon && typeof feature.icon !== 'string' ? 
-                      <feature.icon className="w-6 h-6 text-primary mt-1 shrink-0" /> : 
-                      <CheckCircle2 className="w-6 h-6 text-primary mt-1 shrink-0" /> 
-                    }
+                    <RenderFeatureIcon iconName={feature.icon as string | undefined} className="w-6 h-6 text-primary mt-1 shrink-0" />
                     <div>
                       <h4 className="font-semibold text-foreground">{feature.name}</h4>
                       {feature.description && <p className="text-xs text-muted-foreground">{feature.description}</p>}
@@ -150,12 +170,12 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
           <Card>
             <CardHeader>
               <CardTitle>Οι Υπηρεσίες μας</CardTitle>
-              <CardDescription>Περιηγηθείτε στις επιλογές που προσφέρει το {store.name}.</CardDescription>
+              <CardDescription>Περιηγηθείτε στις επιλογές που προσφέρει το {serializableStore.name}.</CardDescription>
             </CardHeader>
             <CardContent>
-              {store.products.length > 0 ? (
+              {serializableStore.products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {store.products.map(product => (
+                  {serializableStore.products.map(product => (
                     <ProductListItem key={product.id} product={product} />
                   ))}
                 </div>
@@ -170,12 +190,12 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
            <Card>
             <CardHeader>
               <CardTitle>Πακέτα Τιμολόγησης</CardTitle>
-              <CardDescription>Βρείτε ένα πακέτο που ταιριάζει στις ανάγκες σας από το {store.name}.</CardDescription>
+              <CardDescription>Βρείτε ένα πακέτο που ταιριάζει στις ανάγκες σας από το {serializableStore.name}.</CardDescription>
             </CardHeader>
             <CardContent>
-              {store.pricingPlans && store.pricingPlans.length > 0 ? (
+              {serializableStore.pricingPlans && serializableStore.pricingPlans.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {store.pricingPlans.map(plan => (
+                  {serializableStore.pricingPlans.map(plan => (
                     <PricingCard key={plan.id} plan={plan} />
                   ))}
                 </div>
@@ -190,12 +210,12 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
           <Card>
             <CardHeader>
               <CardTitle>Κριτικές Πελατών</CardTitle>
-              <CardDescription>Δείτε τι λένε οι άλλοι για το {store.name}.</CardDescription>
+              <CardDescription>Δείτε τι λένε οι άλλοι για το {serializableStore.name}.</CardDescription>
             </CardHeader>
             <CardContent>
-              {store.reviews && store.reviews.length > 0 ? (
+              {serializableStore.reviews && serializableStore.reviews.length > 0 ? (
                 <div className="space-y-0"> 
-                  {store.reviews.map(review => (
+                  {serializableStore.reviews.map(review => (
                     <ReviewItem key={review.id} review={review} />
                   ))}
                 </div>
@@ -209,11 +229,11 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         <TabsContent value="contact">
           <Card>
             <CardHeader>
-              <CardTitle>Επικοινωνήστε με το {store.name}</CardTitle>
-              <CardDescription>Έχετε κάποια ερώτηση ή συγκεκριμένο αίτημα; Στείλτε τους απευθείας μήνυμα.</CardDescription>
+              <CardTitle>Επικοινωνήστε με το {serializableStore.name}</CardTitle>
+              <CardDescription>Έχετε κάποια ερώτηση ή συγκεκριμένο αίτημα? Στείλτε τους απευθείας μήνυμα.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ContactForm storeId={store.id} onSubmitAction={submitStoreQuery} />
+              <ContactForm storeId={serializableStore.id} onSubmitAction={submitStoreQuery} />
             </CardContent>
           </Card>
         </TabsContent>
