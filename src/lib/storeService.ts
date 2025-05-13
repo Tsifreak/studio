@@ -13,7 +13,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan } from '@/lib/types';
-import { StoreCategories } from './types';
+import { AppCategories } from './types'; // Use AppCategories to get the default category slug
 
 const STORE_COLLECTION = 'StoreInfo'; 
 
@@ -57,7 +57,7 @@ const mapDocToStore = (docSnapshot: any): Store => {
     description: data.description || '',
     longDescription: data.longDescription,
     rating: data.rating || 0,
-    category: data.category || StoreCategories[0], // Default category if not set
+    category: data.category || AppCategories[0].slug, // Default category if not set, using slug
     tags: data.tags || [],
     features: data.features || [], 
     reviews: data.reviews ? convertTimestampsInReviews(data.reviews) : [],
@@ -96,6 +96,9 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
 
 // addStoreToDB now takes StoreFormData as its main data argument
 export async function addStoreToDB(data: StoreFormData): Promise<Store> {
+  // Ensure a default category is set if not provided, use the slug from AppCategories
+  const defaultCategorySlug = AppCategories.length > 0 ? AppCategories[0].slug : "mechanic"; // Fallback if AppCategories is empty
+
   const storeData: Omit<Store, 'id'> = { // Omit id initially as Firestore generates it
     name: data.name,
     logoUrl: data.logoUrl,
@@ -103,7 +106,7 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
     description: data.description,
     longDescription: data.longDescription || "",
     rating: 0,
-    category: "Technician" as StoreCategory, // default, ensure type assertion
+    category: defaultCategorySlug as StoreCategory, // default, ensure type assertion
     tags: data.tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
     contactEmail: data.contactEmail || "",
     websiteUrl: data.websiteUrl || "",
@@ -129,8 +132,6 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
 export const updateStoreInDB = async (storeId: string, updatedData: Partial<StoreFormData>): Promise<Store | undefined> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   
-  // Create an update payload for Firestore
-  // This explicitly maps fields from StoreFormData to what Firestore expects in the Store document
   const firestoreUpdatePayload: { [key: string]: any } = {};
 
   if (updatedData.name !== undefined) firestoreUpdatePayload.name = updatedData.name;
@@ -147,7 +148,6 @@ export const updateStoreInDB = async (storeId: string, updatedData: Partial<Stor
   }
   
   if (Object.keys(firestoreUpdatePayload).length === 0) {
-    // No actual data to update, just fetch and return existing store
     const existingDoc = await getDoc(storeRef);
     return existingDoc.exists() ? mapDocToStore(existingDoc) : undefined;
   }
@@ -190,30 +190,3 @@ export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
     return false;
   }
 };
-
-// Example of how to seed data (call once manually if needed via an admin utility or script)
-// async function seedDatabase() {
-//   const stores = await getAllStoresFromDB();
-//   if (stores.length === 0) { // Only seed if DB is empty
-//     const sampleStoreData: StoreFormData = {
-//       name: "Παράδειγμα Κέντρου Επισκευής",
-//       logoUrl: "https://picsum.photos/seed/sample_logo/100/100",
-//       bannerUrl: "https://picsum.photos/seed/sample_banner/800/300",
-//       description: "Ένα πλήρως εξοπλισμένο κέντρο επισκευής για όλες τις ανάγκες του αυτοκινήτου σας.",
-//       longDescription: "Προσφέρουμε μια ευρεία γκάμα υπηρεσιών, από απλές αλλαγές λαδιών μέχρι σύνθετες επισκευές κινητήρα. Η ομάδα μας αποτελείται από έμπειρους και πιστοποιημένους τεχνικούς.",
-//       tagsInput: "επισκευές,συντήρηση,λάδια,φρένα",
-//       contactEmail: "contact@samplegarage.com",
-//       websiteUrl: "https://www.samplegarage.com",
-//       address: "Οδός Παραδείγματος 1, 12345 Αθήνα"
-//     };
-//     try {
-//       await addStoreToDB(sampleStoreData);
-//       console.log("Sample store seeded successfully.");
-//     } catch (error) {
-//       console.error("Error seeding sample store:", error);
-//     }
-//   } else {
-//     console.log("Database already contains stores. Seeding skipped.");
-//   }
-// }
-// seedDatabase(); // Don't call this automatically in production code

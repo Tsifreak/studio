@@ -2,11 +2,9 @@
 "use client";
 
 import React from 'react';
-import { StoreCategories, TranslatedStoreCategories } from '@/lib/types';
+import { AppCategories } from '@/lib/types'; // Import the new AppCategories
 import { CategoryCard } from '@/components/category/CategoryCard';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+// Removed unused imports: Button, Link, ArrowLeft
 
 export default function HomePage() {
   return (
@@ -22,13 +20,15 @@ export default function HomePage() {
 
       <div className="mb-8 p-6 bg-card rounded-lg shadow">
         <h2 className="text-2xl font-semibold text-center mb-6 text-primary">Εξερεύνηση Κατηγοριών</h2>
-        {StoreCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {StoreCategories.map((categorySlug, index) => (
+        {AppCategories.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6"> {/* Adjusted lg:grid-cols-3 for 7 categories */}
+            {AppCategories.map((category) => (
               <CategoryCard
-                key={categorySlug}
-                categorySlug={categorySlug}
-                translatedCategoryName={TranslatedStoreCategories[index]}
+                key={category.slug}
+                categorySlug={category.slug}
+                translatedCategoryName={category.translatedName}
+                description={category.description} // Pass the description
+                iconName={category.icon} // Pass the icon name
               />
             ))}
           </div>
@@ -41,9 +41,6 @@ export default function HomePage() {
           </div>
         )}
       </div>
-       {/* Removed StoreFilters as they are not relevant for category selection view */}
-       {/* Removed store listing logic as per new requirement */}
     </div>
   );
 }
-

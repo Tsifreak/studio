@@ -5,7 +5,7 @@ import {
     CheckCircle2, Zap, Award, Users, BarChart3, ShieldCheck, 
     MessageSquare, Car, Paintbrush, Search, Wrench, Settings2, 
     Sparkles, PackageCheck, Scale, ShieldAlert, Combine, AlignCenter, 
-    ClipboardCheck, Package 
+    ClipboardCheck, Package, Disc, Gauge // Added Disc, Gauge
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -31,11 +31,10 @@ const iconMap: { [key: string]: ComponentType<LucideProps> } = {
   ShieldAlert,
   Combine,
   Package,
+  Disc, // Added Disc
+  Gauge, // Added Gauge
   CheckCircle2, // Default/fallback
-  UnknownIcon: CheckCircle2, // Fallback for unknown strings derived from components
-  // Lucide icon components typically have a displayName property that matches their import name
-  // e.g., Award.displayName is 'Award'
-  // If (feature.icon as Function).name is used, it might also be 'Award'
+  UnknownIcon: CheckCircle2, 
 };
 
 interface RenderFeatureIconProps {

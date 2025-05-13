@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Edit3, Trash2, Eye, ShieldAlert, Home } from 'lucide-react';
-import { getAllStoresFromDB } from '@/lib/storeService'; // Changed import
+import { getAllStoresFromDB } from '@/lib/storeService'; 
 import type { Store, StoreCategory } from '@/lib/types';
-import { StoreCategories, TranslatedStoreCategories } from '@/lib/types';
+import { AppCategories } from '@/lib/types'; // Import AppCategories
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +40,7 @@ export default function AdminStoresPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedStores = await getAllStoresFromDB(); // Use direct DB fetch
+      const fetchedStores = await getAllStoresFromDB(); 
       setStores(fetchedStores);
     } catch (err) {
       console.error("Failed to fetch stores for admin:", err);
@@ -64,7 +64,6 @@ export default function AdminStoresPage() {
               title: "Επιτυχής Διαγραφή",
               description: result.message,
           });
-          // Refetch stores to update the list from DB
           await fetchStores();
         } else {
           toast({
@@ -77,15 +76,14 @@ export default function AdminStoresPage() {
     });
   };
 
-  const handleCategoryChange = async (storeId: string, newCategory: StoreCategory) => {
+  const handleCategoryChange = async (storeId: string, newCategorySlug: StoreCategory) => {
     startTransition(async () => {
-        const result = await updateStoreCategoryAction(storeId, newCategory);
+        const result = await updateStoreCategoryAction(storeId, newCategorySlug);
         if (result.success && result.store) {
             toast({
                 title: "Επιτυχής Ενημέρωση Κατηγορίας",
                 description: result.message,
             });
-            // Refetch stores to update the list from DB
             await fetchStores();
         } else {
             toast({
@@ -93,7 +91,6 @@ export default function AdminStoresPage() {
                 description: result.message || "Άγνωστο σφάλμα.",
                 variant: "destructive",
             });
-             // Optionally, refetch even on error to ensure UI consistency if backend state changed partially
             await fetchStores();
         }
     });
@@ -191,16 +188,16 @@ export default function AdminStoresPage() {
                     <TableCell>
                       <Select
                         value={store.category}
-                        onValueChange={(newCategory) => handleCategoryChange(store.id, newCategory as StoreCategory)}
+                        onValueChange={(newCategorySlug) => handleCategoryChange(store.id, newCategorySlug as StoreCategory)}
                         disabled={isPending}
                       >
                         <SelectTrigger className="w-full h-9">
                           <SelectValue placeholder="Επιλέξτε κατηγορία" />
                         </SelectTrigger>
                         <SelectContent>
-                          {StoreCategories.map((cat, index) => (
-                            <SelectItem key={cat} value={cat}>
-                              {TranslatedStoreCategories[index]}
+                          {AppCategories.map((catInfo) => (
+                            <SelectItem key={catInfo.slug} value={catInfo.slug}>
+                              {catInfo.translatedName}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -1,23 +1,21 @@
 
-import { getStoreByIdFromDB } from '@/lib/storeService'; // Changed import
-import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review } from '@/lib/types'; // Added ProductType and Review
+import { getStoreByIdFromDB } from '@/lib/storeService'; 
+import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review } from '@/lib/types'; 
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Star, MapPin, Globe, ShoppingBag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
-// import { ReviewItem } from '@/components/store/ReviewItem'; // Commented out as per new requirement
 import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
 import { submitStoreQuery } from './actions'; 
-import { TranslatedStoreCategories, StoreCategories } from '@/lib/types';
+import { AppCategories } from '@/lib/types'; // Use AppCategories
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import type { Metadata } from 'next';
 
-// generateMetadata now needs to be async as getStoreByIdFromDB fetches from DB
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
-  const store = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
+  const store = await getStoreByIdFromDB(params.storeId); 
   if (!store) {
     return { title: 'Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε | Amaxakis' };
   }
@@ -27,25 +25,21 @@ export async function generateMetadata({ params }: { params: { storeId: string }
   };
 }
 
-// The page component also needs to be async
 export default async function StoreDetailPage({ params }: { params: { storeId: string } }) {
-  const storeData = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
+  const storeData = await getStoreByIdFromDB(params.storeId); 
 
   if (!storeData) {
     notFound();
   }
 
-  // Assuming storeData.features from DB already contains icon names as strings.
-  // The SerializedStore type expects features to be SerializedFeature[]
   const serializableStore: SerializedStore = {
     ...storeData,
     features: storeData.features.map((feature: Feature): SerializedFeature => ({
       id: feature.id,
       name: feature.name,
       description: feature.description,
-      icon: typeof feature.icon === 'string' ? feature.icon : undefined, // Ensure icon is string for SerializedFeature
+      icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
     })),
-    // Ensure products array is handled, even if it's not explicitly in SerializedStore type definition (it's in Store)
     products: storeData.products || [],
   };
 
@@ -54,8 +48,8 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
     ? serializableStore.reviews.reduce((acc, review) => acc + review.rating, 0) / serializableStore.reviews.length
     : serializableStore.rating; 
 
-  const categoryIndex = serializableStore.category ? StoreCategories.indexOf(serializableStore.category) : -1;
-  const translatedCategory = categoryIndex !== -1 ? TranslatedStoreCategories[categoryIndex] : serializableStore.category;
+  const categoryInfo = AppCategories.find(cat => cat.slug === serializableStore.category);
+  const translatedCategory = categoryInfo ? categoryInfo.translatedName : serializableStore.category;
 
   return (
     <div className="space-y-8">
@@ -170,7 +164,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
             <CardContent>
               {serializableStore.products && serializableStore.products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {serializableStore.products.map((product: ProductType, index: number) => (
+                  {serializableStore.products.map((product: ProductType, index: number) => ( // Added index for key
                     <ProductListItem key={`${product.id}-${index}`} product={product} />
                   ))}
                 </div>
@@ -212,11 +206,20 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
                 <div className="space-y-4"> 
                   {serializableStore.reviews.map((review: Review) => (
                     <div key={review.id} className="p-4 border rounded-md bg-muted/50">
-                      <p className="font-semibold">{review.userName}</p>
+                      <div className="flex items-center mb-1">
+                        {review.userAvatarUrl && (
+                           <Image src={review.userAvatarUrl} alt={review.userName} width={32} height={32} className="rounded-full mr-3" data-ai-hint="avatar person" />
+                        )}
+                        <p className="font-semibold text-foreground">{review.userName}</p>
+                      </div>
+                      <div className="flex items-center my-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                        ))}
+                         <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
+                      </div>
                       <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
-                      <p className="text-xs text-amber-600">{review.rating} stars</p>
-                       {/* Optionally, add date if available and formatted */}
-                       {/* <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString()}</p> */}
+                       {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
                     </div>
                   ))}
                 </div>
