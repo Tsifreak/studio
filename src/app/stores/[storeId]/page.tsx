@@ -1,6 +1,6 @@
 
 import { getStoreById } from '@/lib/placeholder-data';
-import type { Store } from '@/lib/types';
+import type { Store, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Star, MapPin, Globe, ShoppingBag, Tag, MessageSquare, CheckCircle2, Users, DollarSign } from 'lucide-react';
@@ -33,23 +33,27 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
     notFound();
   }
 
-  // Serialize features: convert icon components to string names
-  const serializableStore = {
+  const serializableStore: SerializedStore = {
+    // Spread all properties from storeData first
     ...storeData,
-    features: storeData.features.map(feature => {
-      let iconRepresentation: string | undefined = undefined;
-      if (feature.icon) {
-        if (typeof feature.icon === 'function') {
-          // Attempt to get a name from the component.
-          // For Lucide icons, displayName or name should be available.
-          iconRepresentation = (feature.icon as any).displayName || (feature.icon as Function).name || 'UnknownIcon';
-        } else if (typeof feature.icon === 'string') {
-          iconRepresentation = feature.icon; // Already a string
-        }
+     // Then explicitly map features to SerializedFeature
+    features: storeData.features.map((feature: Feature): SerializedFeature => {
+      const originalIcon = feature.icon;
+      let iconName: string | undefined = undefined;
+
+      if (typeof originalIcon === 'string') {
+        iconName = originalIcon;
+      } else if (typeof originalIcon === 'function') {
+         // Attempt to get displayName (common for React components), then name, then fallback
+        iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'UnknownIcon';
       }
+      // If originalIcon was undefined or not a string/function that yielded a name, iconName remains undefined.
+
       return {
-        ...feature,
-        icon: iconRepresentation, // icon is now a string name or undefined
+        id: feature.id,
+        name: feature.name,
+        description: feature.description,
+        icon: iconName, // This will be string | undefined
       };
     }),
   };
@@ -154,7 +158,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
               <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {serializableStore.features.map(feature => (
                   <div key={feature.id} className="flex items-start gap-3 p-3 bg-secondary/50 rounded-lg">
-                    <RenderFeatureIcon iconName={feature.icon as string | undefined} className="w-6 h-6 text-primary mt-1 shrink-0" />
+                    <RenderFeatureIcon iconName={feature.icon} className="w-6 h-6 text-primary mt-1 shrink-0" />
                     <div>
                       <h4 className="font-semibold text-foreground">{feature.name}</h4>
                       {feature.description && <p className="text-xs text-muted-foreground">{feature.description}</p>}
@@ -241,4 +245,3 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
     </div>
   );
 }
-

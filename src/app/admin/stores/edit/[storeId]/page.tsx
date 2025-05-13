@@ -7,7 +7,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import type { Store, Feature } from '@/lib/types';
+import type { Store, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
 
 interface EditStorePageProps {
   params: { storeId: string };
@@ -31,25 +31,27 @@ export default function EditStorePage({ params }: EditStorePageProps) {
     notFound(); 
   }
   
-  // Create a serializable version of the store for the form
-  // by converting icon components in features to string representations.
-  const storeForForm: Store = {
+  const storeForForm: SerializedStore = {
+    // Spread all properties from storeData first
     ...storeData,
-    features: storeData.features.map(feature => {
-      let iconRepresentation: string | undefined = undefined;
-      if (typeof feature.icon === 'function') {
-        // Attempt to get a name from the component.
-        // For Lucide icons, displayName is typically available.
-        iconRepresentation = (feature.icon as any).displayName || (feature.icon as Function).name || 'LucideIconComponent';
-      } else if (typeof feature.icon === 'string') {
-        iconRepresentation = feature.icon;
+    // Then explicitly map features to SerializedFeature
+    features: storeData.features.map((feature: Feature): SerializedFeature => {
+      const originalIcon = feature.icon;
+      let iconName: string | undefined = undefined;
+
+      if (typeof originalIcon === 'string') {
+        iconName = originalIcon;
+      } else if (typeof originalIcon === 'function') {
+        // Attempt to get displayName (common for React components), then name, then fallback
+        iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'LucideIconComponent';
       }
-      // If feature.icon is neither a function nor a string (e.g. undefined, or an object that's not a component),
-      // iconRepresentation will remain undefined or be set to the string if it was a string.
-      // This ensures that what's passed is either a string or undefined.
+      // If originalIcon was undefined or not a string/function that yielded a name, iconName remains undefined.
+      
       return {
-        ...feature, // Spread all other properties of feature
-        icon: iconRepresentation, // Override icon with its string representation or undefined
+        id: feature.id,
+        name: feature.name,
+        description: feature.description,
+        icon: iconName, // This will be string | undefined
       };
     }),
   };
@@ -72,4 +74,3 @@ export default function EditStorePage({ params }: EditStorePageProps) {
     </div>
   );
 }
-
