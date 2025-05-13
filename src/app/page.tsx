@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StoreCard } from '@/components/store/StoreCard';
 import { StoreFilters } from '@/components/store/StoreFilters';
-import { getAllStores } from '@/lib/placeholder-data'; // This now fetches from DB
+import { getAllStoresFromDB } from '@/lib/storeService'; // Changed import
 import type { Store } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 // No longer need usePathname specifically for re-fetching on navigation,
@@ -23,7 +23,7 @@ export default function HomePage() {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedStores = await getAllStores();
+        const fetchedStores = await getAllStoresFromDB(); // Use direct DB fetch
         setStores(fetchedStores);
       } catch (err) {
         console.error("Failed to fetch stores:", err);

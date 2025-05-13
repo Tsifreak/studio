@@ -1,7 +1,7 @@
 
 import { StoreForm } from '@/components/admin/StoreForm';
 import { updateStoreAction } from '../../../actions';
-import { getStoreById } from '@/lib/placeholder-data'; // This now fetches from DB
+import { getStoreByIdFromDB } from '@/lib/storeService'; // Changed import
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -13,9 +13,9 @@ interface EditStorePageProps {
   params: { storeId: string };
 }
 
-// generateMetadata now needs to be async as getStoreById fetches from DB
+// generateMetadata now needs to be async as getStoreByIdFromDB fetches from DB
 export async function generateMetadata({ params }: EditStorePageProps): Promise<Metadata> {
-  const store = await getStoreById(params.storeId);
+  const store = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
   if (!store) {
     return { title: 'Κέντρο Δεν Βρέθηκε | Amaxakis Admin' };
   }
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: EditStorePageProps): Promise<
 
 // The page component also needs to be async
 export default async function EditStorePage({ params }: EditStorePageProps) {
-  const storeData = await getStoreById(params.storeId);
+  const storeData = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
 
   if (!storeData) {
     notFound(); 
@@ -37,7 +37,7 @@ export default async function EditStorePage({ params }: EditStorePageProps) {
   // The SerializedStore type expects features to be SerializedFeature[]
   const storeForForm: SerializedStore = {
     ...storeData,
-    features: storeData.features.map((feature: Feature): SerializedFeature => {
+    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => { // Accept Feature or SerializedFeature
       const iconName = typeof feature.icon === 'string' ? feature.icon : undefined;
       return {
         id: feature.id,

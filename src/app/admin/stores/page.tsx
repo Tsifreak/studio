@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Edit3, Trash2, Eye, ShieldAlert, Home } from 'lucide-react';
-import { getAllStores } from '@/lib/placeholder-data'; // This now fetches from DB
+import { getAllStoresFromDB } from '@/lib/storeService'; // Changed import
 import type { Store, StoreCategory } from '@/lib/types';
 import { StoreCategories, TranslatedStoreCategories } from '@/lib/types';
 import {
@@ -40,7 +40,7 @@ export default function AdminStoresPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedStores = await getAllStores();
+      const fetchedStores = await getAllStoresFromDB(); // Use direct DB fetch
       setStores(fetchedStores);
     } catch (err) {
       console.error("Failed to fetch stores for admin:", err);

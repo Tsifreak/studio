@@ -1,5 +1,5 @@
 
-import { getStoreById } from '@/lib/placeholder-data'; // This now fetches from DB
+import { getStoreByIdFromDB } from '@/lib/storeService'; // Changed import
 import type { Store, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
@@ -15,9 +15,9 @@ import { TranslatedStoreCategories, StoreCategories } from '@/lib/types';
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import type { Metadata } from 'next';
 
-// generateMetadata now needs to be async as getStoreById fetches from DB
+// generateMetadata now needs to be async as getStoreByIdFromDB fetches from DB
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
-  const store = await getStoreById(params.storeId);
+  const store = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
   if (!store) {
     return { title: 'Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε | Amaxakis' };
   }
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: { params: { storeId: string }
 
 // The page component also needs to be async
 export default async function StoreDetailPage({ params }: { params: { storeId: string } }) {
-  const storeData = await getStoreById(params.storeId);
+  const storeData = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
 
   if (!storeData) {
     notFound();
