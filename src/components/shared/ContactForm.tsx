@@ -18,8 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { QueryFormData } from "@/lib/types";
 import { Send } from "lucide-react"; 
+import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 
-// Define the server action prop type
 interface ContactFormProps {
   storeId: string;
   onSubmitAction: (data: QueryFormData) => Promise<{ success: boolean; message: string }>;
@@ -36,11 +36,13 @@ type ContactFormValues = z.infer<typeof formSchema>;
 
 export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth(); // Get current user
+
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      email: "",
+      name: user?.name || "", // Pre-fill name if user is logged in
+      email: user?.email || "", // Pre-fill email if user is logged in
       subject: "",
       message: "",
     },
@@ -50,16 +52,20 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
 
   async function onSubmit(values: ContactFormValues) {
     try {
-      const queryData: QueryFormData = { ...values, storeId };
-      // Call the server action passed as a prop
+      const queryData: QueryFormData = { 
+        ...values, 
+        storeId,
+        ...(user && { userId: user.id }) // Include userId if user is logged in
+      };
+      
       const result = await onSubmitAction(queryData);
 
       if (result.success) {
         toast({
           title: "Το μήνυμα εστάλη!",
-          description: result.message || "Το μήνυμά σας εστάλη επιτυχώς στο κατάστημα.",
+          description: result.message || "Το μήνυμά σας εστάλη επιτυχώς.",
         });
-        form.reset();
+        form.reset( user ? {name: user.name || "", email: user.email || "", subject: "", message: ""} : { name: "", email: "", subject: "", message: ""});
       } else {
         toast({
           title: "Σφάλμα αποστολής μηνύματος",
@@ -147,4 +153,3 @@ export function ContactForm({ storeId, onSubmitAction }: ContactFormProps) {
     </Form>
   );
 }
-

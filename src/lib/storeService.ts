@@ -14,11 +14,10 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan } from '@/lib/types';
-import { AppCategories } from './types'; // Use AppCategories to get the default category slug
+import { AppCategories } from './types'; 
 
 const STORE_COLLECTION = 'StoreInfo'; 
 
-// Helper to convert Firestore Timestamps to ISO strings for dates in nested objects
 const convertTimestampsInReviews = (reviews: any[]): Review[] => {
   return reviews.map(review => ({
     ...review,
@@ -26,7 +25,6 @@ const convertTimestampsInReviews = (reviews: any[]): Review[] => {
   }));
 };
 
-// Helper to serialize feature icons before saving to Firestore
 const serializeFeaturesForDB = (features: Feature[]): SerializedFeature[] => {
   return features.map((feature: Feature): SerializedFeature => {
     const originalIcon = feature.icon;
@@ -35,14 +33,13 @@ const serializeFeaturesForDB = (features: Feature[]): SerializedFeature[] => {
     if (typeof originalIcon === 'string') {
       iconName = originalIcon;
     } else if (originalIcon && typeof originalIcon === 'function') {
-      // Attempt to get name from component, fallback if needed
       iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'UnknownIcon';
     }
     return {
       id: feature.id,
       name: feature.name,
       description: feature.description,
-      icon: iconName, // This will be string or undefined
+      icon: iconName, 
     };
   });
 };
@@ -58,7 +55,7 @@ const mapDocToStore = (docSnapshot: any): Store => {
     description: data.description || '',
     longDescription: data.longDescription,
     rating: data.rating || 0,
-    category: data.category || AppCategories[0].slug, // Default category if not set, using slug
+    category: data.category || AppCategories[0].slug, 
     tags: data.tags || [],
     features: data.features || [], 
     reviews: data.reviews ? convertTimestampsInReviews(data.reviews) : [],
@@ -67,6 +64,7 @@ const mapDocToStore = (docSnapshot: any): Store => {
     contactEmail: data.contactEmail,
     websiteUrl: data.websiteUrl,
     address: data.address,
+    ownerId: data.ownerId, // Include ownerId
   };
   return store;
 };
@@ -95,15 +93,13 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
   }
 };
 
-// addStoreToDB now takes StoreFormData as its main data argument
 export async function addStoreToDB(data: StoreFormData): Promise<Store> {
-  // Ensure a default category is set if not provided, use the slug from AppCategories
   const defaultCategorySlug = AppCategories.length > 0 ? AppCategories[0].slug : "mechanic"; 
 
   const storeDataForDB: Omit<Store, 'id'> = { 
     name: data.name,
     logoUrl: data.logoUrl,
-    bannerUrl: data.bannerUrl || "https://picsum.photos/seed/default_banner/800/300", // Provide a default
+    bannerUrl: data.bannerUrl || "https://picsum.photos/seed/default_banner/800/300", 
     description: data.description,
     longDescription: data.longDescription || "",
     rating: 0, 
@@ -112,11 +108,11 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
     contactEmail: data.contactEmail || "",
     websiteUrl: data.websiteUrl || "",
     address: data.address || "",
-    // Default empty arrays for complex fields, can be populated later via admin
     features: [], 
     pricingPlans: [], 
     reviews: [], 
-    products: [] 
+    products: [],
+    ownerId: undefined, // Initialize ownerId as undefined
   };
 
   try {
@@ -128,13 +124,12 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
   }
 }
 
-
-// updateStoreInDB now takes Partial<StoreFormData>
-export const updateStoreInDB = async (storeId: string, updatedData: Partial<StoreFormData>): Promise<Store | undefined> => {
+export const updateStoreInDB = async (storeId: string, updatedData: Partial<StoreFormData & { ownerId?: string }>): Promise<Store | undefined> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   
   const firestoreUpdatePayload: { [key: string]: any } = {};
 
+  // Fields from StoreFormData
   if (updatedData.name !== undefined) firestoreUpdatePayload.name = updatedData.name;
   if (updatedData.logoUrl !== undefined) firestoreUpdatePayload.logoUrl = updatedData.logoUrl;
   if (updatedData.bannerUrl !== undefined) firestoreUpdatePayload.bannerUrl = updatedData.bannerUrl;
@@ -148,6 +143,9 @@ export const updateStoreInDB = async (storeId: string, updatedData: Partial<Stor
     firestoreUpdatePayload.tags = updatedData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
   }
   
+  // Specific field for ownerId (if it's part of the update, not in StoreFormData)
+  if (updatedData.ownerId !== undefined) firestoreUpdatePayload.ownerId = updatedData.ownerId;
+
   if (Object.keys(firestoreUpdatePayload).length === 0) {
     const existingDoc = await getDoc(storeRef);
     return existingDoc.exists() ? mapDocToStore(existingDoc) : undefined;
@@ -195,12 +193,10 @@ export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
 export const addReviewToStoreInDB = async (storeId: string, newReview: Review): Promise<boolean> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   try {
-    // Atomically add a new review to the "reviews" array field.
     await updateDoc(storeRef, {
       reviews: arrayUnion(newReview)
     });
     
-    // Optional: Recalculate and update average store rating
     const storeSnap = await getDoc(storeRef);
     if (storeSnap.exists()) {
       const storeData = storeSnap.data();
