@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getAnalytics, isSupported as isAnalyticsSupported, type Analytics } from "firebase/analytics";
+import { getFirestore, type Firestore } from 'firebase/firestore';
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -39,4 +40,7 @@ if (typeof window !== 'undefined') {
 // Initialize Firebase Authentication and get a reference to the service
 const auth: Auth = getAuth(app);
 
-export { app, auth, analytics };
+// Initialize Cloud Firestore and get a reference to the service
+const db: Firestore = getFirestore(app);
+
+export { app, auth, analytics, db };

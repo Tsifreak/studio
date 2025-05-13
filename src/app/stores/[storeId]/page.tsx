@@ -1,12 +1,11 @@
 
-import { getStoreById } from '@/lib/placeholder-data';
+import { getStoreById } from '@/lib/placeholder-data'; // This now fetches from DB
 import type { Store, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag, Tag, MessageSquare, CheckCircle2, Users, DollarSign } from 'lucide-react';
+import { Star, MapPin, Globe, ShoppingBag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from '@/components/ui/separator';
 import { PricingCard } from '@/components/store/PricingCard';
 import { ReviewItem } from '@/components/store/ReviewItem';
 import { ProductListItem } from '@/components/store/ProductListItem';
@@ -14,9 +13,11 @@ import { ContactForm } from '@/components/shared/ContactForm';
 import { submitStoreQuery } from './actions'; 
 import { TranslatedStoreCategories, StoreCategories } from '@/lib/types';
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
+import type { Metadata } from 'next';
 
-export async function generateMetadata({ params }: { params: { storeId: string } }) {
-  const store = getStoreById(params.storeId);
+// generateMetadata now needs to be async as getStoreById fetches from DB
+export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
+  const store = await getStoreById(params.storeId);
   if (!store) {
     return { title: 'Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε | Amaxakis' };
   }
@@ -26,40 +27,28 @@ export async function generateMetadata({ params }: { params: { storeId: string }
   };
 }
 
-export default function StoreDetailPage({ params }: { params: { storeId: string } }) {
-  const storeData = getStoreById(params.storeId);
+// The page component also needs to be async
+export default async function StoreDetailPage({ params }: { params: { storeId: string } }) {
+  const storeData = await getStoreById(params.storeId);
 
   if (!storeData) {
     notFound();
   }
 
+  // Assuming storeData.features from DB already contains icon names as strings.
+  // The SerializedStore type expects features to be SerializedFeature[]
   const serializableStore: SerializedStore = {
-    // Spread all properties from storeData first
     ...storeData,
-     // Then explicitly map features to SerializedFeature
-    features: storeData.features.map((feature: Feature): SerializedFeature => {
-      const originalIcon = feature.icon;
-      let iconName: string | undefined = undefined;
-
-      if (typeof originalIcon === 'string') {
-        iconName = originalIcon;
-      } else if (typeof originalIcon === 'function') {
-         // Attempt to get displayName (common for React components), then name, then fallback
-        iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'UnknownIcon';
-      }
-      // If originalIcon was undefined or not a string/function that yielded a name, iconName remains undefined.
-
-      return {
-        id: feature.id,
-        name: feature.name,
-        description: feature.description,
-        icon: iconName, // This will be string | undefined
-      };
-    }),
+    features: storeData.features.map((feature: Feature): SerializedFeature => ({
+      id: feature.id,
+      name: feature.name,
+      description: feature.description,
+      icon: typeof feature.icon === 'string' ? feature.icon : undefined, // Ensure icon is string for SerializedFeature
+    })),
   };
 
 
-  const averageRating = serializableStore.reviews.length > 0 
+  const averageRating = serializableStore.reviews && serializableStore.reviews.length > 0 
     ? serializableStore.reviews.reduce((acc, review) => acc + review.rating, 0) / serializableStore.reviews.length
     : serializableStore.rating; 
 
@@ -97,7 +86,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               {averageRating > 0 && (
                 <span className="flex items-center">
-                  <Star className="w-5 h-5 mr-1 fill-yellow-400 text-yellow-400" /> {averageRating.toFixed(1)} ({serializableStore.reviews.length} κριτικές)
+                  <Star className="w-5 h-5 mr-1 fill-yellow-400 text-yellow-400" /> {averageRating.toFixed(1)} ({serializableStore.reviews?.length || 0} κριτικές)
                 </span>
               )}
               {serializableStore.category && (
@@ -123,9 +112,9 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6">
           <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
-          <TabsTrigger value="products">Υπηρεσίες ({serializableStore.products.length})</TabsTrigger>
+          <TabsTrigger value="products">Υπηρεσίες ({serializableStore.products?.length || 0})</TabsTrigger>
           <TabsTrigger value="pricing">Πακέτα Τιμολόγησης</TabsTrigger>
-          <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews.length})</TabsTrigger>
+          <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
           <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
         </TabsList>
 
@@ -177,7 +166,7 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
               <CardDescription>Περιηγηθείτε στις επιλογές που προσφέρει το {serializableStore.name}.</CardDescription>
             </CardHeader>
             <CardContent>
-              {serializableStore.products.length > 0 ? (
+              {serializableStore.products && serializableStore.products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {serializableStore.products.map(product => (
                     <ProductListItem key={product.id} product={product} />

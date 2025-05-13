@@ -1,32 +1,31 @@
+
 "use server";
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addStoreToMockData, deleteStoreFromMockData, getStoreById, updateStoreCategoryInMockData, updateStoreInMockData } from '@/lib/placeholder-data';
+import { 
+  addStoreToDB, 
+  deleteStoreFromDB, 
+  getStoreByIdFromDB, 
+  updateStoreCategoryInDB, 
+  updateStoreInDB 
+} from '@/lib/storeService'; // Import Firestore service functions
 import type { Store, StoreCategory, StoreFormData, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
 import { StoreCategories } from '@/lib/types';
 
-// Helper function to convert Store to SerializedStore
-function serializeStore(store: Store): SerializedStore {
+// Helper function to convert Store to SerializedStore for client components
+// (especially for features, as client might expect component icons if not careful)
+// However, since Firestore stores icon names, this might just pass through if Store from DB already has string icons.
+function serializeStoreForClient(store: Store): SerializedStore {
+   // Assuming store.features from DB are already SerializedFeature[] (icon is string)
   return {
     ...store,
-    features: store.features.map((feature: Feature): SerializedFeature => {
-      const originalIcon = feature.icon;
-      let iconName: string | undefined = undefined;
-
-      if (typeof originalIcon === 'string') {
-        iconName = originalIcon;
-      } else if (typeof originalIcon === 'function') {
-        // Attempt to get displayName (common for React components), then name, then fallback
-        iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'UnknownIcon'; // Match logic in EditStorePage/StoreDetailPage
-      }
-      return {
+    features: store.features.map((feature): SerializedFeature => ({ // Ensure it matches SerializedFeature structure
         id: feature.id,
         name: feature.name,
         description: feature.description,
-        icon: iconName,
-      };
-    }),
+        icon: typeof feature.icon === 'string' ? feature.icon : undefined, // Ensure icon is string or undefined
+    }))
   };
 }
 
@@ -67,9 +66,10 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
   }
 
   try {
-    const storeData = validatedFields.data as Omit<StoreFormData, 'category'>;
-    const newRawStore = addStoreToMockData(storeData); 
-    const newSerializedStore = serializeStore(newRawStore);
+    // This data is Omit<StoreFormData, 'category'>
+    const storeDataForDB = validatedFields.data as Omit<StoreFormData, 'category'>;
+    const newRawStore = await addStoreToDB(storeDataForDB); 
+    const newSerializedStore = serializeStoreForClient(newRawStore);
     
     revalidatePath('/admin/stores');
     revalidatePath('/');
@@ -83,7 +83,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 }
 
 export async function updateStoreAction(storeId: string, prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
-  const existingStore = getStoreById(storeId);
+  const existingStore = await getStoreByIdFromDB(storeId);
   if (!existingStore) {
     return { success: false, message: "Το κέντρο δεν βρέθηκε." };
   }
@@ -109,13 +109,13 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   }
   
   try {
-    const storeData = validatedFields.data as Partial<Omit<StoreFormData, 'category'>>;
-    const updatedRawStore = updateStoreInMockData(storeId, storeData);
+    const storeDataForUpdate = validatedFields.data as Partial<Omit<StoreFormData, 'category'>>;
+    const updatedRawStore = await updateStoreInDB(storeId, storeDataForUpdate);
 
     if (!updatedRawStore) {
       return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Το κέντρο δεν βρέθηκε." };
     }
-    const updatedSerializedStore = serializeStore(updatedRawStore);
+    const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
     
     revalidatePath('/admin/stores');
     revalidatePath('/');
@@ -130,7 +130,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
 
 export async function deleteStoreAction(storeId: string): Promise<{ success: boolean; message: string }> {
   try {
-    const success = deleteStoreFromMockData(storeId);
+    const success = await deleteStoreFromDB(storeId);
     if (success) {
       revalidatePath('/admin/stores');
       revalidatePath('/');
@@ -162,11 +162,11 @@ export async function updateStoreCategoryAction(
   }
 
   try {
-    const updatedRawStore = updateStoreCategoryInMockData(storeId, validatedCategory.data.category);
+    const updatedRawStore = await updateStoreCategoryInDB(storeId, validatedCategory.data.category);
     if (!updatedRawStore) {
       return { success: false, message: "Αποτυχία ενημέρωσης κατηγορίας. Το κέντρο δεν βρέθηκε." };
     }
-    const updatedSerializedStore = serializeStore(updatedRawStore);
+    const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
     
     revalidatePath('/admin/stores');
     revalidatePath('/');

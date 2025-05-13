@@ -1,13 +1,14 @@
+
 "use client"; 
 
 import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation'; // Import usePathname
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Edit3, Trash2, Eye, ShieldAlert, Home } from 'lucide-react';
-import { getAllStores } from '@/lib/placeholder-data';
+import { getAllStores } from '@/lib/placeholder-data'; // This now fetches from DB
 import type { Store, StoreCategory } from '@/lib/types';
 import { StoreCategories, TranslatedStoreCategories } from '@/lib/types';
 import {
@@ -29,18 +30,29 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function AdminStoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const pathname = usePathname(); // Get current pathname
+
+  const fetchStores = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedStores = await getAllStores();
+      setStores(fetchedStores);
+    } catch (err) {
+      console.error("Failed to fetch stores for admin:", err);
+      setError("Δεν ήταν δυνατή η φόρτωση των κέντρων. Παρακαλώ δοκιμάστε ξανά.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setIsLoading(true);
-    const fetchedStores = getAllStores();
-    setStores(fetchedStores);
-    setIsLoading(false);
-  }, [pathname]); // Add pathname as a dependency
+    fetchStores();
+  }, []);
 
   const handleDelete = async () => {
     if (!storeToDelete) return;
@@ -48,17 +60,18 @@ export default function AdminStoresPage() {
     startTransition(async () => {
         const result = await deleteStoreAction(storeToDelete.id);
         if (result.success) {
-        toast({
-            title: "Επιτυχής Διαγραφή",
-            description: result.message,
-        });
-        setStores(prevStores => prevStores.filter(s => s.id !== storeToDelete!.id));
+          toast({
+              title: "Επιτυχής Διαγραφή",
+              description: result.message,
+          });
+          // Refetch stores to update the list from DB
+          await fetchStores();
         } else {
-        toast({
-            title: "Σφάλμα Διαγραφής",
-            description: result.message,
-            variant: "destructive",
-        });
+          toast({
+              title: "Σφάλμα Διαγραφής",
+              description: result.message,
+              variant: "destructive",
+          });
         }
         setStoreToDelete(null);
     });
@@ -72,15 +85,16 @@ export default function AdminStoresPage() {
                 title: "Επιτυχής Ενημέρωση Κατηγορίας",
                 description: result.message,
             });
-            setStores(prevStores => 
-                prevStores.map(s => s.id === storeId ? { ...s, category: result.store!.category } : s)
-            );
+            // Refetch stores to update the list from DB
+            await fetchStores();
         } else {
             toast({
                 title: "Σφάλμα Ενημέρωσης Κατηγορίας",
-                description: result.message,
+                description: result.message || "Άγνωστο σφάλμα.",
                 variant: "destructive",
             });
+             // Optionally, refetch even on error to ensure UI consistency if backend state changed partially
+            await fetchStores();
         }
     });
   };
@@ -105,7 +119,7 @@ export default function AdminStoresPage() {
                         <div key={i} className="flex items-center justify-between p-2 border-b">
                             <Skeleton className="h-6 w-1/4" />
                             <Skeleton className="h-6 w-1/5" />
-                            <Skeleton className="h-6 w-1/4" /> {/* Placeholder for category select */}
+                            <Skeleton className="h-6 w-1/4" />
                             <div className="flex gap-2">
                                 <Skeleton className="h-8 w-8 rounded-md" />
                                 <Skeleton className="h-8 w-8 rounded-md" />
@@ -116,6 +130,19 @@ export default function AdminStoresPage() {
                 </div>
             </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6 text-center py-10">
+        <ShieldAlert className="mx-auto h-12 w-12 text-destructive" />
+        <h1 className="text-2xl font-bold text-destructive">Σφάλμα Φόρτωσης Δεδομένων</h1>
+        <p className="text-muted-foreground">{error}</p>
+        <Button onClick={fetchStores} disabled={isPending || isLoading}>
+          {isPending || isLoading ? "Επαναφόρτωση..." : "Προσπαθήστε Ξανά"}
+        </Button>
       </div>
     );
   }
@@ -212,7 +239,7 @@ export default function AdminStoresPage() {
                           </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isPending}>Άκυρο</AlertDialogCancel>
+                            <AlertDialogCancel onClick={() => setStoreToDelete(null)} disabled={isPending}>Άκυρο</AlertDialogCancel>
                             <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
                                 {isPending ? "Διαγραφή..." : "Διαγραφή"}
                             </AlertDialogAction>

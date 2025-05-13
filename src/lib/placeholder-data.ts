@@ -1,6 +1,10 @@
-import type { Store, UserProfile, Product, Review, PricingPlan, Feature, StoreCategory, StoreFormData } from './types';
+
+import type { Store, UserProfile, Product, Review, PricingPlan, Feature, StoreCategory, StoreFormData, SerializedFeature } from './types';
 import { StoreCategories, TranslatedStoreCategories } from './types';
-import { CheckCircle2, Zap, Award, Users, BarChart3, ShieldCheck, MessageSquare, Car, Paintbrush, Search, Wrench, Settings2, Sparkles, PackageCheck, Scale, ShieldAlert, Combine, AlignCenter, ClipboardCheck, Package } from 'lucide-react';
+// Import specific icons needed if commonFeatures still uses component types before serialization
+// For now, commonFeatures will store icon names directly if they are meant to be defaults for DB.
+// import { Award, ShieldCheck, Users, Search, Wrench, Paintbrush, Sparkles, Settings2, BarChart3, ClipboardCheck, Car, AlignCenter, PackageCheck } from 'lucide-react';
+import { getAllStoresFromDB, getStoreByIdFromDB } from './storeService'; // Import DB service functions
 
 export const mockUser: UserProfile = {
   id: 'user1',
@@ -13,312 +17,115 @@ export const mockUser: UserProfile = {
   },
 };
 
+// commonFeatures now stores icon names as strings for direct use with DB/RenderFeatureIcon
 const commonFeatures: Feature[] = [
-  { id: 'f1', name: 'Πιστοποιημένοι Τεχνικοί', icon: Award },
-  { id: 'f2', name: 'Εγγύηση σε Ανταλλακτικά & Εργασία', icon: ShieldCheck },
-  { id: 'f3', name: 'Χώρος Αναμονής Πελατών & WiFi', icon: Users },
+  { id: 'f1', name: 'Πιστοποιημένοι Τεχνικοί', icon: 'Award' },
+  { id: 'f2', name: 'Εγγύηση σε Ανταλλακτικά & Εργασία', icon: 'ShieldCheck' },
+  { id: 'f3', name: 'Χώρος Αναμονής Πελατών & WiFi', icon: 'Users' },
 ];
 
-const automotiveReviews: Review[] = [
-  { id: 'r1', userName: 'Mike Wheeler', rating: 5, comment: 'Γρήγορη και αξιόπιστη εξυπηρέτηση! Το αυτοκίνητό μου λειτουργεί σαν καινούργιο.', date: new Date(2023, 10, 15).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/mike_w/40/40' },
-  { id: 'r2', userName: 'Eleven Hopper', rating: 4, comment: 'Καλή δουλειά, λογικές τιμές. Θα το πρότεινα.', date: new Date(2023, 11, 1).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/eleven_h/40/40' },
-];
-
-const sampleServices: Product[] = [
-  { id: 's1', name: 'Αλλαγή Λαδιών & Φίλτρου', imageUrl: 'https://picsum.photos/seed/oil_change/200/150', price: '49.99€', description: 'Premium αλλαγή συνθετικού λαδιού με αντικατάσταση φίλτρου.' },
-  { id: 's2', name: 'Αντικατάσταση Τακακιών Φρένων', imageUrl: 'https://picsum.photos/seed/brake_pads/200/150', price: '129.99€ (ανά άξονα)', description: 'Αντικατάσταση τακακιών φρένων υψηλής ποιότητας για βέλτιστη ισχύ φρεναρίσματος.' },
-  { id: 's3', name: 'Πλήρης Καθαρισμός Αυτοκινήτου', imageUrl: 'https://picsum.photos/seed/car_detailing/200/150', price: '199.00€', description: 'Εσωτερικός και εξωτερικός καθαρισμός, κέρωμα και γυάλισμα.' },
-];
-
-const servicePricingPlans: PricingPlan[] = [
-  { id: 'plan1', name: 'Βασική Συντήρηση', price: '79€/επίσκεψη', features: ['Αλλαγή Λαδιών', 'Περιστροφή Ελαστικών', 'Συμπλήρωση Υγρών'], isFeatured: false },
-  { id: 'plan2', name: 'Πακέτο Pro Care', price: '199€/έτος', features: ['2 Βασικές Συντηρήσεις', 'Ετήσιος Έλεγχos', '10% Έκπτωση σε Επισκευές'], isFeatured: true },
-  { id: 'plan3', name: 'Διαχείριση Στόλου', price: 'Επικοινωνήστε μαζί μας', features: ['Προσαρμοσμένο Πρόγραμμα Συντήρησης', 'Εκπτώσεις Όγκου', 'Αποκλειστικός Εκπρόσωπος Λογαριασμού'], isFeatured: false },
-];
-
-
-export let mockStores: Store[] = [
+// The mockStores array will now primarily serve as initial seed data example.
+// The application will fetch live data from Firestore.
+export const mockStoresExample: Store[] = [
   {
-    id: 'store1',
-    name: 'ΤαχύFix Αυτοκινήτων', 
+    id: 'store1_mock', // Mock IDs should be distinct from potential DB IDs
+    name: 'ΤαχύFix Αυτοκινήτων (Mock)', 
     logoUrl: 'https://picsum.photos/seed/quickfix_logo/100/100',
     bannerUrl: 'https://picsum.photos/seed/quickfix_banner/800/300',
-    description: 'Γενικές επισκευές αυτοκινήτων και υπηρεσίες συντήρησης. Ο αξιόπιστος τοπικός σας μηχανικός.', 
-    longDescription: 'Το ΤαχύFix Αυτοκινήτων προσφέρει ένα ευρύ φάσμα υπηρεσιών επισκευής και συντήρησης αυτοκινήτων. Από τις τακτικές αλλαγές λαδιών έως τις πολύπλοκες διαγνώσεις κινητήρα, οι πιστοποιημένοι μηχανικοί μας είναι εδώ για να βοηθήσουν. Είμαστε περήφανοι για την έντιμη εργασία και τις δίκαιες τιμές μας.',
+    description: 'Γενικές επισκευές αυτοκινήτων και υπηρεσίες συντήρησης. (Mock Data)', 
+    longDescription: 'Αυτό είναι ένα παράδειγμα καταστήματος από mock δεδομένα...',
     rating: 4.7,
     category: StoreCategories[0], // Mechanic
     tags: ['επισκευή κινητήρα', 'φρένα', 'διαγνωστικά', 'αλλαγή λαδιών', 'Μηχανικός'],
-    pricingPlans: servicePricingPlans.slice(0,2),
-    features: [
-      ...commonFeatures,
-      { id: 'f4', name: 'Προηγμένες Διαγνώσεις', icon: Search }
-    ],
-    reviews: [
-      ...automotiveReviews,
-      { id: 'r3', userName: 'Dustin Henderson', rating: 5, comment: 'Επισκεύασαν το αμάξι μου πολύ γρήγορα! Εξαιρετική εξυπηρέτηση.', date: new Date(2023, 9, 5).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/dustin_h/40/40' },
-    ],
-    products: sampleServices.slice(0,2),
-    contactEmail: 'service@quickfixauto.com',
-    websiteUrl: 'https://quickfixauto.example.com',
-    address: 'Οδός Επισκευών 123, Αυτοκινητούπολη'
-  },
-  {
-    id: 'store2',
-    name: 'Sparky Auto Electricians',
-    logoUrl: 'https://picsum.photos/seed/sparky_logo/100/100',
-    bannerUrl: 'https://picsum.photos/seed/sparky_banner/800/300',
-    description: 'Specializing in automotive electrical systems, wiring, and electronics.',
-    longDescription: 'Sparky Auto Electricians are experts in diagnosing and repairing all automotive electrical issues. From battery problems to complex wiring harnesses and sensor malfunctions, we have the tools and expertise to get your car\'s electronics working perfectly.',
-    rating: 4.9,
-    category: StoreCategories[2], // Electrician
-    tags: ['electrical repair', 'battery', 'alternator', 'wiring', 'sensors', 'Electrician'],
     pricingPlans: [
-      { id: 'planA', name: 'Diagnostic Check', price: '$89.00', features: ['Full Electrical System Scan', 'Issue Report', 'Repair Estimate'], isFeatured: true },
-      { id: 'planB', name: 'Wiring Repair', price: 'Starting at $150', features: ['Identify & Fix Faulty Wiring', 'Component Testing', 'High-Quality Materials'] },
+        { id: 'plan1mock', name: 'Βασική Συντήρηση (Mock)', price: '79€/επίσκεψη', features: ['Αλλαγή Λαδιών', 'Περιστροφή Ελαστικών'], isFeatured: false },
     ],
     features: [
       ...commonFeatures,
-      { id: 'f5', name: 'Latest Diagnostic Tools', icon: Wrench }
+      { id: 'f4_mock', name: 'Προηγμένες Διαγνώσεις (Mock)', icon: "Search" }
     ],
     reviews: [
-      ...automotiveReviews,
-      { id: 'r4', userName: 'Lucas Sinclair', rating: 5, comment: 'Fixed a tricky electrical issue nobody else could!', date: new Date(2023, 8, 20).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/lucas_s/40/40' },
+      { id: 'r1mock', userName: 'Mock User 1', rating: 5, comment: 'Εξαιρετική εξυπηρέτηση (mock).', date: new Date(2023, 10, 15).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/mock_user1/40/40' },
     ],
     products: [
-      { id: 's4', name: 'Battery Replacement', imageUrl: 'https://picsum.photos/seed/battery_service/200/150', price: 'Starting at $120', description: 'Includes new battery and installation.' },
-      { id: 's5', name: 'Alternator Repair/Replacement', imageUrl: 'https://picsum.photos/seed/alternator_service/200/150', price: 'Contact for Quote', description: 'Expert alternator services to keep your car charged.' },
+        { id: 's1mock', name: 'Αλλαγή Λαδιών & Φίλτρου (Mock)', imageUrl: 'https://picsum.photos/seed/oil_change_mock/200/150', price: '49.99€', description: 'Premium αλλαγή λαδιού (mock).' }
     ],
-    contactEmail: 'contact@sparkyelectric.com',
-    websiteUrl: 'https://sparkyelectric.example.com',
-    address: '456 Volt Ave, Circuit City'
+    contactEmail: 'service@quickfixmock.com',
+    websiteUrl: 'https://quickfixmock.example.com',
+    address: 'Οδός Mock 123, Mockville'
   },
-  {
-    id: 'store3',
-    name: 'Prestige Auto Painters',
-    logoUrl: 'https://picsum.photos/seed/prestige_logo/100/100',
-    bannerUrl: 'https://picsum.photos/seed/prestige_banner/800/300',
-    description: 'High-quality auto body painting and finishing services.',
-    longDescription: 'At Prestige Auto Painters, we provide showroom-quality paint jobs and finishes for all types of vehicles. Using state-of-the-art equipment and premium paints, our experienced painters ensure a flawless result every time, whether it\'s a touch-up or a full repaint.',
-    rating: 4.8,
-    category: StoreCategories[3], // Painter
-    tags: ['auto painting', 'body work', 'custom paint', 'scratch repair', 'Painter'],
-    pricingPlans: [], 
-    features: [
-      { id: 'f6', name: 'Color Matching Technology', icon: Paintbrush },
-      { id: 'f7', name: 'Dust-Free Paint Booth', icon: ShieldCheck },
-       ...commonFeatures.slice(0,1)
-    ],
-    reviews: [
-      { id: 'r5', userName: 'Max Mayfield', rating: 5, comment: 'My car looks brand new! Amazing paint job.', date: new Date(2024, 0, 10).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/max_m/40/40' },
-    ],
-    products: [
-      { id: 's6', name: 'Full Car Repaint', imageUrl: 'https://picsum.photos/seed/full_repaint/200/150', price: 'Starting at $1500', description: 'Complete exterior repaint in your choice of color.' },
-      { id: 's7', name: 'Scratch & Dent Repair', imageUrl: 'https://picsum.photos/seed/scratch_repair/200/150', price: 'Contact for Estimate', description: 'Expert removal of scratches and dents.' },
-    ],
-    contactEmail: 'quotes@prestigepainters.com',
-    websiteUrl: 'https://prestigepainters.example.com',
-    address: '789 Canvas St, Color Town'
-  },
-  {
-    id: 'store4',
-    name: 'ShineTime Auto Detailing',
-    logoUrl: 'https://picsum.photos/seed/shinetime_logo/100/100',
-    bannerUrl: 'https://picsum.photos/seed/shinetime_banner/800/300',
-    description: 'Professional auto detailing services for a showroom shine.',
-    longDescription: 'ShineTime Auto Detailing offers comprehensive cleaning and detailing services to make your car look its best, inside and out. We use premium products and meticulous techniques for a lasting shine and protection.',
-    rating: 4.9,
-    category: StoreCategories[6], // Detailer
-    tags: ['car wash', 'detailing', 'interior cleaning', 'waxing', 'ceramic coating', 'Detailer'],
-    pricingPlans: [
-       { id: 'planC', name: 'Exterior Wash & Wax', price: '$75', features: ['Hand Wash', 'Wheel Cleaning', 'Carnauba Wax'], isFeatured: false },
-       { id: 'planD', name: 'Full Detail Package', price: '$250', features: ['Exterior Wash & Wax', 'Interior Deep Clean', 'Leather Conditioning', 'Engine Bay Cleaning'], isFeatured: true },
-    ],
-    features: [
-      ...commonFeatures.slice(1,3),
-      { id: 'f8', name: 'Premium Cleaning Products', icon: Sparkles },
-      { id: 'f9', name: 'Paint Correction Specialists', icon: Settings2 }
-    ],
-    reviews: [
-        ...automotiveReviews.slice(0,1),
-        { id: 'r6', userName: 'Will Byers', rating: 5, comment: 'My car has never been cleaner. Incredible attention to detail!', date: new Date(2023, 7, 12).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/will_b/40/40' }
-    ],
-    products: [
-      { id: 's8', name: 'Ceramic Coating Application', imageUrl: 'https://picsum.photos/seed/ceramic_coating/200/150', price: 'Starting at $500', description: 'Long-lasting protection and hydrophobic properties for your paint.' },
-      sampleServices[2] // Full Car Detailing
-    ],
-    contactEmail: 'book@shinetime.com',
-    websiteUrl: 'https://shinetime.example.com',
-    address: '101 Polish Pl, Gleam City'
-  },
-  {
-    id: 'store5',
-    name: 'TuneUp Masters',
-    logoUrl: 'https://picsum.photos/seed/tuneup_logo/100/100',
-    bannerUrl: 'https://picsum.photos/seed/tuneup_banner/800/300',
-    description: 'Performance tuning and ECU remapping for enhanced driving experience.',
-    longDescription: 'TuneUp Masters specializes in optimizing your vehicle\'s performance. Our expert tuners use advanced software and dynamometer testing to unlock your engine\'s full potential, improving horsepower, torque, and fuel efficiency.',
-    rating: 4.6,
-    category: StoreCategories[7], // Tuner
-    tags: ['performance tuning', 'ECU remapping', 'dyno tuning', 'engine upgrades', 'Tuner'],
-    pricingPlans: [],
-    features: [
-        { id: 'f10', name: 'Dyno-Proven Gains', icon: BarChart3 },
-        { id: 'f11', name: 'Custom ECU Maps', icon: Settings2 },
-        ...commonFeatures.slice(0,1)
-    ],
-    reviews: [
-        { id: 'r7', userName: 'Steve Harrington', rating: 5, comment: 'My car feels like a beast now! Awesome tuning.', date: new Date(2023, 6, 22).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/steve_h/40/40' }
-    ],
-    products: [
-      { id: 's9', name: 'Stage 1 ECU Tune', imageUrl: 'https://picsum.photos/seed/ecu_tune/200/150', price: 'Starting at $499', description: 'Optimize your engine for improved power and responsiveness.' },
-      { id: 's10', name: 'Performance Exhaust Installation', imageUrl: 'https://picsum.photos/seed/exhaust_install/200/150', price: 'Contact for Quote', description: 'Installation of high-performance exhaust systems.' },
-    ],
-    contactEmail: 'tuning@tuneupmasters.com',
-    websiteUrl: 'https://tuneupmasters.example.com',
-    address: '202 Speed St, Fast Lane'
-  },
-   {
-    id: 'store6',
-    name: 'InspectRite Vehicle Inspectors',
-    logoUrl: 'https://picsum.photos/seed/inspectrite_logo/100/100',
-    bannerUrl: 'https://picsum.photos/seed/inspectrite_banner/800/300',
-    description: 'Comprehensive pre-purchase vehicle inspections and safety checks.',
-    longDescription: 'InspectRite offers thorough vehicle inspections to give you peace of mind before purchasing a used car or ensuring your current vehicle meets safety standards. Our detailed reports cover all major systems.',
-    rating: 4.9,
-    category: StoreCategories[4], // Inspector
-    tags: ['pre-purchase inspection', 'safety check', 'vehicle assessment', 'Inspector'],
-    pricingPlans: [
-       { id: 'planE', name: 'Standard Inspection', price: '$150', features: ['Mechanical Check', 'Body & Frame', 'Test Drive', 'Basic Report'], isFeatured: false },
-       { id: 'planF', name: 'Premium Inspection', price: '$250', features: ['Standard Plus', 'Computer Diagnostics', 'Detailed Photo Report', 'History Check'], isFeatured: true },
-    ],
-    features: [
-        { id: 'f12', name: 'Detailed Inspection Reports', icon: ClipboardCheck },
-        { id: 'f13', name: 'Mobile Inspection Service', icon: Car },
-        commonFeatures[0]
-    ],
-    reviews: [
-        { id: 'r8', userName: 'Nancy Wheeler', rating: 5, comment: 'Very thorough inspection, saved me from buying a lemon!', date: new Date(2023, 5, 18).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/nancy_w/40/40' }
-    ],
-    products: [
-      { id: 's11', name: 'Pre-Purchase Car Inspection', imageUrl: 'https://picsum.photos/seed/car_inspection/200/150', price: '$150 - $250', description: 'Comprehensive check before you buy.' },
-      { id: 's12', name: 'Roadworthy/Safety Certificate', imageUrl: 'https://picsum.photos/seed/safety_cert/200/150', price: '$99', description: 'Official safety certification for your vehicle.' },
-    ],
-    contactEmail: 'inspections@inspectrite.com',
-    websiteUrl: 'https://inspectrite.example.com',
-    address: '303 Checkpoint Charliy, Safe Town'
-  },
-  {
-    id: 'store7',
-    name: 'AccuAlign Specialists',
-    logoUrl: 'https://picsum.photos/seed/accualign_logo/100/100',
-    bannerUrl: 'https://picsum.photos/seed/accualign_banner/800/300',
-    description: 'Precision wheel alignment and suspension services.',
-    longDescription: 'AccuAlign Specialists use state-of-the-art laser alignment equipment to ensure your vehicle\'s wheels are perfectly aligned for optimal handling, tire life, and fuel efficiency. We also service and repair suspension systems.',
-    rating: 4.7,
-    category: StoreCategories[12], // Aligner
-    tags: ['wheel alignment', 'suspension', 'tire balancing', 'steering', 'Aligner'],
-    pricingPlans: [],
-    features: [
-        { id: 'f14', name: 'Laser Wheel Alignment', icon: AlignCenter },
-        { id: 'f15', name: 'Suspension Experts', icon: Settings2 },
-        commonFeatures[1]
-    ],
-    reviews: [
-        { id: 'r9', userName: 'Jonathan Byers', rating: 4, comment: 'Alignment is perfect now, car drives straight.', date: new Date(2023, 4, 10).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/jonathan_b/40/40' }
-    ],
-    products: [
-      { id: 's13', name: 'Four-Wheel Alignment', imageUrl: 'https://picsum.photos/seed/wheel_alignment/200/150', price: '$99.99', description: 'Precision alignment for all four wheels.' },
-      { id: 's14', name: 'Suspension Repair', imageUrl: 'https://picsum.photos/seed/suspension_repair/200/150', price: 'Contact for Quote', description: 'Shocks, struts, and other suspension components.' },
-    ],
-    contactEmail: 'align@accualign.com',
-    websiteUrl: 'https://accualign.example.com',
-    address: '404 Straight St, Balance City'
-  },
-  {
-    id: 'store8',
-    name: 'SoundInstall Pro',
-    logoUrl: 'https://picsum.photos/seed/soundinstall_logo/100/100',
-    bannerUrl: 'https://picsum.photos/seed/soundinstall_banner/800/300',
-    description: 'Expert installation of car audio, video, and security systems.',
-    longDescription: 'Upgrade your ride with SoundInstall Pro. We offer professional installation services for car stereos, speakers, amplifiers, navigation systems, alarms, remote starters, and more. Quality components and clean installations guaranteed.',
-    rating: 4.8,
-    category: StoreCategories[10], // Installer
-    tags: ['car audio', 'security systems', 'navigation', 'remote start', 'Installer'],
-    pricingPlans: [],
-    features: [
-        { id: 'f16', name: 'Custom Installations', icon: PackageCheck },
-        { id: 'f17', name: 'Lifetime Warranty on Labor', icon: ShieldCheck },
-        commonFeatures[0]
-    ],
-    reviews: [
-        { id: 'r10', userName: 'Erica Sinclair', rating: 5, comment: 'My new sound system is SICK! These guys are pros.', date: new Date(2023, 3, 25).toISOString(), userAvatarUrl: 'https://picsum.photos/seed/erica_s/40/40' }
-    ],
-    products: [
-      { id: 's15', name: 'Car Stereo Installation', imageUrl: 'https://picsum.photos/seed/stereo_install/200/150', price: 'Starting at $75 (labor)', description: 'Professional head unit and speaker installation.' },
-      { id: 's16', name: 'Car Alarm System Installation', imageUrl: 'https://picsum.photos/seed/alarm_install/200/150', price: 'Starting at $199 (includes system)', description: 'Protect your vehicle with a modern alarm system.' },
-    ],
-    contactEmail: 'install@soundinstallpro.com',
-    websiteUrl: 'https://soundinstallpro.example.com',
-    address: '505 Amp Ave, Audio Town'
-  }
+  // Add more mock examples if needed for UI development without DB connection
 ];
 
-export const getStoreById = (id: string): Store | undefined => {
-  return mockStores.find(store => store.id === id);
+// Functions to get data will now fetch from Firestore
+export const getStoreById = async (id: string): Promise<Store | undefined> => {
+  return await getStoreByIdFromDB(id);
 };
 
-export const getAllStores = (): Store[] => {
-  return [...mockStores]; 
+export const getAllStores = async (): Promise<Store[]> => {
+  return await getAllStoresFromDB(); 
 };
 
-// Admin Data Modification Functions
+
+// --- Mock Data Modification Functions (NO LONGER THE PRIMARY SOURCE OF TRUTH) ---
+// These functions are effectively replaced by the Firestore service operations.
+// They are kept here for reference or if you need to fall back to mock data temporarily.
+// For Firestore, admin actions will call storeService.ts directly.
+
+let internalMockStores: Store[] = [...mockStoresExample]; // Use a mutable copy for mock operations
 
 export const addStoreToMockData = (newStoreData: Omit<StoreFormData, 'category'>): Store => {
-  const newId = `store${mockStores.length + 1}_${Date.now()}`;
+  console.warn("Using addStoreToMockData. Data will not persist in Firestore.");
+  const newId = `store_mock_${internalMockStores.length + 1}_${Date.now()}`;
+  
+  // Ensure features are correctly formatted (icons as strings)
+  const featuresForMock: Feature[] = commonFeatures.map(f => ({...f, icon: typeof f.icon === 'string' ? f.icon : 'UnknownIcon'}));
+
   const newStore: Store = {
     ...newStoreData,
     id: newId,
-    category: StoreCategories[0], // Default category for new stores
+    category: StoreCategories[0], 
     rating: 0,
     reviews: [],
     pricingPlans: [],
-    features: [...commonFeatures],
-    products: [...sampleServices.slice(0,1)],
+    features: featuresForMock, // Use formatted common features
+    products: [{ id: 's_mock_default', name: 'Mock Service', imageUrl: 'https://picsum.photos/seed/mockservice/200/150', price: '€0', description: 'Default mock service.' }],
     tags: newStoreData.tagsInput ? newStoreData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
   };
-  mockStores.push(newStore);
+  internalMockStores.push(newStore);
   return newStore;
 };
 
-// This function now only updates fields present in StoreFormData (which excludes category)
 export const updateStoreInMockData = (storeId: string, updatedData: Partial<Omit<StoreFormData, 'category'>>): Store | undefined => {
-  const storeIndex = mockStores.findIndex(s => s.id === storeId);
+  console.warn("Using updateStoreInMockData. Data will not persist in Firestore.");
+  const storeIndex = internalMockStores.findIndex(s => s.id === storeId);
   if (storeIndex > -1) {
-    const existingStore = mockStores[storeIndex];
+    const existingStore = internalMockStores[storeIndex];
     const newTags = updatedData.tagsInput ? updatedData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : existingStore.tags;
     
-    mockStores[storeIndex] = { 
+    internalMockStores[storeIndex] = { 
       ...existingStore, 
-      ...updatedData, // Category is not part of updatedData here
+      ...updatedData,
       tags: newTags,
     };
-    return mockStores[storeIndex];
+    return internalMockStores[storeIndex];
   }
   return undefined;
 };
 
 export const deleteStoreFromMockData = (storeId: string): boolean => {
-  const initialLength = mockStores.length;
-  mockStores = mockStores.filter(s => s.id !== storeId);
-  return mockStores.length < initialLength;
+  console.warn("Using deleteStoreFromMockData. Data will not persist in Firestore.");
+  const initialLength = internalMockStores.length;
+  internalMockStores = internalMockStores.filter(s => s.id !== storeId);
+  return internalMockStores.length < initialLength;
 };
 
-// New function to specifically update a store's category
 export const updateStoreCategoryInMockData = (storeId: string, newCategory: StoreCategory): Store | undefined => {
-  const storeIndex = mockStores.findIndex(s => s.id === storeId);
+  console.warn("Using updateStoreCategoryInMockData. Data will not persist in Firestore.");
+  const storeIndex = internalMockStores.findIndex(s => s.id === storeId);
   if (storeIndex > -1) {
-    mockStores[storeIndex].category = newCategory;
-    return mockStores[storeIndex];
+    internalMockStores[storeIndex].category = newCategory;
+    return internalMockStores[storeIndex];
   }
   return undefined;
 };

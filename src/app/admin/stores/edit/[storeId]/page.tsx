@@ -1,7 +1,7 @@
 
 import { StoreForm } from '@/components/admin/StoreForm';
 import { updateStoreAction } from '../../../actions';
-import { getStoreById } from '@/lib/placeholder-data';
+import { getStoreById } from '@/lib/placeholder-data'; // This now fetches from DB
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -13,8 +13,9 @@ interface EditStorePageProps {
   params: { storeId: string };
 }
 
+// generateMetadata now needs to be async as getStoreById fetches from DB
 export async function generateMetadata({ params }: EditStorePageProps): Promise<Metadata> {
-  const store = getStoreById(params.storeId);
+  const store = await getStoreById(params.storeId);
   if (!store) {
     return { title: 'Κέντρο Δεν Βρέθηκε | Amaxakis Admin' };
   }
@@ -24,34 +25,25 @@ export async function generateMetadata({ params }: EditStorePageProps): Promise<
   };
 }
 
-export default function EditStorePage({ params }: EditStorePageProps) {
-  const storeData = getStoreById(params.storeId);
+// The page component also needs to be async
+export default async function EditStorePage({ params }: EditStorePageProps) {
+  const storeData = await getStoreById(params.storeId);
 
   if (!storeData) {
     notFound(); 
   }
   
+  // Assuming storeData.features from DB already contains icon names as strings.
+  // The SerializedStore type expects features to be SerializedFeature[]
   const storeForForm: SerializedStore = {
-    // Spread all properties from storeData first
     ...storeData,
-    // Then explicitly map features to SerializedFeature
     features: storeData.features.map((feature: Feature): SerializedFeature => {
-      const originalIcon = feature.icon;
-      let iconName: string | undefined = undefined;
-
-      if (typeof originalIcon === 'string') {
-        iconName = originalIcon;
-      } else if (typeof originalIcon === 'function') {
-        // Attempt to get displayName (common for React components), then name, then fallback
-        iconName = (originalIcon as any).displayName || (originalIcon as any).name || 'LucideIconComponent';
-      }
-      // If originalIcon was undefined or not a string/function that yielded a name, iconName remains undefined.
-      
+      const iconName = typeof feature.icon === 'string' ? feature.icon : undefined;
       return {
         id: feature.id,
         name: feature.name,
         description: feature.description,
-        icon: iconName, // This will be string | undefined
+        icon: iconName,
       };
     }),
   };

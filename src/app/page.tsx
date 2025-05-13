@@ -1,31 +1,39 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { StoreCard } from '@/components/store/StoreCard';
 import { StoreFilters } from '@/components/store/StoreFilters';
-import { getAllStores } from '@/lib/placeholder-data';
+import { getAllStores } from '@/lib/placeholder-data'; // This now fetches from DB
 import type { Store } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { usePathname } from 'next/navigation'; // Import usePathname
+// No longer need usePathname specifically for re-fetching on navigation,
+// as data fetching is now more direct and revalidation handles updates.
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('default'); // e.g., 'rating_desc', 'name_asc'
-  const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' or a StoreCategory
+  const [sortBy, setSortBy] = useState('default');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const pathname = usePathname(); // Get current pathname
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      // Simulate fetching data
-      await new Promise(resolve => setTimeout(resolve, 500)); 
-      setStores(getAllStores());
-      setIsLoading(false);
+      setError(null);
+      try {
+        const fetchedStores = await getAllStores();
+        setStores(fetchedStores);
+      } catch (err) {
+        console.error("Failed to fetch stores:", err);
+        setError("Δεν ήταν δυνατή η φόρτωση των κέντρων εξυπηρέτησης. Παρακαλώ δοκιμάστε ξανά αργότερα.");
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchData();
-  }, [pathname]); // Add pathname as a dependency
+  }, []); // Fetch once on component mount
 
   const filteredAndSortedStores = useMemo(() => {
     let processedStores = [...stores];
@@ -56,7 +64,8 @@ export default function HomePage() {
         processedStores.sort((a, b) => b.name.localeCompare(a.name));
         break;
       default:
-        // Maintain current order or sort by a default criteria if needed
+        // Default sort or maintain fetched order
+        processedStores.sort((a, b) => a.name.localeCompare(b.name)); // Default sort by name ASC
         break;
     }
     return processedStores;
@@ -99,6 +108,11 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+      ) : error ? (
+        <div className="text-center py-12 text-destructive">
+          <h2 className="text-2xl font-semibold">Σφάλμα Φόρτωσης</h2>
+          <p className="mt-2">{error}</p>
+        </div>
       ) : filteredAndSortedStores.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAndSortedStores.map(store => (
@@ -109,7 +123,7 @@ export default function HomePage() {
         <div className="text-center py-12">
           <h2 className="text-2xl font-semibold text-foreground">Δεν Βρέθηκαν Κέντρα Εξυπηρέτησης</h2>
           <p className="mt-2 text-muted-foreground">
-            Δοκιμάστε να προσαρμόσετε τα κριτήρια αναζήτησης ή φίλτρου.
+            Δεν υπάρχουν διαθέσιμα κέντρα ή δοκιμάστε να προσαρμόσετε τα κριτήρια αναζήτησης.
           </p>
         </div>
       )}
