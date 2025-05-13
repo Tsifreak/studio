@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, User, Storefront } from 'lucide-react'; // Storefront as a generic store icon
+import { ArrowRight, User, Store } from 'lucide-react'; // Storefront as a generic store icon
 import { formatDistanceToNow } from 'date-fns';
 import { el } from 'date-fns/locale';
 
@@ -33,7 +33,7 @@ export function ChatItem({ chat, currentUserId }: ChatItemProps) {
               <AvatarImage src={otherParticipantAvatar || ''} alt={otherParticipantName} data-ai-hint={otherParticipantType === 'store' ? 'logo business' : 'avatar person'} />
               <AvatarFallback>
                 {otherParticipantType === 'store' 
-                  ? <Storefront className="h-6 w-6 text-muted-foreground" /> 
+                  ? <Store className="h-6 w-6 text-muted-foreground" /> 
                   : <User className="h-6 w-6 text-muted-foreground" />}
               </AvatarFallback>
             </Avatar>

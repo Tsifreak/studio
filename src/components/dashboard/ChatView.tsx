@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Send, UserCircle, Storefront } from 'lucide-react';
+import { Send, UserCircle, Store } from 'lucide-react';
 import { format } from 'date-fns';
 import { el } from 'date-fns/locale';
 import React, { useEffect, useRef } from 'react';
