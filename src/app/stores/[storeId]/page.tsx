@@ -108,7 +108,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
       </Card>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 mb-6"> {/* Adjusted grid-cols */}
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 mb-6">
           <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
           <TabsTrigger value="products">Υπηρεσίες ({serializableStore.products?.length || 0})</TabsTrigger>
           <TabsTrigger value="pricing">Πακέτα Τιμολόγησης</TabsTrigger>
@@ -252,3 +252,4 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
     </div>
   );
 }
+
