@@ -1,7 +1,8 @@
+
 "use client";
 
-import type { UserProfile } from '@/lib/types';
-import { auth, storage } from '@/lib/firebase'; // Import storage
+import type { UserProfile, Chat } from '@/lib/types'; // Added Chat
+import { auth, storage } from '@/lib/firebase'; 
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -11,10 +12,12 @@ import {
   sendPasswordResetEmail,
   type User as FirebaseUser 
 } from 'firebase/auth';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Firebase Storage imports
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
 import { ADMIN_EMAIL } from '@/lib/constants';
+import { subscribeToUserChats } from '@/lib/chatService'; // Import chat subscription
+import type { Unsubscribe } from 'firebase/firestore'; // Import Unsubscribe type
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -24,7 +27,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUserProfile: (updatedProfileData: { 
     name?: string; 
-    avatarFile?: File | null; // Changed from avatarUrl to avatarFile
+    avatarFile?: File | null; 
     preferences?: UserProfile['preferences']; 
   }) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -32,6 +35,7 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Adjusted to not include totalUnreadMessages directly, it will be updated by listener
 const mapFirebaseUserToUserProfile = (firebaseUser: FirebaseUser, currentPreferences?: UserProfile['preferences']): UserProfile => {
   return {
     id: firebaseUser.uid,
@@ -40,6 +44,7 @@ const mapFirebaseUserToUserProfile = (firebaseUser: FirebaseUser, currentPrefere
     avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
     isAdmin: firebaseUser.email === ADMIN_EMAIL,
     preferences: currentPreferences || { darkMode: false, notifications: true },
+    totalUnreadMessages: 0, // Initialize, will be updated by listener
   };
 };
 
@@ -48,13 +53,37 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    let chatUnsubscribe: Unsubscribe | null = null;
+
+    const authUnsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      // Always clean up previous chat listener if it exists
+      if (chatUnsubscribe) {
+        chatUnsubscribe();
+        chatUnsubscribe = null;
+      }
+
       if (firebaseUser) {
-        setUser(currentUserState => {
-          const preferencesToUse = (currentUserState && currentUserState.id === firebaseUser.uid)
-            ? currentUserState.preferences
-            : { darkMode: false, notifications: true }; 
-          return mapFirebaseUserToUserProfile(firebaseUser, preferencesToUse);
+        const currentPrefs = user?.id === firebaseUser.uid ? user.preferences : undefined;
+        const initialProfile = mapFirebaseUserToUserProfile(firebaseUser, currentPrefs);
+        setUser(initialProfile); // Set initial user profile (totalUnreadMessages = 0)
+
+        // Subscribe to chats for real-time unread count updates
+        chatUnsubscribe = subscribeToUserChats(firebaseUser.uid, (updatedChats: Chat[]) => {
+          const calculatedUnreadMessages = updatedChats.reduce((acc, chat) => {
+            const count = firebaseUser.uid === chat.userId ? chat.userUnreadCount : chat.ownerUnreadCount;
+            return acc + (Number(count) || 0); 
+          }, 0);
+          
+          setUser(currentProfile => {
+            // Ensure we are updating the profile for the *same* user and only if count changed
+            if (currentProfile && currentProfile.id === firebaseUser.uid) {
+              if (currentProfile.totalUnreadMessages !== calculatedUnreadMessages) {
+                return { ...currentProfile, totalUnreadMessages: calculatedUnreadMessages };
+              }
+              return currentProfile; // No change in count, return same profile to avoid re-render
+            }
+            return currentProfile; 
+          });
         });
       } else {
         setUser(null);
@@ -62,8 +91,13 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []); 
+    return () => {
+      authUnsubscribe();
+      if (chatUnsubscribe) {
+        chatUnsubscribe();
+      }
+    };
+  }, []); // Empty dependency array: This effect runs once on mount.
 
   const login = useCallback(async (email: string, pass: string) => {
     try {
@@ -81,7 +115,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         displayName: name,
         photoURL: `https://picsum.photos/seed/${userCredential.user.uid}/100/100` 
       });
-      // After signup, the onAuthStateChanged listener will update the user state
     } catch (error) {
       console.error("Firebase signup error:", error);
       throw error;
@@ -126,7 +159,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         await firebaseUpdateProfile(currentUserAuth, profileUpdatesForFirebaseAuth);
       }
       
-      // Update local user state
       setUser(currentUserState => {
         if (!currentUserState) return null;
         return {
@@ -134,7 +166,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
           ...(name && { name: name }),
           ...(newAvatarUrl && { avatarUrl: newAvatarUrl }),
           ...(preferences && { preferences: preferences }),
-          isAdmin: currentUserAuth.email === ADMIN_EMAIL, // Ensure isAdmin status is preserved
+          isAdmin: currentUserAuth.email === ADMIN_EMAIL, 
         };
       });
 

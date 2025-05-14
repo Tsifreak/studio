@@ -16,8 +16,8 @@ import {
   limit,
   onSnapshot,
   type Unsubscribe,
-  QuerySnapshot,
-  DocumentData,
+  type QuerySnapshot,
+  type DocumentData,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Firebase Storage imports
 import type { Chat, ChatMessage, ChatMessageFormData } from '@/lib/types';
@@ -76,6 +76,29 @@ export const getUserChats = async (userId: string): Promise<Chat[]> => {
     throw error;
   }
 };
+
+export const subscribeToUserChats = (
+  userId: string,
+  onUpdate: (chats: Chat[]) => void
+): Unsubscribe => {
+  const chatsRef = collection(db, CHATS_COLLECTION);
+  const q = query(
+    chatsRef,
+    where('participantIds', 'array-contains', userId),
+    orderBy('lastMessageAt', 'desc')
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
+    const chats = querySnapshot.docs.map(mapDocToChat);
+    onUpdate(chats);
+  }, (error) => {
+    console.error(`Error subscribing to chats for user ${userId}:`, error);
+    onUpdate([]); // Call onUpdate with empty array on error to clear previous state
+  });
+
+  return unsubscribe;
+};
+
 
 export const getChatMessages = async (chatId: string): Promise<ChatMessage[]> => {
   try {
@@ -144,11 +167,11 @@ export const sendMessage = async (
   };
   batch.set(newMessageRef, newMessageData);
 
-  const chatDoc = await getDoc(chatRef);
-  if (!chatDoc.exists()) {
+  const chatDocSnap = await getDoc(chatRef); // Renamed to avoid conflict
+  if (!chatDocSnap.exists()) {
     throw new Error("Chat document not found.");
   }
-  const chatData = chatDoc.data() as Omit<Chat, 'id' | 'lastMessageAt' | 'createdAt'> & { lastMessageAt: Timestamp, createdAt: Timestamp};
+  const chatData = chatDocSnap.data() as Omit<Chat, 'id' | 'lastMessageAt' | 'createdAt'> & { lastMessageAt: Timestamp, createdAt: Timestamp};
 
 
   const updateData: Partial<Record<keyof Chat, any>> = {

@@ -125,8 +125,7 @@ export interface UserProfile {
   email: string;
   avatarUrl?: string;
   isAdmin?: boolean;
-  // role: 'user' | 'admin' | 'store_owner'; // Future enhancement
-  // ownedStoreId?: string; // Future enhancement for direct linking
+  totalUnreadMessages: number; // Added for real-time updates
   preferences?: {
     darkMode?: boolean;
     notifications?: boolean;

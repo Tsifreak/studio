@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, LogOut, UserCircle, LogIn, UserPlus, ShieldCheck, Bell, MessageSquare } from 'lucide-react'; // Added Bell, MessageSquare
+import { LayoutDashboard, LogOut, UserCircle, LogIn, UserPlus, ShieldCheck, Bell, MessageSquare } from 'lucide-react'; 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react'; 
 
@@ -22,6 +22,7 @@ export function Navbar() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false); 
+  const unreadMessages = Number(user?.totalUnreadMessages) || 0;
 
   useEffect(() => { 
     setIsClient(true);
@@ -31,8 +32,6 @@ export function Navbar() {
     await logout();
     router.push('/'); 
   };
-
-  const unreadMessages = user?.totalUnreadMessages || 0;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -52,16 +51,16 @@ export function Navbar() {
               >
                 <Bell className="h-5 w-5" />
                 {unreadMessages > 0 && (
-                  <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5 items-center justify-center">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
-                  </span>
+                  <span
+                    className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-600 z-30" 
+                    aria-hidden="true"
+                  />
                 )}
               </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0"> {/* Ensure padding is 0 for consistent size */}
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0"> 
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.avatarUrl || ''} alt={user.name || 'User Avatar'} data-ai-hint="avatar" />
                       <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
