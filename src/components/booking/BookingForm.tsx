@@ -23,8 +23,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import type { Service, AvailabilitySlot, Booking } from "@/lib/types";
-import { createBookingAction } from "@/app/stores/[storeId]/actions";
-import { format, getDay, addMinutes, setHours, setMinutes } from "date-fns";
+import { createBookingAction, getBookingsForStoreAndDate } from "@/app/stores/[storeId]/actions";
+import { format, getDay, addMinutes, setHours, setMinutes, parse } from "date-fns";
 import { el } from "date-fns/locale";
 import { CalendarIcon, Clock, Tag, Info, Edit3, Loader2 } from "lucide-react";
 
@@ -54,7 +54,6 @@ const initialFormState: { success: boolean; message: string; errors?: any; booki
   booking: undefined,
 };
 
-// Helper functions for time conversion
 const timeToMinutes = (time: string): number => {
   const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
@@ -69,17 +68,18 @@ const minutesToTime = (minutes: number): string => {
 const generateTimeSlots = (
   selectedDate: Date,
   storeAvailability: AvailabilitySlot[],
-  serviceDuration: number
+  serviceDuration: number,
+  existingBookings: Booking[] // Add existingBookings parameter
 ): string[] => {
-  const dayOfWeek = getDay(selectedDate); // 0 (Sunday) - 6 (Saturday)
+  const dayOfWeek = getDay(selectedDate);
   const dailySchedule = storeAvailability.find(slot => slot.dayOfWeek === dayOfWeek);
 
   if (!dailySchedule) {
-    return []; // Store is closed on this day
+    return [];
   }
 
   const slots: string[] = [];
-  const slotInterval = 15; // Generate slots every 15 minutes
+  const slotInterval = 15;
 
   const storeOpenMinutes = timeToMinutes(dailySchedule.startTime);
   const storeCloseMinutes = timeToMinutes(dailySchedule.endTime);
@@ -90,17 +90,33 @@ const generateTimeSlots = (
     const slotStart = currentMinutes;
     const slotEnd = currentMinutes + serviceDuration;
 
-    // Check if slot is within operating hours
     if (slotEnd > storeCloseMinutes) {
       continue;
     }
 
-    // Check for lunch break overlap
     const overlapsWithLunch = lunchStartMinutes !== -1 && lunchEndMinutes !== -1 &&
       Math.max(slotStart, lunchStartMinutes) < Math.min(slotEnd, lunchEndMinutes);
 
-    if (!overlapsWithLunch) {
-      // TODO: In a future step, filter out slots that overlap with existing bookings for this store/date.
+    if (overlapsWithLunch) {
+      continue;
+    }
+
+    let overlapsWithExistingBooking = false;
+    for (const booking of existingBookings) {
+      // Ensure bookingDate matches selectedDate (already handled by fetching logic, but good to be safe)
+      if (format(new Date(booking.bookingDate), 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) continue;
+
+      const existingBookingStartMinutes = timeToMinutes(booking.bookingTime);
+      const existingBookingEndMinutes = existingBookingStartMinutes + booking.serviceDurationMinutes;
+      
+      const currentSlotOverlaps = Math.max(slotStart, existingBookingStartMinutes) < Math.min(slotEnd, existingBookingEndMinutes);
+      if (currentSlotOverlaps) {
+        overlapsWithExistingBooking = true;
+        break;
+      }
+    }
+
+    if (!overlapsWithExistingBooking) {
       slots.push(minutesToTime(slotStart));
     }
   }
@@ -118,8 +134,11 @@ export function BookingForm({
   const { user } = useAuth();
   const { toast } = useToast();
   const [formState, formAction, isPending] = useActionState(createBookingAction, initialFormState);
+  
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [existingBookings, setExistingBookings] = useState<Booking[]>([]);
+  const [isLoadingExistingBookings, setIsLoadingExistingBookings] = useState(false);
 
   const form = useForm<BookingFormClientValues>({
     resolver: zodResolver(bookingFormClientSchema),
@@ -132,17 +151,44 @@ export function BookingForm({
 
   const selectedDate = form.watch("bookingDate");
 
+  // Fetch existing bookings when date changes
   useEffect(() => {
-    if (selectedDate && selectedService && storeAvailability) {
+    if (selectedDate && storeId) {
+      const fetchBookings = async () => {
+        setIsLoadingExistingBookings(true);
+        setExistingBookings([]); // Clear previous bookings
+        try {
+          const dateString = format(selectedDate, "yyyy-MM-dd");
+          const bookings = await getBookingsForStoreAndDate(storeId, dateString);
+          setExistingBookings(bookings);
+        } catch (error) {
+          console.error("Error fetching existing bookings:", error);
+          toast({
+            title: "Σφάλμα Φόρτωσης Κρατήσεων",
+            description: "Δεν ήταν δυνατή η φόρτωση των υπαρχουσών κρατήσεων. Παρακαλώ δοκιμάστε ξανά.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoadingExistingBookings(false);
+        }
+      };
+      fetchBookings();
+    }
+  }, [selectedDate, storeId, toast]);
+
+
+  // Generate available time slots based on date, service, availability, and existing bookings
+  useEffect(() => {
+    if (selectedDate && selectedService && storeAvailability && !isLoadingExistingBookings) {
       setIsLoadingSlots(true);
-      form.setValue("bookingTime", ""); // Reset time when date changes
-      const slots = generateTimeSlots(selectedDate, storeAvailability, selectedService.durationMinutes);
+      form.setValue("bookingTime", ""); 
+      const slots = generateTimeSlots(selectedDate, storeAvailability, selectedService.durationMinutes, existingBookings);
       setAvailableTimeSlots(slots);
       setIsLoadingSlots(false);
     } else {
       setAvailableTimeSlots([]);
     }
-  }, [selectedDate, selectedService, storeAvailability, form]);
+  }, [selectedDate, selectedService, storeAvailability, form, existingBookings, isLoadingExistingBookings]);
 
   useEffect(() => {
     if (formState.message) {
@@ -172,16 +218,25 @@ export function BookingForm({
   }, [formState, toast, form, onOpenChange]);
 
   const isDayDisabled = useCallback((date: Date): boolean => {
-    if (date < new Date(new Date().setHours(0, 0, 0, 0))) return true; // Past dates
+    if (date < new Date(new Date().setHours(0, 0, 0, 0))) return true; 
     const dayOfWeek = getDay(date);
     const scheduleForDay = storeAvailability.find(slot => slot.dayOfWeek === dayOfWeek);
-    return !scheduleForDay; // Disable if no schedule for this day of week
+    return !scheduleForDay; 
   }, [storeAvailability]);
 
 
   return (
     <Form {...form}>
-      <form action={formAction} className="space-y-6">
+      <form
+        action={(payload) => {
+          // Manually append bookingDate in YYYY-MM-DD format for server action
+          if (selectedDate) {
+            payload.set('bookingDate', format(selectedDate, 'yyyy-MM-dd'));
+          }
+          formAction(payload);
+        }}
+        className="space-y-6"
+      >
         <CardHeader className="p-0 mb-4">
           <CardTitle className="text-2xl text-primary">Κράτηση για: {selectedService.name}</CardTitle>
           <CardDescription>
@@ -191,10 +246,12 @@ export function BookingForm({
 
         <input type="hidden" name="storeId" value={storeId} />
         <input type="hidden" name="serviceId" value={selectedService.id} />
-        <input type="hidden" name="storeName" value={storeName} />
-        <input type="hidden" name="serviceName" value={selectedService.name} />
-        <input type="hidden" name="serviceDurationMinutes" value={String(selectedService.durationMinutes)} />
-        <input type="hidden" name="servicePrice" value={String(selectedService.price)} />
+        {/* Server action will fetch these from DB based on IDs */}
+        {/* <input type="hidden" name="storeName" value={storeName} /> */}
+        {/* <input type="hidden" name="serviceName" value={selectedService.name} /> */}
+        {/* <input type="hidden" name="serviceDurationMinutes" value={String(selectedService.durationMinutes)} /> */}
+        {/* <input type="hidden" name="servicePrice" value={String(selectedService.price)} /> */}
+
 
         {user && (
           <>
@@ -248,11 +305,15 @@ export function BookingForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Επιλέξτε Ώρα</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedDate || isLoadingSlots}>
+              <Select 
+                onValueChange={field.onChange} 
+                value={field.value} 
+                disabled={!selectedDate || isLoadingSlots || isLoadingExistingBookings}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={
-                      isLoadingSlots ? "Φόρτωση διαθέσιμων ωρών..." :
+                      isLoadingSlots || isLoadingExistingBookings ? "Φόρτωση διαθέσιμων ωρών..." :
                       !selectedDate ? "Επιλέξτε πρώτα ημερομηνία" :
                       availableTimeSlots.length === 0 ? "Δεν υπάρχουν διαθέσιμες ώρες" :
                       "Επιλέξτε ώρα"
@@ -260,11 +321,11 @@ export function BookingForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {isLoadingSlots && <SelectItem value="loading" disabled>Φόρτωση...</SelectItem>}
-                  {!isLoadingSlots && availableTimeSlots.length === 0 && selectedDate && (
+                  {(isLoadingSlots || isLoadingExistingBookings) && <SelectItem value="loading" disabled>Φόρτωση...</SelectItem>}
+                  {!isLoadingSlots && !isLoadingExistingBookings && availableTimeSlots.length === 0 && selectedDate && (
                     <SelectItem value="no-slots" disabled>Δεν υπάρχουν διαθέσιμες ώρες</SelectItem>
                   )}
-                  {!isLoadingSlots && availableTimeSlots.map(slot => (
+                  {!isLoadingSlots && !isLoadingExistingBookings && availableTimeSlots.map(slot => (
                     <SelectItem key={slot} value={slot}>{slot}</SelectItem>
                   ))}
                 </SelectContent>
@@ -292,7 +353,7 @@ export function BookingForm({
           )}
         />
 
-        <Button type="submit" className="w-full" disabled={isPending || !form.formState.isValid}>
+        <Button type="submit" className="w-full" disabled={isPending || !form.formState.isValid || isLoadingExistingBookings || isLoadingSlots}>
           {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -306,4 +367,3 @@ export function BookingForm({
     </Form>
   );
 }
-

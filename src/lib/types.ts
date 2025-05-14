@@ -111,19 +111,19 @@ export interface AvailabilitySlot {
 export interface Booking {
   id: string;
   storeId: string;
-  storeName: string; // Denormalized for easier display
+  storeName: string; 
   userId: string;
-  userName: string; // Denormalized
-  userEmail: string; // Denormalized
+  userName: string; 
+  userEmail: string; 
   serviceId: string;
-  serviceName: string; // Denormalized
-  serviceDurationMinutes: number; // Denormalized
-  servicePrice: number; // Denormalized
+  serviceName: string; 
+  serviceDurationMinutes: number; 
+  servicePrice: number; 
   bookingDate: string; // YYYY-MM-DD format
   bookingTime: string; // HH:mm format
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: string; // ISO string
-  notes?: string; // Optional notes from user or store
+  notes?: string; 
 }
 
 export interface Store {
@@ -139,26 +139,24 @@ export interface Store {
   pricingPlans: PricingPlan[];
   features: Feature[];
   reviews: Review[];
-  products: Product[]; // This could be renamed/repurposed to `services` or kept separate
+  products: Product[]; 
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
   ownerId?: string; 
-  // New fields for booking system
-  services: Service[]; // List of services offered by the store
-  availability: AvailabilitySlot[]; // Weekly availability of the store
+  services: Service[]; 
+  availability: AvailabilitySlot[]; 
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
   icon?: string; 
 }
 
-// SerializedStore to ensure dates and other complex objects are handled for client components
 export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability'> {
   features: SerializedFeature[];
-  reviews: Review[]; // Assuming Review dates are already ISO strings
-  services: Service[]; // Services are generally simple data
-  availability: AvailabilitySlot[]; // Availability slots are simple data
+  reviews: Review[]; 
+  services: Service[]; 
+  availability: AvailabilitySlot[]; 
 }
 
 
@@ -197,7 +195,6 @@ export interface StoreFormData {
   websiteUrl?: string;
   address?: string;
   ownerId?: string; 
-  // For managing services and availability via JSON in StoreForm
   servicesJson?: string; 
   availabilityJson?: string;
 }
@@ -207,7 +204,6 @@ export interface ReviewFormData {
   comment: string;
 }
 
-// Chat related types
 export interface Chat {
   id: string;
   storeId: string;
@@ -239,4 +235,10 @@ export interface ChatMessage {
 export interface ChatMessageFormData {
   text: string;
   imageFile?: File | null; 
+}
+
+// Firestore document data for Booking (includes Firestore Timestamps for date fields)
+export interface BookingDocumentData extends Omit<Booking, 'id' | 'createdAt' | 'bookingDate'> {
+  bookingDate: Timestamp; // For Firestore query
+  createdAt: Timestamp;
 }

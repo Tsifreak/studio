@@ -1,15 +1,14 @@
 
 "use server";
 
-import type { QueryFormData, Review, Booking } from '@/lib/types'; // Added Booking type
+import type { QueryFormData, Review, Booking, BookingDocumentData, Service } from '@/lib/types'; 
 import { addReviewToStoreInDB, getStoreByIdFromDB } from '@/lib/storeService'; 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, limit } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase'; 
-import { submitMessageToChat } from '@/lib/chatService'; // Import the new chat service function
+import { submitMessageToChat } from '@/lib/chatService'; 
 
-// Basic rate limiting (example - in-memory, would need a persistent store in production)
 const submissionAttempts = new Map<string, { count: number, lastAttempt: number }>();
 const MAX_ATTEMPTS = 5;
 const COOLDOWN_PERIOD = 60 * 1000; // 1 minute
@@ -36,7 +35,6 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
       return { success: false, message: "Το κέντρο εξυπηρέτησης δεν βρέθηκε." };
     }
 
-    // Use new chat service if store has owner and user is logged in
     if (store.ownerId && formData.userId && formData.userName) {
       const chatResult = await submitMessageToChat(
         store.id,
@@ -53,14 +51,13 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
       return chatResult;
 
     } else {
-      // Fallback: Store has no owner OR user is not logged in, save to 'storeMessages'
       const messageData = {
         storeId: formData.storeId,
         storeName: store.name, 
         subject: formData.subject,
         message: formData.message,
-        senderName: formData.name, // Name from form field    
-        senderEmail: formData.email, // Email from form field  
+        senderName: formData.name,    
+        senderEmail: formData.email,  
         ...(formData.userId && { senderUserId: formData.userId }), 
         recipientOwnerId: store.ownerId || null, 
         createdAt: Timestamp.now(),
@@ -142,13 +139,14 @@ export async function addReviewAction(
   }
 }
 
-// Placeholder for booking action
 const bookingSchema = z.object({
   storeId: z.string().min(1),
   userId: z.string().min(1),
+  userName: z.string().min(1, "User name is required for booking."),
+  userEmail: z.string().email("Valid user email is required for booking."),
   serviceId: z.string().min(1),
-  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format, expected YYYY-MM-DD"), // YYYY-MM-DD
-  bookingTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format, expected HH:mm"), // HH:mm
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format, expected YYYY-MM-DD"),
+  bookingTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format, expected HH:mm"),
   notes: z.string().max(500).optional(),
 });
 
@@ -159,6 +157,8 @@ export async function createBookingAction(
   const validatedFields = bookingSchema.safeParse({
     storeId: formData.get('storeId'),
     userId: formData.get('userId'),
+    userName: formData.get('userName'),
+    userEmail: formData.get('userEmail'),
     serviceId: formData.get('serviceId'),
     bookingDate: formData.get('bookingDate'),
     bookingTime: formData.get('bookingTime'),
@@ -173,26 +173,91 @@ export async function createBookingAction(
     };
   }
 
-  const { storeId, userId, serviceId, bookingDate, bookingTime, notes } = validatedFields.data;
+  const { storeId, userId, userName, userEmail, serviceId, bookingDate, bookingTime, notes } = validatedFields.data;
 
-  // TODO:
-  // 1. Fetch store details (especially service name, duration, price, ownerId)
-  // 2. Fetch user details (name, email)
-  // 3. Validate slot availability (this is complex, might involve checking existing bookings)
-  // 4. Create Booking document in Firestore
-  // 5. Potentially send notifications
+  try {
+    const store = await getStoreByIdFromDB(storeId);
+    if (!store) {
+      return { success: false, message: "Το κέντρο εξυπηρέτησης δεν βρέθηκε." };
+    }
 
-  console.log("Placeholder createBookingAction called with:", { storeId, userId, serviceId, bookingDate, bookingTime, notes });
+    const service = store.services.find(s => s.id === serviceId);
+    if (!service) {
+      return { success: false, message: "Η επιλεγμένη υπηρεσία δεν βρέθηκε." };
+    }
 
-  // Simulate successful booking for now
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate async operation
+    // TODO: Add server-side validation for slot availability (check against existing bookings)
+    // This is a crucial step to prevent double bookings robustly.
+    // For now, we rely on client-side filtering.
 
-  revalidatePath(`/stores/${storeId}`);
-  // revalidatePath(`/dashboard/bookings`); // If user has a booking page
+    const bookingId = doc(collection(db, '_')).id;
+    const bookingDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
 
-  return {
-    success: true,
-    message: `(Placeholder) Η κράτηση για την υπηρεσία ${serviceId} στις ${bookingDate} ${bookingTime} υποβλήθηκε.`,
-    // booking: createdBookingData, // When actual booking is created
-  };
+    const newBookingData: Omit<Booking, 'id' | 'createdAt'> & { createdAt: Timestamp, bookingDate: Timestamp } = {
+      storeId,
+      storeName: store.name,
+      userId,
+      userName,
+      userEmail,
+      serviceId,
+      serviceName: service.name,
+      serviceDurationMinutes: service.durationMinutes,
+      servicePrice: service.price,
+      bookingDate: Timestamp.fromDate(new Date(bookingDate)), // Store as Firestore Timestamp for easier querying
+      bookingTime, // Store as string HH:mm
+      status: 'pending',
+      createdAt: Timestamp.now(),
+      notes: notes || "",
+    };
+
+    await addDoc(collection(db, "bookings"), { ...newBookingData, id: bookingId });
+    
+    revalidatePath(`/stores/${storeId}`);
+    // revalidatePath(`/dashboard/bookings`); // If user has a booking page
+
+    return {
+      success: true,
+      message: `Η κράτησή σας για την υπηρεσία "${service.name}" στις ${new Date(bookingDate).toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
+      booking: { ...newBookingData, id: bookingId, createdAt: newBookingData.createdAt.toDate().toISOString(), bookingDate: bookingDate },
+    };
+
+  } catch (error) {
+    console.error("Error creating booking:", error);
+    return { success: false, message: "Παρουσιάστηκε σφάλμα κατά τη δημιουργία της κράτησής σας. Παρακαλώ δοκιμάστε ξανά." };
+  }
+}
+
+
+export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
+  try {
+    const targetDate = new Date(dateString);
+    // Firestore Timestamps are tricky with exact date matches.
+    // It's often better to query for a range (start of day to end of day).
+    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
+    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+
+    const bookingsRef = collection(db, "bookings");
+    const q = query(
+      bookingsRef,
+      where("storeId", "==", storeId),
+      where("bookingDate", ">=", Timestamp.fromDate(startOfDay)),
+      where("bookingDate", "<=", Timestamp.fromDate(endOfDay))
+      // Note: You might need a composite index on storeId and bookingDate for this query.
+      // Firestore will usually suggest it if needed.
+    );
+
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data() as BookingDocumentData;
+      return {
+        ...data,
+        id: doc.id,
+        bookingDate: data.bookingDate.toDate().toISOString().split('T')[0], // Convert Timestamp to YYYY-MM-DD string
+        createdAt: data.createdAt.toDate().toISOString(),
+      } as Booking;
+    });
+  } catch (error) {
+    console.error(`Error fetching bookings for store ${storeId} on date ${dateString}:`, error);
+    return []; // Return empty array on error
+  }
 }
