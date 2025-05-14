@@ -42,8 +42,8 @@ const availabilitySlotSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6), // 0 (Sunday) - 6 (Saturday)
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required"),
   endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required"),
-  lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required").optional(),
-  lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required").optional(),
+  lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required").optional().or(z.literal('')),
+  lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required").optional().or(z.literal('')),
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
 
@@ -112,7 +112,11 @@ export function StoreForm({ store, action }: StoreFormProps) {
           address: store.address || '',
           ownerId: store.ownerId || '',
           servicesJson: store.services ? JSON.stringify(store.services, null, 2) : '[]',
-          availabilityJson: store.availability ? JSON.stringify(store.availability, null, 2) : '[]',
+          availabilityJson: store.availability ? JSON.stringify(store.availability.map(slot => ({
+            ...slot,
+            lunchBreakStartTime: slot.lunchBreakStartTime || undefined, // Ensure empty string becomes undefined for consistent JSON
+            lunchBreakEndTime: slot.lunchBreakEndTime || undefined,
+          })), null, 2) : '[]',
         }
       : {
           name: "",
@@ -137,7 +141,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
         description: formState.message,
       });
       router.push('/admin/stores');
-      router.refresh(); 
+      // No router.refresh() here as revalidation should handle it
     } else if (formState.message && !formState.success && formState.errors) {
        toast({
         title: "Σφάλμα Φόρμας",
@@ -170,6 +174,9 @@ export function StoreForm({ store, action }: StoreFormProps) {
   const exampleAvailabilityJson = JSON.stringify([
     { dayOfWeek: 1, startTime: "09:00", endTime: "17:00", lunchBreakStartTime: "13:00", lunchBreakEndTime: "14:00" },
     { dayOfWeek: 2, startTime: "09:00", endTime: "17:00" },
+    { dayOfWeek: 3, startTime: "09:00", endTime: "17:00", lunchBreakStartTime: "12:30", lunchBreakEndTime: "13:00" },
+    { dayOfWeek: 4, startTime: "09:00", endTime: "17:00" },
+    { dayOfWeek: 5, startTime: "09:00", endTime: "16:00" },
     { dayOfWeek: 6, startTime: "10:00", endTime: "14:00" }
   ], null, 2);
 
@@ -336,7 +343,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                   </FormControl>
                   <FormDescription>
                     Εισάγετε έναν πίνακα από αντικείμενα υπηρεσιών σε μορφή JSON. Κάθε υπηρεσία πρέπει να έχει:
-                    id (string), name (string), description (string), durationMinutes (number), price (number), availableDaysOfWeek (array of numbers 0-6, 0=Κυριακή).
+                    id (string), name (string), description (string), durationMinutes (number), price (number), availableDaysOfWeek (array of numbers 0-6, 0=Κυριακή, 1=Δευτέρα κ.ο.κ.).
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -349,11 +356,15 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <FormItem>
                   <FormLabel>Εβδομαδιαία Διαθεσιμότητα (JSON format)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder={exampleAvailabilityJson} {...field} rows={6} />
+                    <Textarea placeholder={exampleAvailabilityJson} {...field} rows={10} />
                   </FormControl>
                   <FormDescription>
                     Εισάγετε έναν πίνακα από αντικείμενα διαθεσιμότητας σε μορφή JSON. Κάθε αντικείμενο πρέπει να έχει:
-                    dayOfWeek (number 0-6), startTime (string "HH:mm"), endTime (string "HH:mm"), προαιρετικά lunchBreakStartTime/EndTime.
+                    dayOfWeek (number 0-6, 0=Κυριακή, 1=Δευτέρα κ.ο.κ.), startTime (string "HH:mm"), endTime (string "HH:mm").
+                    Προαιρετικά: lunchBreakStartTime (string "HH:mm"), lunchBreakEndTime (string "HH:mm").
+                    <pre className="mt-2 p-2 bg-muted text-xs rounded-md overflow-x-auto">
+                      {`Παράδειγμα:\n${exampleAvailabilityJson}`}
+                    </pre>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -374,3 +385,5 @@ export function StoreForm({ store, action }: StoreFormProps) {
     </Card>
   );
 }
+
+    
