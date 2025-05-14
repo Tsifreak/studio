@@ -3,40 +3,43 @@
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
-import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon'; // Import RenderFeatureIcon
+// Button and ArrowRight are no longer needed
+import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon'; 
 
 interface CategoryCardProps {
   categorySlug: string;
   translatedCategoryName: string;
   description: string;
-  iconName?: string; // Added iconName prop
+  iconName?: string; 
 }
 
 export function CategoryCard({ categorySlug, translatedCategoryName, description, iconName }: CategoryCardProps) {
   return (
-    <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
-      <CardHeader className="pb-3 pt-4 text-center">
-        <div className="flex flex-col items-center gap-3">
+    <Link href={`/category/${encodeURIComponent(categorySlug)}`} className="block h-full group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg" aria-label={`Προβολή κατηγορίας ${translatedCategoryName}`}>
+      <Card className="flex flex-col items-center justify-center text-center overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full p-6 relative min-h-[180px] md:min-h-[200px]">
+        {/* Icon and Name - Always Visible */}
+        <div className="transition-opacity duration-300 group-hover:opacity-0 absolute inset-0 flex flex-col items-center justify-center p-4">
           {iconName && (
-            <RenderFeatureIcon iconName={iconName} className="h-12 w-12 mb-2 text-primary" />
+            <RenderFeatureIcon iconName={iconName} className="h-14 w-14 md:h-16 md:w-16 mb-3 text-primary" />
           )}
-          <CardTitle className="text-2xl font-bold text-[hsl(217,54%,18%)]">{translatedCategoryName}</CardTitle>
+          <CardTitle className="text-xl md:text-2xl font-bold text-[hsl(217,54%,18%)]">
+            {translatedCategoryName}
+          </CardTitle>
         </div>
-      </CardHeader>
-      <CardContent className="flex-grow p-4 pt-0 text-center">
-        <CardDescription className="text-sm text-muted-foreground">
-          {description}
-        </CardDescription>
-      </CardContent>
-      <div className="p-4 pt-2">
-        <Button asChild className="w-full" variant="outline">
-          <Link href={`/category/${encodeURIComponent(categorySlug)}`}>
-            Προβολή Κέντρων <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-      </div>
-    </Card>
+
+        {/* Description - Visible on Hover */}
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute inset-0 flex flex-col items-center justify-center p-4 bg-card/95 backdrop-blur-sm">
+           {iconName && ( // Optional: Show icon dimmed in background on hover
+            <RenderFeatureIcon iconName={iconName} className="h-16 w-16 md:h-20 md:w-20 mb-2 text-primary/30" />
+          )}
+          <CardTitle className="text-xl md:text-2xl font-bold text-[hsl(217,54%,18%)] mb-2">
+            {translatedCategoryName}
+          </CardTitle>
+          <CardDescription className="text-sm text-muted-foreground line-clamp-3">
+            {description}
+          </CardDescription>
+        </div>
+      </Card>
+    </Link>
   );
 }
