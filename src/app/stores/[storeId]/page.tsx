@@ -1,44 +1,124 @@
 
+"use client"; // This page now uses client-side state for the dialog
+
 import { getStoreByIdFromDB } from '@/lib/storeService'; 
-import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service } from '@/lib/types'; 
+import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot } from '@/lib/types'; 
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag } from 'lucide-react'; 
+// import { notFound } from 'next/navigation'; // notFound() can only be used in Server Components
+import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2 } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
-// ProductListItem might be replaced or augmented by ServiceListItem later
 import { ProductListItem } from '@/components/store/ProductListItem'; 
 import { ContactForm } from '@/components/shared/ContactForm';
 import { ReviewForm } from '@/components/store/ReviewForm';
 import { submitStoreQuery, addReviewAction } from './actions'; 
 import { AppCategories } from '@/lib/types'; 
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
-import type { Metadata } from 'next';
+// import type { Metadata } from 'next'; // Cannot export metadata from client component
 import { Button } from '@/components/ui/button'; 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import Alert components
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
+import { useEffect, useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { BookingForm } from '@/components/booking/BookingForm';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
-  const store = await getStoreByIdFromDB(params.storeId); 
-  if (!store) {
-    return { title: 'Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε | Amaxakis' };
+// export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
+//   const store = await getStoreByIdFromDB(params.storeId); 
+//   if (!store) {
+//     return { title: 'Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε | Amaxakis' };
+//   }
+//   return {
+//     title: `${store.name} | Amaxakis`,
+//     description: store.description,
+//   };
+// }
+
+export default function StoreDetailPage({ params }: { params: { storeId: string } }) {
+  const [storeData, setStoreData] = useState<Store | null | undefined>(undefined); // undefined for loading, null for not found
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [selectedServiceForBooking, setSelectedServiceForBooking] = useState<Service | null>(null);
+  const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchStore = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const fetchedStore = await getStoreByIdFromDB(params.storeId);
+        if (fetchedStore) {
+          setStoreData(fetchedStore);
+        } else {
+          setStoreData(null); // Not found
+        }
+      } catch (err) {
+        console.error("Failed to fetch store details:", err);
+        setError("Δεν ήταν δυνατή η φόρτωση των λεπτομερειών του καταστήματος.");
+        setStoreData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (params.storeId) {
+      fetchStore();
+    }
+  }, [params.storeId]);
+
+
+  if (isLoading || storeData === undefined) {
+    return (
+        <div className="space-y-8">
+            <Card className="overflow-hidden shadow-xl">
+                <Skeleton className="h-48 md:h-64 w-full bg-muted" />
+                <CardHeader className="p-6 relative mt-[-48px] sm:mt-[-64px] z-10 flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                    <Skeleton className="h-32 w-32 rounded-full border-4 border-background shadow-lg bg-muted" />
+                    <div className="flex-1 pt-4 sm:pt-0 space-y-2">
+                        <Skeleton className="h-10 w-3/4 bg-muted" />
+                        <Skeleton className="h-5 w-1/2 bg-muted" />
+                        <Skeleton className="h-5 w-full bg-muted" />
+                    </div>
+                </CardHeader>
+            </Card>
+             <Skeleton className="h-10 w-1/3 mx-auto bg-muted mb-6" /> {/* TabsList Skeleton */}
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-1/2 bg-muted" /></CardHeader>
+                <CardContent><Skeleton className="h-20 w-full bg-muted" /></CardContent>
+            </Card>
+        </div>
+    );
   }
-  return {
-    title: `${store.name} | Amaxakis`,
-    description: store.description,
-  };
-}
 
-export default async function StoreDetailPage({ params }: { params: { storeId: string } }) {
-  const storeData = await getStoreByIdFromDB(params.storeId); 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
+        <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
+        <h1 className="text-3xl font-bold text-destructive mb-4">Σφάλμα Φόρτωσης</h1>
+        <p className="text-md text-muted-foreground mb-6">{error}</p>
+      </div>
+    );
+  }
 
   if (!storeData) {
-    notFound();
+    // This simulates the notFound() behavior for client components
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
+        <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
+        <h1 className="text-4xl font-bold text-foreground mb-2">Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε</h1>
+        <p className="text-lg text-muted-foreground mb-8">
+          Λυπούμαστε, δεν μπορέσαμε να βρούμε το κέντρο εξυπηρέτησης που αναζητούσατε.
+        </p>
+        <Button asChild>
+          <a href="/">Επιστροφή στην Αρχική Σελίδα</a>
+        </Button>
+      </div>
+    );
   }
 
   const serializableStore: SerializedStore = {
     ...storeData,
-    features: storeData.features.map((feature: Feature): SerializedFeature => ({
+    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => ({ // Handle both types
       id: feature.id,
       name: feature.name,
       description: feature.description,
@@ -58,6 +138,11 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
   const categoryInfo = AppCategories.find(cat => cat.slug === serializableStore.category);
   const translatedCategory = categoryInfo ? categoryInfo.translatedName : serializableStore.category;
   const hasAvailability = serializableStore.availability && serializableStore.availability.length > 0;
+
+  const handleBookServiceClick = (service: Service) => {
+    setSelectedServiceForBooking(service);
+    setIsBookingDialogOpen(true);
+  };
 
   return (
     <div className="space-y-8">
@@ -198,12 +283,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
                         <Button 
                           className="mt-3 sm:mt-0 sm:ml-4" 
                           disabled={!hasAvailability}
-                          onClick={() => {
-                            if(hasAvailability) {
-                              // TODO: Implement booking form dialog/navigation
-                              alert(`Booking for "${service.name}" - Placeholder. Actual booking form to be implemented.`);
-                            }
-                          }}
+                          onClick={() => handleBookServiceClick(service)}
                         > 
                           Κάντε Κράτηση
                         </Button>
@@ -213,7 +293,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground" /> {/* Changed from AlertTriangle */}
                   <p className="mt-4 text-muted-foreground">Δεν υπάρχουν διαθέσιμες υπηρεσίες για κράτηση αυτή τη στιγμή.</p>
                 </div>
               )}
@@ -269,7 +349,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
             </CardHeader>
             <CardContent>
               {serializableStore.reviews && serializableStore.reviews.length > 0 ? (
-                <div className="space-y-4"> 
+                 <div className="space-y-4"> 
                   {serializableStore.reviews.map((review: Review) => (
                     <div key={review.id} className="p-4 border rounded-md bg-muted/50">
                       <div className="flex items-center mb-1">
@@ -312,7 +392,20 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
           </Card>
         </TabsContent>
       </Tabs>
+
+      {selectedServiceForBooking && (
+        <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
+          <DialogContent className="sm:max-w-[480px]"> {/* Adjusted width */}
+            <BookingForm
+              selectedService={selectedServiceForBooking}
+              storeId={serializableStore.id}
+              storeName={serializableStore.name}
+              storeAvailability={serializableStore.availability}
+              onOpenChange={setIsBookingDialogOpen}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
-
