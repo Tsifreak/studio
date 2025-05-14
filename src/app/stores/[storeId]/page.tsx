@@ -15,7 +15,8 @@ import { submitStoreQuery, addReviewAction } from './actions';
 import { AppCategories } from '@/lib/types'; 
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import type { Metadata } from 'next';
-import { Button } from '@/components/ui/button'; // For Book button
+import { Button } from '@/components/ui/button'; 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import Alert components
 
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
   const store = await getStoreByIdFromDB(params.storeId); 
@@ -45,8 +46,8 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
     })),
     products: storeData.products || [],
     reviews: storeData.reviews || [],
-    services: storeData.services || [], // Ensure services are passed
-    availability: storeData.availability || [], // Ensure availability is passed
+    services: storeData.services || [], 
+    availability: storeData.availability || [], 
   };
 
 
@@ -56,6 +57,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
 
   const categoryInfo = AppCategories.find(cat => cat.slug === serializableStore.category);
   const translatedCategory = categoryInfo ? categoryInfo.translatedName : serializableStore.category;
+  const hasAvailability = serializableStore.availability && serializableStore.availability.length > 0;
 
   return (
     <div className="space-y-8">
@@ -170,6 +172,16 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
               <CardDescription>Επιλέξτε μια υπηρεσία για να δείτε τις διαθέσιμες ώρες και να κάνετε κράτηση.</CardDescription>
             </CardHeader>
             <CardContent>
+              {!hasAvailability && (
+                 <Alert variant="default" className="mb-6">
+                    <Info className="h-5 w-5" />
+                    <AlertTitle>Η Διαθεσιμότητα δεν έχει Οριστεί</AlertTitle>
+                    <AlertDescription>
+                      Αυτό το κατάστημα δεν έχει ορίσει ακόμη το πρόγραμμα διαθεσιμότητάς του. Οι κρατήσεις δεν είναι δυνατές αυτή τη στιγμή.
+                      Παρακαλούμε ελέγξτε ξανά αργότερα ή επικοινωνήστε απευθείας με το κατάστημα.
+                    </AlertDescription>
+                  </Alert>
+               )}
               {serializableStore.services && serializableStore.services.length > 0 ? (
                 <div className="space-y-4">
                   {serializableStore.services.map((service: Service) => (
@@ -183,7 +195,16 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
                             <span className="flex items-center"><Tag className="w-4 h-4 mr-1.5 text-muted-foreground"/> Τιμή: {service.price.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}</span>
                           </div>
                         </div>
-                        <Button className="mt-3 sm:mt-0 sm:ml-4" disabled> 
+                        <Button 
+                          className="mt-3 sm:mt-0 sm:ml-4" 
+                          disabled={!hasAvailability}
+                          onClick={() => {
+                            if(hasAvailability) {
+                              // TODO: Implement booking form dialog/navigation
+                              alert(`Booking for "${service.name}" - Placeholder. Actual booking form to be implemented.`);
+                            }
+                          }}
+                        > 
                           Κάντε Κράτηση
                         </Button>
                       </div>
@@ -196,12 +217,6 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
                   <p className="mt-4 text-muted-foreground">Δεν υπάρχουν διαθέσιμες υπηρεσίες για κράτηση αυτή τη στιγμή.</p>
                 </div>
               )}
-               {!serializableStore.availability || serializableStore.availability.length === 0 && (
-                 <div className="mt-6 p-4 border border-dashed border-destructive/50 rounded-md bg-destructive/5 text-destructive flex items-center gap-3">
-                    <Info className="w-5 h-5 shrink-0"/>
-                    <p className="text-sm">Το κατάστημα δεν έχει ορίσει ακόμη τη διαθεσιμότητά του. Οι κρατήσεις δεν είναι δυνατές.</p>
-                 </div>
-               )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -300,3 +315,4 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
     </div>
   );
 }
+

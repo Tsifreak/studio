@@ -1,7 +1,7 @@
 
 "use server";
 
-import type { QueryFormData, Review } from '@/lib/types';
+import type { QueryFormData, Review, Booking } from '@/lib/types'; // Added Booking type
 import { addReviewToStoreInDB, getStoreByIdFromDB } from '@/lib/storeService'; 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -140,4 +140,59 @@ export async function addReviewAction(
     console.error("Error adding review:", error);
     return { success: false, message: "Παρουσιάστηκε σφάλμα κατά την υποβολή της κριτικής σας." };
   }
+}
+
+// Placeholder for booking action
+const bookingSchema = z.object({
+  storeId: z.string().min(1),
+  userId: z.string().min(1),
+  serviceId: z.string().min(1),
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format, expected YYYY-MM-DD"), // YYYY-MM-DD
+  bookingTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format, expected HH:mm"), // HH:mm
+  notes: z.string().max(500).optional(),
+});
+
+export async function createBookingAction(
+  prevState: any,
+  formData: FormData
+): Promise<{ success: boolean; message: string; errors?: any; booking?: Booking }> {
+  const validatedFields = bookingSchema.safeParse({
+    storeId: formData.get('storeId'),
+    userId: formData.get('userId'),
+    serviceId: formData.get('serviceId'),
+    bookingDate: formData.get('bookingDate'),
+    bookingTime: formData.get('bookingTime'),
+    notes: formData.get('notes') || undefined,
+  });
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Σφάλμα επικύρωσης δεδομένων κράτησης.",
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { storeId, userId, serviceId, bookingDate, bookingTime, notes } = validatedFields.data;
+
+  // TODO:
+  // 1. Fetch store details (especially service name, duration, price, ownerId)
+  // 2. Fetch user details (name, email)
+  // 3. Validate slot availability (this is complex, might involve checking existing bookings)
+  // 4. Create Booking document in Firestore
+  // 5. Potentially send notifications
+
+  console.log("Placeholder createBookingAction called with:", { storeId, userId, serviceId, bookingDate, bookingTime, notes });
+
+  // Simulate successful booking for now
+  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate async operation
+
+  revalidatePath(`/stores/${storeId}`);
+  // revalidatePath(`/dashboard/bookings`); // If user has a booking page
+
+  return {
+    success: true,
+    message: `(Placeholder) Η κράτηση για την υπηρεσία ${serviceId} στις ${bookingDate} ${bookingTime} υποβλήθηκε.`,
+    // booking: createdBookingData, // When actual booking is created
+  };
 }
