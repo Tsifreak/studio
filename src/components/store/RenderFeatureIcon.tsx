@@ -5,13 +5,14 @@ import {
     CheckCircle2, Zap, Award, Users, BarChart3, ShieldCheck, 
     MessageSquare, Car, Paintbrush, Search, Wrench, Settings2, 
     Sparkles, PackageCheck, Scale, ShieldAlert, Combine, AlignCenter, 
-    ClipboardCheck, Package, Disc, Gauge // Added Disc, Gauge
+    ClipboardCheck, Package, Disc, Gauge
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
+import { MyCustomIcon } from '@/components/icons/MyCustomIcon'; // Import your custom icon
 
 // Map of string icon names to Lucide components
-const iconMap: { [key: string]: ComponentType<LucideProps> } = {
+const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React.SVGProps<SVGSVGElement>> } = {
   Award,
   ShieldCheck,
   Users,
@@ -31,8 +32,9 @@ const iconMap: { [key: string]: ComponentType<LucideProps> } = {
   ShieldAlert,
   Combine,
   Package,
-  Disc, // Added Disc
-  Gauge, // Added Gauge
+  Disc,
+  Gauge,
+  MyCustomIcon, // Add your custom icon here
   CheckCircle2, // Default/fallback
   UnknownIcon: CheckCircle2, 
 };
@@ -51,3 +53,4 @@ export function RenderFeatureIcon({ iconName, className }: RenderFeatureIconProp
   // Fallback icon if no name or name not in map
   return <CheckCircle2 className={className} />;
 }
+
