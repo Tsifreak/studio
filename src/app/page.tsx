@@ -52,7 +52,7 @@ export default function HomePage() {
                     <CardTitle className="text-xl font-semibold text-[hsl(217,54%,18%)]">{item.step}: {item.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0 flex-grow">
-                    <p className="text-foreground">{item.description}</p>
+                    <p className="text-xs text-foreground">{item.description}</p>
                   </CardContent>
                 </Card>
               </div>
