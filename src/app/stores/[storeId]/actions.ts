@@ -1,13 +1,15 @@
 
 "use server";
 
-import type { QueryFormData, Review, Booking, BookingDocumentData, Service } from '@/lib/types'; 
+import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData } from '@/lib/types'; 
 import { addReviewToStoreInDB, getStoreByIdFromDB } from '@/lib/storeService'; 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, limit } from 'firebase/firestore'; 
+import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, limit, updateDoc, increment, serverTimestamp } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase'; 
 import { submitMessageToChat } from '@/lib/chatService'; 
+
+const USER_PROFILES_COLLECTION = 'userProfiles';
 
 const submissionAttempts = new Map<string, { count: number, lastAttempt: number }>();
 const MAX_ATTEMPTS = 5;
@@ -146,7 +148,9 @@ const bookingSchema = z.object({
   userEmail: z.string().email("Valid user email is required for booking."),
   serviceId: z.string().min(1),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format, expected YYYY-MM-DD"),
-  bookingTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format, expected HH:mm"),
+  bookingTime: z.string()
+  .min(1, "Η ώρα είναι υποχρεωτική.")
+  .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Μη έγκυρη μορφή ώρας (π.χ. 14:30)"),
   notes: z.string().max(500).optional(),
 });
 
@@ -186,14 +190,9 @@ export async function createBookingAction(
       return { success: false, message: "Η επιλεγμένη υπηρεσία δεν βρέθηκε." };
     }
 
-    // TODO: Add server-side validation for slot availability (check against existing bookings)
-    // This is a crucial step to prevent double bookings robustly.
-    // For now, we rely on client-side filtering.
-
     const bookingId = doc(collection(db, '_')).id;
-    const bookingDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
 
-    const newBookingData: Omit<Booking, 'id' | 'createdAt'> & { createdAt: Timestamp, bookingDate: Timestamp } = {
+    const newBookingData: Omit<Booking, 'id' | 'createdAt'> & { createdAt: any, bookingDate: Timestamp } = {
       storeId,
       storeName: store.name,
       userId,
@@ -203,22 +202,35 @@ export async function createBookingAction(
       serviceName: service.name,
       serviceDurationMinutes: service.durationMinutes,
       servicePrice: service.price,
-      bookingDate: Timestamp.fromDate(new Date(bookingDate)), // Store as Firestore Timestamp for easier querying
-      bookingTime, // Store as string HH:mm
+      bookingDate: Timestamp.fromDate(new Date(bookingDate)), 
+      bookingTime, 
       status: 'pending',
-      createdAt: Timestamp.now(),
+      createdAt: serverTimestamp(),
       notes: notes || "",
     };
 
     await addDoc(collection(db, "bookings"), { ...newBookingData, id: bookingId });
     
+    // Increment store owner's unread bookings count
+    if (store.ownerId) {
+      const ownerProfileRef = doc(db, USER_PROFILES_COLLECTION, store.ownerId);
+      try {
+        await updateDoc(ownerProfileRef, {
+          totalUnreadBookings: increment(1),
+          lastSeen: serverTimestamp() // Also update lastSeen or similar activity timestamp
+        });
+      } catch (profileError) {
+        console.warn(`Could not update unread bookings for owner ${store.ownerId}:`, profileError);
+        // Continue even if profile update fails, booking is still made
+      }
+    }
+    
     revalidatePath(`/stores/${storeId}`);
-    // revalidatePath(`/dashboard/bookings`); // If user has a booking page
 
     return {
       success: true,
       message: `Η κράτησή σας για την υπηρεσία "${service.name}" στις ${new Date(bookingDate).toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
-      booking: { ...newBookingData, id: bookingId, createdAt: newBookingData.createdAt.toDate().toISOString(), bookingDate: bookingDate },
+      booking: { ...newBookingData, id: bookingId, createdAt: new Date().toISOString(), bookingDate: bookingDate }, // Approximate createdAt for client return
     };
 
   } catch (error) {
@@ -231,8 +243,6 @@ export async function createBookingAction(
 export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
   try {
     const targetDate = new Date(dateString);
-    // Firestore Timestamps are tricky with exact date matches.
-    // It's often better to query for a range (start of day to end of day).
     const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
     const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
 
@@ -242,22 +252,20 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
       where("storeId", "==", storeId),
       where("bookingDate", ">=", Timestamp.fromDate(startOfDay)),
       where("bookingDate", "<=", Timestamp.fromDate(endOfDay))
-      // Note: You might need a composite index on storeId and bookingDate for this query.
-      // Firestore will usually suggest it if needed.
     );
 
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data() as BookingDocumentData;
+    return querySnapshot.docs.map(docSnap => {
+      const data = docSnap.data() as BookingDocumentData;
       return {
         ...data,
-        id: doc.id,
-        bookingDate: data.bookingDate.toDate().toISOString().split('T')[0], // Convert Timestamp to YYYY-MM-DD string
+        id: docSnap.id,
+        bookingDate: data.bookingDate.toDate().toISOString().split('T')[0],
         createdAt: data.createdAt.toDate().toISOString(),
       } as Booking;
     });
   } catch (error) {
     console.error(`Error fetching bookings for store ${storeId} on date ${dateString}:`, error);
-    return []; // Return empty array on error
+    return []; 
   }
 }

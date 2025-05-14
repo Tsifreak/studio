@@ -1,4 +1,6 @@
 
+import type { Timestamp } from 'firebase/firestore';
+
 export interface Review {
   id: string;
   userId: string; 
@@ -159,6 +161,10 @@ export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 's
   availability: AvailabilitySlot[]; 
 }
 
+export interface UserPreferences {
+  darkMode?: boolean;
+  notifications?: boolean;
+}
 
 export interface UserProfile {
   id: string;
@@ -166,12 +172,23 @@ export interface UserProfile {
   email: string;
   avatarUrl?: string;
   isAdmin?: boolean;
-  totalUnreadMessages: number; 
-  preferences?: {
-    darkMode?: boolean;
-    notifications?: boolean;
-  };
+  totalUnreadMessages: number;
+  totalUnreadBookings: number; // Added for booking notifications
+  preferences?: UserPreferences;
 }
+
+// Represents the data structure in Firestore for the userProfiles collection
+export interface UserProfileFirestoreData {
+  name?: string; // Could be different from auth displayName if updated
+  email?: string; // Primarily for reference, auth email is source of truth
+  avatarUrl?: string;
+  preferences?: UserPreferences;
+  totalUnreadMessages?: number;
+  totalUnreadBookings?: number;
+  lastSeen?: Timestamp; // Example of other fields you might store
+  createdAt?: Timestamp;
+}
+
 
 export interface QueryFormData {
   name: string; 

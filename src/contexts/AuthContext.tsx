@@ -1,8 +1,8 @@
 
 "use client";
 
-import type { UserProfile, Chat } from '@/lib/types'; // Added Chat
-import { auth, storage } from '@/lib/firebase'; 
+import type { UserProfile, Chat, UserPreferences, UserProfileFirestoreData } from '@/lib/types';
+import { auth, storage, db } from '@/lib/firebase'; 
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -16,8 +16,19 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
 import { ADMIN_EMAIL } from '@/lib/constants';
-import { subscribeToUserChats } from '@/lib/chatService'; // Import chat subscription
-import type { Unsubscribe } from 'firebase/firestore'; // Import Unsubscribe type
+import { subscribeToUserChats } from '@/lib/chatService';
+import { 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  updateDoc, 
+  serverTimestamp, 
+  getDoc,
+  type Unsubscribe,
+  type DocumentSnapshot
+} from 'firebase/firestore';
+
+const USER_PROFILES_COLLECTION = 'userProfiles';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -28,23 +39,27 @@ interface AuthContextType {
   updateUserProfile: (updatedProfileData: { 
     name?: string; 
     avatarFile?: File | null; 
-    preferences?: UserProfile['preferences']; 
+    preferences?: UserPreferences; 
   }) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Adjusted to not include totalUnreadMessages directly, it will be updated by listener
-const mapFirebaseUserToUserProfile = (firebaseUser: FirebaseUser, currentPreferences?: UserProfile['preferences']): UserProfile => {
+const mapFirebaseUserToUserProfile = (
+  firebaseUser: FirebaseUser,
+  firestoreProfileData?: UserProfileFirestoreData
+): UserProfile => {
+  const defaultPreferences: UserPreferences = { darkMode: false, notifications: true };
   return {
     id: firebaseUser.uid,
-    name: firebaseUser.displayName || 'User',
+    name: firestoreProfileData?.name || firebaseUser.displayName || 'User',
     email: firebaseUser.email || '',
-    avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
+    avatarUrl: firestoreProfileData?.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png`,
     isAdmin: firebaseUser.email === ADMIN_EMAIL,
-    preferences: currentPreferences || { darkMode: false, notifications: true },
-    totalUnreadMessages: 0, // Initialize, will be updated by listener
+    preferences: firestoreProfileData?.preferences || defaultPreferences,
+    totalUnreadMessages: firestoreProfileData?.totalUnreadMessages || 0,
+    totalUnreadBookings: firestoreProfileData?.totalUnreadBookings || 0,
   };
 };
 
@@ -53,37 +68,66 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let chatUnsubscribe: Unsubscribe | null = null;
+    let chatListenerUnsubscribe: Unsubscribe | null = null;
+    let userProfileListenerUnsubscribe: Unsubscribe | null = null;
 
-    const authUnsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      // Always clean up previous chat listener if it exists
-      if (chatUnsubscribe) {
-        chatUnsubscribe();
-        chatUnsubscribe = null;
-      }
+    const authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (chatListenerUnsubscribe) chatListenerUnsubscribe();
+      if (userProfileListenerUnsubscribe) userProfileListenerUnsubscribe();
+      chatListenerUnsubscribe = null;
+      userProfileListenerUnsubscribe = null;
 
       if (firebaseUser) {
-        const currentPrefs = user?.id === firebaseUser.uid ? user.preferences : undefined;
-        const initialProfile = mapFirebaseUserToUserProfile(firebaseUser, currentPrefs);
-        setUser(initialProfile); // Set initial user profile (totalUnreadMessages = 0)
+        const userProfileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
 
-        // Subscribe to chats for real-time unread count updates
-        chatUnsubscribe = subscribeToUserChats(firebaseUser.uid, (updatedChats: Chat[]) => {
+        userProfileListenerUnsubscribe = onSnapshot(userProfileRef, (docSnap: DocumentSnapshot<UserProfileFirestoreData>) => {
+          let firestoreData: UserProfileFirestoreData | undefined = undefined;
+          if (docSnap.exists()) {
+            firestoreData = docSnap.data();
+          } else {
+            // Create default profile if it doesn't exist
+            const defaultProfile: UserProfileFirestoreData = {
+              name: firebaseUser.displayName || 'User',
+              email: firebaseUser.email || '',
+              avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png`,
+              preferences: { darkMode: false, notifications: true },
+              totalUnreadMessages: 0,
+              totalUnreadBookings: 0,
+              createdAt: serverTimestamp() as any, // Firestore will convert this
+              lastSeen: serverTimestamp() as any,
+            };
+            setDoc(userProfileRef, defaultProfile).catch(e => console.error("Error creating default user profile:", e));
+            firestoreData = defaultProfile; // Use default for initial setUser
+          }
+          setUser(mapFirebaseUserToUserProfile(firebaseUser, firestoreData));
+        });
+
+        // Subscribe to chats for real-time unread message count updates
+        chatListenerUnsubscribe = subscribeToUserChats(firebaseUser.uid, async (updatedChats: Chat[]) => {
           const calculatedUnreadMessages = updatedChats.reduce((acc, chat) => {
             const count = firebaseUser.uid === chat.userId ? chat.userUnreadCount : chat.ownerUnreadCount;
             return acc + (Number(count) || 0); 
           }, 0);
           
+          // Update context state directly
           setUser(currentProfile => {
-            // Ensure we are updating the profile for the *same* user and only if count changed
-            if (currentProfile && currentProfile.id === firebaseUser.uid) {
-              if (currentProfile.totalUnreadMessages !== calculatedUnreadMessages) {
-                return { ...currentProfile, totalUnreadMessages: calculatedUnreadMessages };
-              }
-              return currentProfile; // No change in count, return same profile to avoid re-render
+            if (currentProfile && currentProfile.id === firebaseUser.uid && currentProfile.totalUnreadMessages !== calculatedUnreadMessages) {
+              return { ...currentProfile, totalUnreadMessages: calculatedUnreadMessages };
             }
-            return currentProfile; 
+            return currentProfile;
           });
+
+          // Also update Firestore profile
+          try {
+            const userProfileDoc = await getDoc(userProfileRef);
+            if (userProfileDoc.exists()) {
+                if (userProfileDoc.data()?.totalUnreadMessages !== calculatedUnreadMessages) {
+                    await updateDoc(userProfileRef, { totalUnreadMessages: calculatedUnreadMessages });
+                }
+            }
+          } catch (error) {
+            console.error("Error updating unread messages in Firestore profile:", error);
+          }
         });
       } else {
         setUser(null);
@@ -93,15 +137,15 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     return () => {
       authUnsubscribe();
-      if (chatUnsubscribe) {
-        chatUnsubscribe();
-      }
+      if (chatListenerUnsubscribe) chatListenerUnsubscribe();
+      if (userProfileListenerUnsubscribe) userProfileListenerUnsubscribe();
     };
-  }, []); // Empty dependency array: This effect runs once on mount.
+  }, []); // Empty dependency array ensures this runs once on mount
 
   const login = useCallback(async (email: string, pass: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, pass);
+      // Auth state change will trigger profile fetch/update
     } catch (error) {
       console.error("Firebase login error:", error);
       throw error; 
@@ -111,10 +155,25 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const signup = useCallback(async (name: string, email: string, pass: string) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      await firebaseUpdateProfile(userCredential.user, {
+      const firebaseUser = userCredential.user;
+      await firebaseUpdateProfile(firebaseUser, {
         displayName: name,
-        photoURL: `https://picsum.photos/seed/${userCredential.user.uid}/100/100` 
+        photoURL: `https://placehold.co/100x100.png` 
       });
+      // Create Firestore profile document
+      const userProfileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
+      const initialProfileData: UserProfileFirestoreData = {
+        name: name,
+        email: email,
+        avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png`,
+        preferences: { darkMode: false, notifications: true },
+        totalUnreadMessages: 0,
+        totalUnreadBookings: 0,
+        createdAt: serverTimestamp() as any,
+        lastSeen: serverTimestamp() as any,
+      };
+      await setDoc(userProfileRef, initialProfileData);
+      // Auth state change will trigger profile fetch/update
     } catch (error) {
       console.error("Firebase signup error:", error);
       throw error;
@@ -124,6 +183,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const logout = useCallback(async () => {
     try {
       await signOut(auth);
+      // Auth state change will set user to null
     } catch (error) {
       console.error("Firebase logout error:", error);
       throw error;
@@ -133,7 +193,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const updateUserProfile = useCallback(async (updatedProfileData: { 
     name?: string; 
     avatarFile?: File | null; 
-    preferences?: UserProfile['preferences'] 
+    preferences?: UserPreferences;
   }) => {
     const currentUserAuth = auth.currentUser;
     if (!currentUserAuth) {
@@ -143,6 +203,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     try {
       const { name, avatarFile, preferences } = updatedProfileData;
       const profileUpdatesForFirebaseAuth: { displayName?: string; photoURL?: string } = {};
+      const firestoreUpdates: Partial<UserProfileFirestoreData> = { lastSeen: serverTimestamp() as any };
       let newAvatarUrl: string | undefined = undefined;
 
       if (avatarFile) {
@@ -151,25 +212,27 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         const uploadResult = await uploadBytes(fileStorageRef, avatarFile);
         newAvatarUrl = await getDownloadURL(uploadResult.ref);
         profileUpdatesForFirebaseAuth.photoURL = newAvatarUrl;
+        firestoreUpdates.avatarUrl = newAvatarUrl;
       }
 
-      if (name) profileUpdatesForFirebaseAuth.displayName = name;
+      if (name) {
+        profileUpdatesForFirebaseAuth.displayName = name;
+        firestoreUpdates.name = name;
+      }
+      if (preferences) {
+        firestoreUpdates.preferences = preferences;
+      }
       
+      // Update Firebase Auth profile (displayName, photoURL)
       if (Object.keys(profileUpdatesForFirebaseAuth).length > 0) {
         await firebaseUpdateProfile(currentUserAuth, profileUpdatesForFirebaseAuth);
       }
       
-      setUser(currentUserState => {
-        if (!currentUserState) return null;
-        return {
-          ...currentUserState,
-          ...(name && { name: name }),
-          ...(newAvatarUrl && { avatarUrl: newAvatarUrl }),
-          ...(preferences && { preferences: preferences }),
-          isAdmin: currentUserAuth.email === ADMIN_EMAIL, 
-        };
-      });
+      // Update Firestore userProfiles document
+      const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUserAuth.uid);
+      await updateDoc(userProfileRef, firestoreUpdates);
 
+      // Context state will update via the onSnapshot listener for userProfileRef
     } catch (error) {
       console.error("Firebase profile update error:", error);
       throw error;

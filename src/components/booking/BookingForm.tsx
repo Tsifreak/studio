@@ -229,10 +229,31 @@ export function BookingForm({
     <Form {...form}>
       <form
         action={(payload) => {
-          // Manually append bookingDate in YYYY-MM-DD format for server action
-          if (selectedDate) {
-            payload.set('bookingDate', format(selectedDate, 'yyyy-MM-dd'));
+          console.log("🔥 Booking form submitted");
+  
+          const bookingTime = form.getValues("bookingTime");
+          const bookingDate = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
+  
+          console.log("⏱ bookingTime:", bookingTime);
+          console.log("📅 bookingDate:", bookingDate);
+  
+          for (const [key, value] of payload.entries()) {
+            console.log(`📦 Payload field: ${key} = ${value}`);
           }
+  
+          if (!bookingTime || bookingTime === "loading" || bookingTime === "no-slots") {
+            toast({
+              title: "Η ώρα είναι υποχρεωτική",
+              description: "Παρακαλώ επιλέξτε μια έγκυρη ώρα κράτησης.",
+              variant: "destructive",
+            });
+            return;
+          }
+  
+          if (bookingDate) {
+            payload.set("bookingDate", bookingDate);
+          }
+  
           formAction(payload);
         }}
         className="space-y-6"
@@ -240,19 +261,16 @@ export function BookingForm({
         <CardHeader className="p-0 mb-4">
           <CardTitle className="text-2xl text-primary">Κράτηση για: {selectedService.name}</CardTitle>
           <CardDescription>
-            Διάρκεια: {selectedService.durationMinutes} λεπτά | Τιμή: {selectedService.price.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}
+            Διάρκεια: {selectedService.durationMinutes} λεπτά | Τιμή:{" "}
+            {selectedService.price.toLocaleString("el-GR", {
+              style: "currency",
+              currency: "EUR",
+            })}
           </CardDescription>
         </CardHeader>
-
+  
         <input type="hidden" name="storeId" value={storeId} />
         <input type="hidden" name="serviceId" value={selectedService.id} />
-        {/* Server action will fetch these from DB based on IDs */}
-        {/* <input type="hidden" name="storeName" value={storeName} /> */}
-        {/* <input type="hidden" name="serviceName" value={selectedService.name} /> */}
-        {/* <input type="hidden" name="serviceDurationMinutes" value={String(selectedService.durationMinutes)} /> */}
-        {/* <input type="hidden" name="servicePrice" value={String(selectedService.price)} /> */}
-
-
         {user && (
           <>
             <input type="hidden" name="userId" value={user.id} />
@@ -260,7 +278,7 @@ export function BookingForm({
             <input type="hidden" name="userEmail" value={user.email || ""} />
           </>
         )}
-
+  
         <FormField
           control={form.control}
           name="bookingDate"
@@ -271,14 +289,10 @@ export function BookingForm({
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
-                      variant={"outline"}
+                      variant="outline"
                       className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}
                     >
-                      {field.value ? (
-                        format(field.value, "PPP", { locale: el })
-                      ) : (
-                        <span>Επιλέξτε μια ημερομηνία</span>
-                      )}
+                      {field.value ? format(field.value, "PPP", { locale: el }) : "Επιλέξτε μια ημερομηνία"}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -298,43 +312,61 @@ export function BookingForm({
             </FormItem>
           )}
         />
-
+  
         <FormField
           control={form.control}
           name="bookingTime"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Επιλέξτε Ώρα</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                value={field.value} 
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
                 disabled={!selectedDate || isLoadingSlots || isLoadingExistingBookings}
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder={
-                      isLoadingSlots || isLoadingExistingBookings ? "Φόρτωση διαθέσιμων ωρών..." :
-                      !selectedDate ? "Επιλέξτε πρώτα ημερομηνία" :
-                      availableTimeSlots.length === 0 ? "Δεν υπάρχουν διαθέσιμες ώρες" :
-                      "Επιλέξτε ώρα"
-                    } />
+                    <SelectValue
+                      placeholder={
+                        isLoadingSlots || isLoadingExistingBookings
+                          ? "Φόρτωση διαθέσιμων ωρών..."
+                          : !selectedDate
+                          ? "Επιλέξτε πρώτα ημερομηνία"
+                          : availableTimeSlots.length === 0
+                          ? "Δεν υπάρχουν διαθέσιμες ώρες"
+                          : "Επιλέξτε ώρα"
+                      }
+                    />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {(isLoadingSlots || isLoadingExistingBookings) && <SelectItem value="loading" disabled>Φόρτωση...</SelectItem>}
-                  {!isLoadingSlots && !isLoadingExistingBookings && availableTimeSlots.length === 0 && selectedDate && (
-                    <SelectItem value="no-slots" disabled>Δεν υπάρχουν διαθέσιμες ώρες</SelectItem>
+                  {(isLoadingSlots || isLoadingExistingBookings) && (
+                    <SelectItem value="loading" disabled>
+                      Φόρτωση...
+                    </SelectItem>
                   )}
-                  {!isLoadingSlots && !isLoadingExistingBookings && availableTimeSlots.map(slot => (
-                    <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                  ))}
+                  {!isLoadingSlots &&
+                    !isLoadingExistingBookings &&
+                    availableTimeSlots.length === 0 &&
+                    selectedDate && (
+                      <SelectItem value="no-slots" disabled>
+                        Δεν υπάρχουν διαθέσιμες ώρες
+                      </SelectItem>
+                    )}
+                  {!isLoadingSlots &&
+                    !isLoadingExistingBookings &&
+                    availableTimeSlots.map((slot) => (
+                      <SelectItem key={slot} value={slot}>
+                        {slot}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>
           )}
         />
-
+  
         <FormField
           control={form.control}
           name="notes"
@@ -352,8 +384,14 @@ export function BookingForm({
             </FormItem>
           )}
         />
-
-        <Button type="submit" className="w-full" disabled={isPending || !form.formState.isValid || isLoadingExistingBookings || isLoadingSlots}>
+  <input type="hidden" name="bookingTime" value={form.getValues("bookingTime")} />
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={
+            isPending || !form.formState.isValid || isLoadingExistingBookings || isLoadingSlots
+          }
+        >
           {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -366,4 +404,6 @@ export function BookingForm({
       </form>
     </Form>
   );
-}
+
+
+  
