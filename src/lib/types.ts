@@ -50,7 +50,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "electrician",
     translatedName: "🔌 Ηλεκτρολόγος",
     description: "Μπαταρίες, καλωδιώσεις, φώτα, αισθητήρες.",
-    icon: "Zap"
+    icon: "ElectricianIcon" // Changed from "Zap" to "ElectricianIcon"
   },
   {
     slug: "panel-beater",
@@ -62,7 +62,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "diagnostics",
     translatedName: "🧪 Διαγνωστικό",
     description: "Έλεγχος σφαλμάτων με διαγνωστικό.",
-    icon: "MyCustomIcon" // Changed from "Search" to "MyCustomIcon"
+    icon: "MyCustomIcon" 
   },
   {
     slug: "vulcanizer",
@@ -140,8 +140,8 @@ export interface QueryFormData {
   message: string;
   storeId: string;
   userId?: string; 
-  userName?: string; // Added userName for chat
-  userAvatarUrl?: string; // Added userAvatarUrl for chat
+  userName?: string; 
+  userAvatarUrl?: string; 
 }
 
 export interface StoreFormData {

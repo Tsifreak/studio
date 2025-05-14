@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { MyCustomIcon } from '@/components/icons/MyCustomIcon'; // Import your custom icon
+import { MyCustomIcon } from '@/components/icons/MyCustomIcon'; 
+import { ElectricianIcon } from '@/components/icons/ElectricianIcon'; // Import new ElectricianIcon
 
 // Map of string icon names to Lucide components
 const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React.SVGProps<SVGSVGElement>> } = {
@@ -26,7 +27,7 @@ const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React
   Car,
   AlignCenter,
   PackageCheck,
-  Zap,
+  Zap, // Original Lucide Zap
   MessageSquare,
   Scale,
   ShieldAlert,
@@ -34,8 +35,9 @@ const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React
   Package,
   Disc,
   Gauge,
-  MyCustomIcon, // Add your custom icon here
-  CheckCircle2, // Default/fallback
+  MyCustomIcon, 
+  ElectricianIcon, // Add new ElectricianIcon to map
+  CheckCircle2, 
   UnknownIcon: CheckCircle2, 
 };
 
@@ -53,4 +55,3 @@ export function RenderFeatureIcon({ iconName, className }: RenderFeatureIconProp
   // Fallback icon if no name or name not in map
   return <CheckCircle2 className={className} />;
 }
-
