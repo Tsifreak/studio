@@ -42,43 +42,43 @@ export interface AppCategoryInfo {
 export const AppCategories: AppCategoryInfo[] = [
   {
     slug: "mechanic",
-    translatedName: "🔧 Μηχανικός",
+    translatedName: "Μηχανικός",
     description: "Επισκευή κινητήρα, ανάρτηση, service.",
     icon: "MechanicIcon" 
   },
   {
     slug: "electrician",
-    translatedName: "🔌 Ηλεκτρολόγος",
+    translatedName: "Ηλεκτρολόγος",
     description: "Μπαταρίες, καλωδιώσεις, φώτα, αισθητήρες.",
     icon: "ElectricianIcon"
   },
   {
     slug: "panel-beater",
-    translatedName: "🛠️ Φανοποιοί",
+    translatedName: "Φανοποιοί",
     description: "Διορθώσεις αμαξώματος, τρακαρίσματα.",
-    icon: "PanelBeaterIcon"  // Updated icon for Panel Beater
+    icon: "PanelBeaterIcon"
   },
   {
     slug: "diagnostics",
-    translatedName: "🧪 Διαγνωστικό",
+    translatedName: "Διαγνωστικό",
     description: "Έλεγχος σφαλμάτων με διαγνωστικό.",
     icon: "MyCustomIcon" 
   },
   {
     slug: "vulcanizer",
-    translatedName: "🛞 Βουλκανιζατέρ",
+    translatedName: "Βουλκανιζατέρ",
     description: "Ελαστικά, ζυγοστάθμιση, ευθυγράμμιση.",
     icon: "TireIcon"
   },
   {
     slug: "detailer",
-    translatedName: "🧽 Detailer",
+    translatedName: "Detailer",
     description: "Καθαρισμός, γυάλισμα, προστασία χρώματος.",
     icon: "DetailerIcon"
   },
   {
     slug: "tuning",
-    translatedName: "🚀 Tuning",
+    translatedName: "Tuning",
     description: "Βελτιώσεις ECU, εξάτμιση, απόδοση.",
     icon: "TuningIcon"
   }
