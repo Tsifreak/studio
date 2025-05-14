@@ -44,7 +44,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "mechanic",
     translatedName: "🔧 Μηχανικός",
     description: "Επισκευή κινητήρα, ανάρτηση, service.",
-    icon: "MechanicIcon" // Updated icon
+    icon: "MechanicIcon" 
   },
   {
     slug: "electrician",
@@ -74,7 +74,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "detailer",
     translatedName: "🧽 Detailer",
     description: "Καθαρισμός, γυάλισμα, προστασία χρώματος.",
-    icon: "Sparkles"
+    icon: "DetailerIcon" // Updated icon for Detailer
   },
   {
     slug: "tuning",
