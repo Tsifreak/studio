@@ -4,7 +4,7 @@
 import { getStoreByIdFromDB } from '@/lib/storeService'; 
 import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot } from '@/lib/types'; 
 import Image from 'next/image';
-// import { notFound } from 'next/navigation'; // notFound() can only be used in Server Components
+import { useParams } from 'next/navigation'; // Import useParams
 import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2 } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +15,6 @@ import { ReviewForm } from '@/components/store/ReviewForm';
 import { submitStoreQuery, addReviewAction } from './actions'; 
 import { AppCategories } from '@/lib/types'; 
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
-// import type { Metadata } from 'next'; // Cannot export metadata from client component
 import { Button } from '@/components/ui/button'; 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
 import { useEffect, useState } from 'react';
@@ -23,18 +22,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { BookingForm } from '@/components/booking/BookingForm';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
-//   const store = await getStoreByIdFromDB(params.storeId); 
-//   if (!store) {
-//     return { title: 'Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε | Amaxakis' };
-//   }
-//   return {
-//     title: `${store.name} | Amaxakis`,
-//     description: store.description,
-//   };
-// }
 
-export default function StoreDetailPage({ params }: { params: { storeId: string } }) {
+export default function StoreDetailPage() {
+  const params = useParams<{ storeId: string }>(); // Use the hook
+  const storeId = params.storeId; // Get storeId from the hook's result
+
   const [storeData, setStoreData] = useState<Store | null | undefined>(undefined); // undefined for loading, null for not found
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +39,19 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedStore = await getStoreByIdFromDB(params.storeId);
-        if (fetchedStore) {
-          setStoreData(fetchedStore);
+        // Ensure storeId is a string and not an array or undefined
+        const currentStoreId = Array.isArray(storeId) ? storeId[0] : storeId;
+        if (typeof currentStoreId === 'string') {
+          const fetchedStore = await getStoreByIdFromDB(currentStoreId);
+          if (fetchedStore) {
+            setStoreData(fetchedStore);
+          } else {
+            setStoreData(null); // Not found
+          }
         } else {
-          setStoreData(null); // Not found
+          console.warn("storeId is not a string or is undefined:", currentStoreId);
+          setError("Μη έγκυρο αναγνωριστικό καταστήματος.");
+          setStoreData(null);
         }
       } catch (err) {
         console.error("Failed to fetch store details:", err);
@@ -61,10 +61,10 @@ export default function StoreDetailPage({ params }: { params: { storeId: string 
         setIsLoading(false);
       }
     };
-    if (params.storeId) {
+    if (storeId) { 
       fetchStore();
     }
-  }, [params.storeId]);
+  }, [storeId]);
 
 
   if (isLoading || storeData === undefined) {
