@@ -50,7 +50,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "electrician",
     translatedName: "🔌 Ηλεκτρολόγος",
     description: "Μπαταρίες, καλωδιώσεις, φώτα, αισθητήρες.",
-    icon: "ElectricianIcon" // Changed from "Zap" to "ElectricianIcon"
+    icon: "ElectricianIcon"
   },
   {
     slug: "panel-beater",
@@ -68,7 +68,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "vulcanizer",
     translatedName: "🛞 Βουλκανιζατέρ",
     description: "Ελαστικά, ζυγοστάθμιση, ευθυγράμμιση.",
-    icon: "Disc" 
+    icon: "TireIcon" // Changed from "Disc" to "TireIcon"
   },
   {
     slug: "detailer",

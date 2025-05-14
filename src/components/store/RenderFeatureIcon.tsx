@@ -10,7 +10,8 @@ import {
 import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { MyCustomIcon } from '@/components/icons/MyCustomIcon'; 
-import { ElectricianIcon } from '@/components/icons/ElectricianIcon'; // Import new ElectricianIcon
+import { ElectricianIcon } from '@/components/icons/ElectricianIcon';
+import { TireIcon } from '@/components/icons/TireIcon'; // Import new TireIcon
 
 // Map of string icon names to Lucide components
 const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React.SVGProps<SVGSVGElement>> } = {
@@ -27,7 +28,7 @@ const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React
   Car,
   AlignCenter,
   PackageCheck,
-  Zap, // Original Lucide Zap
+  Zap, 
   MessageSquare,
   Scale,
   ShieldAlert,
@@ -36,7 +37,8 @@ const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React
   Disc,
   Gauge,
   MyCustomIcon, 
-  ElectricianIcon, // Add new ElectricianIcon to map
+  ElectricianIcon,
+  TireIcon, // Add new TireIcon to map
   CheckCircle2, 
   UnknownIcon: CheckCircle2, 
 };
@@ -50,6 +52,8 @@ export function RenderFeatureIcon({ iconName, className }: RenderFeatureIconProp
   const IconComponent = iconName ? iconMap[iconName] : null;
 
   if (IconComponent) {
+    // For SVG components, we might need to pass fill="currentColor" if their internal fill is hardcoded
+    // and we want to control it via CSS. For now, we'll assume the SVG component handles its own fill or uses props.fill
     return <IconComponent className={className} />;
   }
   // Fallback icon if no name or name not in map
