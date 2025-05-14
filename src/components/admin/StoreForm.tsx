@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { SerializedStore } from '@/lib/types'; 
+import type { SerializedStore, Service, AvailabilitySlot } from '@/lib/types'; 
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useActionState } from "react"; 
@@ -26,7 +27,28 @@ interface StoreFormProps {
   action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }>;
 }
 
-// Client-side schema without category
+// Zod schema for JSON validation (client-side, also validated server-side)
+const serviceSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  durationMinutes: z.number().int().positive(),
+  price: z.number().positive(),
+  availableDaysOfWeek: z.array(z.number().int().min(0).max(6)),
+});
+const servicesArraySchema = z.array(serviceSchema);
+
+const availabilitySlotSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6), // 0 (Sunday) - 6 (Saturday)
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required"),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required"),
+  lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required").optional(),
+  lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required").optional(),
+});
+const availabilityArraySchema = z.array(availabilitySlotSchema);
+
+
+// Client-side schema without category, includes JSON fields for services/availability
 const clientStoreFormSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
   logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }).default('https://picsum.photos/seed/new_store_logo/100/100'),
@@ -37,7 +59,27 @@ const clientStoreFormSchema = z.object({
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
   address: z.string().optional(),
-  ownerId: z.string().optional().or(z.literal('')), // Firebase UID of the store owner
+  ownerId: z.string().optional().or(z.literal('')),
+  servicesJson: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true; 
+    try {
+      const parsed = JSON.parse(val);
+      servicesArraySchema.parse(parsed);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }, { message: "Μη έγκυρο JSON για τις υπηρεσίες ή δεν συμφωνεί με το σχήμα." }),
+  availabilityJson: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true; 
+    try {
+      const parsed = JSON.parse(val);
+      availabilityArraySchema.parse(parsed);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }, { message: "Μη έγκυρο JSON για τη διαθεσιμότητα ή δεν συμφωνεί με το σχήμα." }),
 });
 
 type ClientStoreFormValues = z.infer<typeof clientStoreFormSchema>;
@@ -69,6 +111,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
           websiteUrl: store.websiteUrl || '',
           address: store.address || '',
           ownerId: store.ownerId || '',
+          servicesJson: store.services ? JSON.stringify(store.services, null, 2) : '[]',
+          availabilityJson: store.availability ? JSON.stringify(store.availability, null, 2) : '[]',
         }
       : {
           name: "",
@@ -81,6 +125,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
           websiteUrl: "",
           address: "",
           ownerId: "",
+          servicesJson: '[]',
+          availabilityJson: '[]',
         },
   });
   
@@ -90,14 +136,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
         title: store ? "Επιτυχής Ενημέρωση" : "Επιτυχής Προσθήκη",
         description: formState.message,
       });
-      
-      if (store) { 
-        router.push('/admin/stores');
-      } else { 
-        router.push('/admin/stores');
-      }
+      router.push('/admin/stores');
       router.refresh(); 
-
     } else if (formState.message && !formState.success && formState.errors) {
        toast({
         title: "Σφάλμα Φόρμας",
@@ -122,6 +162,18 @@ export function StoreForm({ store, action }: StoreFormProps) {
     }
   }, [formState, toast, router, store, form]);
 
+  const exampleServiceJson = JSON.stringify([
+    { id: "service1", name: "Αλλαγή Λαδιών", description: "Συνθετικά λάδια και φίλτρο.", durationMinutes: 60, price: 50, availableDaysOfWeek: [1,2,3,4,5] },
+    { id: "service2", name: "Έλεγχος Φρένων", description: "Έλεγχος και καθαρισμός.", durationMinutes: 45, price: 30, availableDaysOfWeek: [1,2,3,4,5,6] }
+  ], null, 2);
+
+  const exampleAvailabilityJson = JSON.stringify([
+    { dayOfWeek: 1, startTime: "09:00", endTime: "17:00", lunchBreakStartTime: "13:00", lunchBreakEndTime: "14:00" },
+    { dayOfWeek: 2, startTime: "09:00", endTime: "17:00" },
+    { dayOfWeek: 6, startTime: "10:00", endTime: "14:00" }
+  ], null, 2);
+
+
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
       <CardHeader>
@@ -129,7 +181,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           {store ? `Επεξεργασία Κέντρου: ${store.name}` : "Προσθήκη Νέου Κέντρου"}
         </CardTitle>
         <CardDescription>
-          {store ? "Ενημερώστε τα στοιχεία του υπάρχοντος κέντρου. Η κατηγορία αλλάζει από τη λίστα κέντρων." : "Συμπληρώστε τα στοιχεία για το νέο κέντρο εξυπηρέτησης. Η κατηγορία μπορεί να οριστεί από τη λίστα κέντρων μετά την προσθήκη."}
+          {store ? "Ενημερώστε τα στοιχεία του υπάρχοντος κέντρου." : "Συμπληρώστε τα στοιχεία για το νέο κέντρο εξυπηρέτησης."}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -273,6 +325,41 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="servicesJson"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Υπηρεσίες (JSON format)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder={exampleServiceJson} {...field} rows={8} />
+                  </FormControl>
+                  <FormDescription>
+                    Εισάγετε έναν πίνακα από αντικείμενα υπηρεσιών σε μορφή JSON. Κάθε υπηρεσία πρέπει να έχει:
+                    id (string), name (string), description (string), durationMinutes (number), price (number), availableDaysOfWeek (array of numbers 0-6, 0=Κυριακή).
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="availabilityJson"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Εβδομαδιαία Διαθεσιμότητα (JSON format)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder={exampleAvailabilityJson} {...field} rows={6} />
+                  </FormControl>
+                  <FormDescription>
+                    Εισάγετε έναν πίνακα από αντικείμενα διαθεσιμότητας σε μορφή JSON. Κάθε αντικείμενο πρέπει να έχει:
+                    dayOfWeek (number 0-6), startTime (string "HH:mm"), endTime (string "HH:mm"), προαιρετικά lunchBreakStartTime/EndTime.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
           </CardContent>
           <CardFooter className="flex justify-end">
             <Button type="button" variant="outline" onClick={() => router.back()} className="mr-2" disabled={isPending}>

@@ -1,19 +1,21 @@
 
 import { getStoreByIdFromDB } from '@/lib/storeService'; 
-import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review } from '@/lib/types'; 
+import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service } from '@/lib/types'; 
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag, Edit } from 'lucide-react'; // Added Edit icon
+import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
-import { ProductListItem } from '@/components/store/ProductListItem';
+// ProductListItem might be replaced or augmented by ServiceListItem later
+import { ProductListItem } from '@/components/store/ProductListItem'; 
 import { ContactForm } from '@/components/shared/ContactForm';
-import { ReviewForm } from '@/components/store/ReviewForm'; // Import ReviewForm
+import { ReviewForm } from '@/components/store/ReviewForm';
 import { submitStoreQuery, addReviewAction } from './actions'; 
 import { AppCategories } from '@/lib/types'; 
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import type { Metadata } from 'next';
+import { Button } from '@/components/ui/button'; // For Book button
 
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
   const store = await getStoreByIdFromDB(params.storeId); 
@@ -42,7 +44,9 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
       icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
     })),
     products: storeData.products || [],
-    reviews: storeData.reviews || [], // Ensure reviews is an array
+    reviews: storeData.reviews || [],
+    services: storeData.services || [], // Ensure services are passed
+    availability: storeData.availability || [], // Ensure availability is passed
   };
 
 
@@ -108,10 +112,11 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
       </Card>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 mb-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-7 mb-6">
           <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
-          <TabsTrigger value="products">Υπηρεσίες ({serializableStore.products?.length || 0})</TabsTrigger>
-          <TabsTrigger value="pricing">Πακέτα Τιμολόγησης</TabsTrigger>
+          <TabsTrigger value="services_booking">Υπηρεσίες & Κράτηση ({serializableStore.services?.length || 0})</TabsTrigger>
+          <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
+          <TabsTrigger value="pricing">Πακέτα</TabsTrigger>
           <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
           <TabsTrigger value="add-review"><Edit className="w-4 h-4 mr-1 sm:mr-2" />Γράψε Κριτική</TabsTrigger>
           <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
@@ -158,11 +163,54 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
           )}
         </TabsContent>
 
+        <TabsContent value="services_booking">
+          <Card>
+            <CardHeader>
+              <CardTitle>Προσφερόμενες Υπηρεσίες για Κράτηση</CardTitle>
+              <CardDescription>Επιλέξτε μια υπηρεσία για να δείτε τις διαθέσιμες ώρες και να κάνετε κράτηση.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {serializableStore.services && serializableStore.services.length > 0 ? (
+                <div className="space-y-4">
+                  {serializableStore.services.map((service: Service) => (
+                    <Card key={service.id} className="p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                        <div>
+                          <h3 className="text-lg font-semibold text-primary">{service.name}</h3>
+                          <p className="text-sm text-muted-foreground mt-1 mb-2">{service.description}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            <span className="flex items-center"><CalendarDays className="w-4 h-4 mr-1.5 text-muted-foreground"/> Διάρκεια: {service.durationMinutes} λεπτά</span>
+                            <span className="flex items-center"><Tag className="w-4 h-4 mr-1.5 text-muted-foreground"/> Τιμή: {service.price.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}</span>
+                          </div>
+                        </div>
+                        <Button className="mt-3 sm:mt-0 sm:ml-4" disabled> 
+                          Κάντε Κράτηση
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <p className="mt-4 text-muted-foreground">Δεν υπάρχουν διαθέσιμες υπηρεσίες για κράτηση αυτή τη στιγμή.</p>
+                </div>
+              )}
+               {!serializableStore.availability || serializableStore.availability.length === 0 && (
+                 <div className="mt-6 p-4 border border-dashed border-destructive/50 rounded-md bg-destructive/5 text-destructive flex items-center gap-3">
+                    <Info className="w-5 h-5 shrink-0"/>
+                    <p className="text-sm">Το κατάστημα δεν έχει ορίσει ακόμη τη διαθεσιμότητά του. Οι κρατήσεις δεν είναι δυνατές.</p>
+                 </div>
+               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="products">
           <Card>
             <CardHeader>
-              <CardTitle>Οι Υπηρεσίες μας</CardTitle>
-              <CardDescription>Περιηγηθείτε στις επιλογές που προσφέρει το {serializableStore.name}.</CardDescription>
+              <CardTitle>Οι Υπηρεσίες/Προϊόντα μας</CardTitle>
+              <CardDescription>Περιηγηθείτε στις επιλογές που προσφέρει το {serializableStore.name}. (Αυτό είναι για γενικά προϊόντα/υπηρεσίες, όχι για κρατήσεις)</CardDescription>
             </CardHeader>
             <CardContent>
               {serializableStore.products && serializableStore.products.length > 0 ? (
@@ -172,7 +220,7 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν καταχωρημένες υπηρεσίες για αυτό το κέντρο ακόμη.</p>
+                <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν καταχωρημένες υπηρεσίες/προϊόντα για αυτό το κέντρο ακόμη.</p>
               )}
             </CardContent>
           </Card>
@@ -252,4 +300,3 @@ export default async function StoreDetailPage({ params }: { params: { storeId: s
     </div>
   );
 }
-

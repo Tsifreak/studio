@@ -1,21 +1,20 @@
 
 import { StoreForm } from '@/components/admin/StoreForm';
 import { updateStoreAction } from '../../../actions';
-import { getStoreByIdFromDB } from '@/lib/storeService'; // Changed import
+import { getStoreByIdFromDB } from '@/lib/storeService'; 
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import type { Store, Feature, SerializedStore, SerializedFeature } from '@/lib/types';
+import type { Store, Feature, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
 
 interface EditStorePageProps {
   params: { storeId: string };
 }
 
-// generateMetadata now needs to be async as getStoreByIdFromDB fetches from DB
 export async function generateMetadata({ params }: EditStorePageProps): Promise<Metadata> {
-  const store = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
+  const store = await getStoreByIdFromDB(params.storeId); 
   if (!store) {
     return { title: 'Κέντρο Δεν Βρέθηκε | Amaxakis Admin' };
   }
@@ -25,19 +24,16 @@ export async function generateMetadata({ params }: EditStorePageProps): Promise<
   };
 }
 
-// The page component also needs to be async
 export default async function EditStorePage({ params }: EditStorePageProps) {
-  const storeData = await getStoreByIdFromDB(params.storeId); // Use direct DB fetch
+  const storeData = await getStoreByIdFromDB(params.storeId); 
 
   if (!storeData) {
     notFound(); 
   }
   
-  // Assuming storeData.features from DB already contains icon names as strings.
-  // The SerializedStore type expects features to be SerializedFeature[]
   const storeForForm: SerializedStore = {
     ...storeData,
-    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => { // Accept Feature or SerializedFeature
+    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => {
       const iconName = typeof feature.icon === 'string' ? feature.icon : undefined;
       return {
         id: feature.id,
@@ -46,9 +42,10 @@ export default async function EditStorePage({ params }: EditStorePageProps) {
         icon: iconName,
       };
     }),
+    services: storeData.services || [], // Ensure services are passed
+    availability: storeData.availability || [], // Ensure availability is passed
   };
 
-  // Bind the storeId to the server action
   const updateStoreActionWithId = updateStoreAction.bind(null, params.storeId);
 
   return (

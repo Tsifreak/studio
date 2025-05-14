@@ -90,6 +90,42 @@ export const TranslatedStoreCategories = AppCategories.map(cat => cat.translated
 
 export type StoreCategory = typeof StoreCategories[number];
 
+// New types for Booking System
+export interface Service {
+  id: string; // Unique ID for the service
+  name: string;
+  description: string;
+  durationMinutes: number;
+  price: number; // Store as number, display with currency
+  availableDaysOfWeek: number[]; // 0 (Sunday) to 6 (Saturday)
+}
+
+export interface AvailabilitySlot {
+  dayOfWeek: number; // 0 (Sunday) to 6 (Saturday)
+  startTime: string; // HH:mm format, e.g., "09:00"
+  endTime: string;   // HH:mm format, e.g., "17:00"
+  lunchBreakStartTime?: string; // Optional HH:mm
+  lunchBreakEndTime?: string;   // Optional HH:mm
+}
+
+export interface Booking {
+  id: string;
+  storeId: string;
+  storeName: string; // Denormalized for easier display
+  userId: string;
+  userName: string; // Denormalized
+  userEmail: string; // Denormalized
+  serviceId: string;
+  serviceName: string; // Denormalized
+  serviceDurationMinutes: number; // Denormalized
+  servicePrice: number; // Denormalized
+  bookingDate: string; // YYYY-MM-DD format
+  bookingTime: string; // HH:mm format
+  status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
+  createdAt: string; // ISO string
+  notes?: string; // Optional notes from user or store
+}
+
 export interface Store {
   id: string;
   name:string;
@@ -103,19 +139,26 @@ export interface Store {
   pricingPlans: PricingPlan[];
   features: Feature[];
   reviews: Review[];
-  products: Product[];
+  products: Product[]; // This could be renamed/repurposed to `services` or kept separate
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
   ownerId?: string; 
+  // New fields for booking system
+  services: Service[]; // List of services offered by the store
+  availability: AvailabilitySlot[]; // Weekly availability of the store
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
   icon?: string; 
 }
 
-export interface SerializedStore extends Omit<Store, 'features'> {
+// SerializedStore to ensure dates and other complex objects are handled for client components
+export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability'> {
   features: SerializedFeature[];
+  reviews: Review[]; // Assuming Review dates are already ISO strings
+  services: Service[]; // Services are generally simple data
+  availability: AvailabilitySlot[]; // Availability slots are simple data
 }
 
 
@@ -125,7 +168,7 @@ export interface UserProfile {
   email: string;
   avatarUrl?: string;
   isAdmin?: boolean;
-  totalUnreadMessages: number; // Added for real-time updates
+  totalUnreadMessages: number; 
   preferences?: {
     darkMode?: boolean;
     notifications?: boolean;
@@ -154,6 +197,9 @@ export interface StoreFormData {
   websiteUrl?: string;
   address?: string;
   ownerId?: string; 
+  // For managing services and availability via JSON in StoreForm
+  servicesJson?: string; 
+  availabilityJson?: string;
 }
 
 export interface ReviewFormData {
@@ -167,30 +213,30 @@ export interface Chat {
   storeId: string;
   storeName: string;
   storeLogoUrl?: string;
-  userId: string;          // Customer's Firebase UID
-  userName: string;        // Customer's name
+  userId: string;          
+  userName: string;        
   userAvatarUrl?: string;
-  ownerId: string;         // Store Owner's Firebase UID
-  lastMessageAt: string;   // ISO string for client (converted from Timestamp)
+  ownerId: string;         
+  lastMessageAt: string;   
   lastMessageText: string;
-  lastMessageSenderId?: string; // ID of the user who sent the last message
-  lastImageUrl?: string; // URL of the last image sent
+  lastMessageSenderId?: string; 
+  lastImageUrl?: string; 
   userUnreadCount: number;
   ownerUnreadCount: number;
   participantIds: string[]; 
-  createdAt: string; // ISO string for client (converted from Timestamp)
+  createdAt: string; 
 }
 
 export interface ChatMessage {
   id: string;
-  senderId: string;    // userId or ownerId
+  senderId: string;    
   senderName: string;
   text: string;
-  imageUrl?: string; // Optional URL for an image
-  createdAt: string;   // ISO string for client (converted from Timestamp)
+  imageUrl?: string; 
+  createdAt: string;   
 }
 
 export interface ChatMessageFormData {
   text: string;
-  imageFile?: File | null; // Optional file for image upload
+  imageFile?: File | null; 
 }
