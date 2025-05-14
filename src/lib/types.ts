@@ -56,7 +56,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "panel-beater",
     translatedName: "🛠️ Φανοποιοί",
     description: "Διορθώσεις αμαξώματος, τρακαρίσματα.",
-    icon: "Car" 
+    icon: "PanelBeaterIcon"  // Updated icon for Panel Beater
   },
   {
     slug: "diagnostics",
@@ -80,7 +80,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "tuning",
     translatedName: "🚀 Tuning",
     description: "Βελτιώσεις ECU, εξάτμιση, απόδοση.",
-    icon: "TuningIcon" // Updated icon for Tuning
+    icon: "TuningIcon"
   }
 ];
 
