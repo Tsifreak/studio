@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { 
@@ -13,7 +14,8 @@ import { MyCustomIcon } from '@/components/icons/MyCustomIcon';
 import { ElectricianIcon } from '@/components/icons/ElectricianIcon';
 import { TireIcon } from '@/components/icons/TireIcon';
 import { MechanicIcon } from '@/components/icons/MechanicIcon';
-import { DetailerIcon } from '@/components/icons/DetailerIcon'; // Import new DetailerIcon
+import { DetailerIcon } from '@/components/icons/DetailerIcon';
+import { TuningIcon } from '@/components/icons/TuningIcon'; // Import new TuningIcon
 
 // Map of string icon names to Lucide components
 const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React.SVGProps<SVGSVGElement>> } = {
@@ -42,7 +44,8 @@ const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React
   ElectricianIcon,
   TireIcon,
   MechanicIcon,
-  DetailerIcon, // Add new DetailerIcon to map
+  DetailerIcon,
+  TuningIcon, // Add new TuningIcon to map
   CheckCircle2, 
   UnknownIcon: CheckCircle2, 
 };

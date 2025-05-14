@@ -74,13 +74,13 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "detailer",
     translatedName: "🧽 Detailer",
     description: "Καθαρισμός, γυάλισμα, προστασία χρώματος.",
-    icon: "DetailerIcon" // Updated icon for Detailer
+    icon: "DetailerIcon"
   },
   {
     slug: "tuning",
     translatedName: "🚀 Tuning",
     description: "Βελτιώσεις ECU, εξάτμιση, απόδοση.",
-    icon: "Gauge" 
+    icon: "TuningIcon" // Updated icon for Tuning
   }
 ];
 
