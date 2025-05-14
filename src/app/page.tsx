@@ -13,25 +13,25 @@ export default function HomePage() {
       step: "Βήμα 1",
       title: "Επιλέξτε τον ειδικό σας",
       description: "Περιηγηθείτε στις κατηγορίες και βρείτε τον κατάλληλο επαγγελματία για τις ανάγκες του αυτοκινήτου σας.",
-      icon: <ListChecks className="h-10 w-10 text-primary mb-4" /> // Changed icon
+      icon: <ListChecks className="h-10 w-10 text-primary mb-4" /> 
     },
     {
       step: "Βήμα 2",
       title: "Στείλτε το ερώτημά σας",
       description: "Επικοινωνήστε εύκολα με το κέντρο εξυπηρέτησης μέσω της φόρμας επικοινωνίας για να περιγράψετε το πρόβλημα ή την υπηρεσία που χρειάζεστε.",
-      icon: <Mail className="h-10 w-10 text-primary mb-4" /> // Changed icon
+      icon: <Mail className="h-10 w-10 text-primary mb-4" /> 
     },
     {
       step: "Βήμα 3",
       title: "Επιλέξτε ημερομηνία και ώρα",
       description: "Συνεννοηθείτε με το κέντρο για να κλείσετε ραντεβού την ημέρα και ώρα που σας εξυπηρετεί καλύτερα.",
-      icon: <CalendarCheck className="h-10 w-10 text-primary mb-4" /> // Changed icon
+      icon: <CalendarCheck className="h-10 w-10 text-primary mb-4" />
     }
   ];
 
   return (
-    <div className="space-y-10">
-      <section className="text-center py-8 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
+    <div className="space-y-6"> {/* Reduced space-y */}
+      <section className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow"> {/* Reduced py */}
         <h1 className="text-4xl font-bold tracking-tight text-[hsl(217,54%,18%)] md:text-5xl">
           Καλώς ήρθατε στην Amaxakis
         </h1>
@@ -40,8 +40,8 @@ export default function HomePage() {
         </p>
       </section>
 
-      <section className="py-8">
-        <h2 className="text-3xl font-bold text-center mb-8 text-[hsl(217,54%,18%)]">Πώς Λειτουργεί;</h2>
+      <section className="py-6"> {/* Reduced py */}
+        <h2 className="text-3xl font-bold text-center mb-6 text-[hsl(217,54%,18%)]">Πώς Λειτουργεί;</h2> {/* Reduced mb */}
         <div className="flex flex-col md:flex-row items-stretch justify-center gap-y-3 md:gap-y-0 md:gap-x-1">
           {howItWorksSteps.map((item, index) => (
             <React.Fragment key={item.step}>
@@ -68,21 +68,22 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="mb-6 p-5 bg-card rounded-lg shadow">
-        <h2 className="text-2xl font-semibold text-center mb-5 text-[hsl(217,54%,18%)]">Εξερεύνηση Κατηγοριών</h2>
+      <div className="mb-4 p-4 bg-card rounded-lg shadow"> {/* Reduced mb and p */}
+        <h2 className="text-2xl font-semibold text-center mb-4 text-[hsl(217,54%,18%)]">Εξερεύνηση Κατηγοριών</h2> {/* Reduced mb */}
         {AppCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4"> {/* Reduced gap */}
             {AppCategories.map((category) => (
               <CategoryCard
                 key={category.slug}
                 categorySlug={category.slug}
                 translatedCategoryName={category.translatedName}
                 description={category.description}
+                iconName={category.icon} // Pass the icon name
               />
             ))}
           </div>
         ) : (
-          <div className="text-center py-10">
+          <div className="text-center py-8"> {/* Reduced py */}
             <h2 className="text-2xl font-semibold text-foreground">Δεν Βρέθηκαν Κατηγορίες</h2>
             <p className="mt-2 text-muted-foreground">
               Δεν υπάρχουν διαθέσιμες κατηγορίες αυτή τη στιγμή.

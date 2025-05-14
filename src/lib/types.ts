@@ -62,7 +62,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "diagnostics",
     translatedName: "🧪 Διαγνωστικό",
     description: "Έλεγχος σφαλμάτων με διαγνωστικό.",
-    icon: "Search"
+    icon: "MyCustomIcon" // Changed from "Search" to "MyCustomIcon"
   },
   {
     slug: "vulcanizer",
