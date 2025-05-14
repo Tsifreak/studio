@@ -11,7 +11,8 @@ import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { MyCustomIcon } from '@/components/icons/MyCustomIcon'; 
 import { ElectricianIcon } from '@/components/icons/ElectricianIcon';
-import { TireIcon } from '@/components/icons/TireIcon'; // Import new TireIcon
+import { TireIcon } from '@/components/icons/TireIcon';
+import { MechanicIcon } from '@/components/icons/MechanicIcon'; // Import new MechanicIcon
 
 // Map of string icon names to Lucide components
 const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React.SVGProps<SVGSVGElement>> } = {
@@ -38,7 +39,8 @@ const iconMap: { [key: string]: ComponentType<LucideProps> | ComponentType<React
   Gauge,
   MyCustomIcon, 
   ElectricianIcon,
-  TireIcon, // Add new TireIcon to map
+  TireIcon,
+  MechanicIcon, // Add new MechanicIcon to map
   CheckCircle2, 
   UnknownIcon: CheckCircle2, 
 };
