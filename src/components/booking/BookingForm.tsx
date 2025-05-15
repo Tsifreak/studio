@@ -384,8 +384,9 @@ export function BookingForm({
             </FormItem>
           )}
         />
-  <input type="hidden" name="bookingTime" value={form.getValues("bookingTime")} />
-        <Button
+  <input type="hidden" name="bookingTime" value={form.watch("bookingTime") || ""} />
+
+          <Button
           type="submit"
           className="w-full"
           disabled={

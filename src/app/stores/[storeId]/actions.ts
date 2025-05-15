@@ -230,7 +230,12 @@ export async function createBookingAction(
     return {
       success: true,
       message: `Η κράτησή σας για την υπηρεσία "${service.name}" στις ${new Date(bookingDate).toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
-      booking: { ...newBookingData, id: bookingId, createdAt: new Date().toISOString(), bookingDate: bookingDate }, // Approximate createdAt for client return
+      booking: {
+        ...newBookingData,
+        id: bookingId,
+        createdAt: new Date().toISOString(),
+        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0],
+      },
     };
 
   } catch (error) {

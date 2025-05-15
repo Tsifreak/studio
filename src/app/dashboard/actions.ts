@@ -2,8 +2,10 @@
 "use server";
 
 import { db } from '@/lib/firebase';
-import type { Store, Booking, BookingDocumentData } from '@/lib/types';
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import type { Store, Booking, BookingDocumentData, BookingStatus } from '@/lib/types';
+import { collection, query, where, getDocs, orderBy, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
 const STORE_COLLECTION = 'StoreInfo';
 const BOOKINGS_COLLECTION = 'bookings';
@@ -96,5 +98,52 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
   } catch (error) {
     console.error("Error fetching owner dashboard data:", error);
     return { bookings: [], storesOwned: [] }; // Return empty on error
+  }
+}
+
+const bookingStatusUpdateSchema = z.object({
+    bookingId: z.string().min(1, "Booking ID is required."),
+    newStatus: z.enum(['pending', 'confirmed', 'completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show']),
+    // bookingStoreId: z.string().min(1, "Store ID for the booking is required."), // For future authorization
+});
+
+export async function updateBookingStatusAction(
+  prevState: any,
+  formData: FormData
+): Promise<{ success: boolean; message: string; errors?: any }> {
+  const validatedFields = bookingStatusUpdateSchema.safeParse({
+    bookingId: formData.get('bookingId'),
+    newStatus: formData.get('newStatus'),
+    // bookingStoreId: formData.get('bookingStoreId'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Μη έγκυρα δεδομένα για την ενημέρωση κατάστασης.",
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { bookingId, newStatus } = validatedFields.data;
+
+  try {
+    const bookingRef = doc(db, BOOKINGS_COLLECTION, bookingId);
+    
+    // TODO: Add server-side authorization check here:
+    // Ensure the authenticated user (if available via auth context or similar mechanism for server actions)
+    // is the owner of the store associated with this bookingId.
+    // This is crucial for security. For now, we proceed without it.
+
+    await updateDoc(bookingRef, {
+      status: newStatus,
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true, message: `Η κατάσταση της κράτησης ενημερώθηκε σε "${newStatus}".` };
+
+  } catch (error) {
+    console.error("Error updating booking status:", error);
+    return { success: false, message: "Σφάλμα κατά την ενημέρωση της κατάστασης της κράτησης." };
   }
 }

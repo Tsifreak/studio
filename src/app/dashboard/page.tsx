@@ -4,12 +4,12 @@
 import { ProfileForm } from '@/components/auth/ProfileForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react'; // Added React for explicit import
+import React, { useEffect, useState, useCallback } from 'react'; // Added React, useCallback
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2 } from 'lucide-react'; 
-import { getOwnerDashboardData } from './actions'; // Import the new server action
+import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2, RefreshCw } from 'lucide-react'; 
+import { getOwnerDashboardData } from './actions'; 
 import type { Booking, Store } from '@/lib/types';
 import { OwnerBookingsDisplay } from '@/components/dashboard/OwnerBookingsDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,7 +20,23 @@ export default function DashboardPage() {
 
   const [ownerBookings, setOwnerBookings] = useState<Booking[]>([]);
   const [ownedStores, setOwnedStores] = useState<Store[]>([]);
-  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false); // Renamed for clarity
+
+  const fetchOwnerData = useCallback(async () => {
+    if (user && user.id) {
+      setIsLoadingOwnerData(true);
+      try {
+        const data = await getOwnerDashboardData(user.id);
+        setOwnedStores(data.storesOwned);
+        setOwnerBookings(data.bookings);
+      } catch (error) {
+        console.error("Failed to fetch owner dashboard data:", error);
+        // Optionally set an error state here
+      } finally {
+        setIsLoadingOwnerData(false);
+      }
+    }
+  }, [user]); // Added user to dependency array
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !isLoading && !user) {
@@ -28,25 +44,10 @@ export default function DashboardPage() {
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
     }
 
-    if (user && user.id) {
-      const fetchOwnerData = async () => {
-        setIsLoadingBookings(true);
-        try {
-          const data = await getOwnerDashboardData(user.id);
-          setOwnedStores(data.storesOwned);
-          setOwnerBookings(data.bookings);
-        } catch (error) {
-          console.error("Failed to fetch owner dashboard data:", error);
-          // Optionally set an error state here
-        } finally {
-          setIsLoadingBookings(false);
-        }
-      };
-      fetchOwnerData();
-    }
-  }, [user, isLoading, router]);
+    fetchOwnerData(); // Call fetchOwnerData directly
+  }, [user, isLoading, router, fetchOwnerData]); // Added fetchOwnerData to dependencies
 
-  if (isLoading) {
+  if (isLoading) { // This is auth loading
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -87,21 +88,30 @@ export default function DashboardPage() {
       {ownedStores.length > 0 && (
         <Card className="shadow-lg">
             <CardHeader>
-                <CardTitle className="flex items-center">
-                    <ShoppingBag className="mr-2 h-5 w-5 text-primary" />
-                    Οι Κρατήσεις των Κέντρων μου ({ownerBookings.length})
-                </CardTitle>
+                <div className="flex justify-between items-center">
+                    <CardTitle className="flex items-center">
+                        <ShoppingBag className="mr-2 h-5 w-5 text-primary" />
+                        Οι Κρατήσεις των Κέντρων μου ({ownerBookings.length})
+                    </CardTitle>
+                    <Button variant="ghost" size="icon" onClick={fetchOwnerData} disabled={isLoadingOwnerData} title="Ανανέωση Κρατήσεων">
+                        <RefreshCw className={`h-4 w-4 ${isLoadingOwnerData ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
                 <CardDescription>Διαχειριστείτε τις κρατήσεις για τα κέντρα εξυπηρέτησης που σας ανήκουν.</CardDescription>
             </CardHeader>
             <CardContent>
-                {isLoadingBookings ? (
+                {isLoadingOwnerData ? (
                     <div className="space-y-4">
                         <Skeleton className="h-10 w-full" />
                         <Skeleton className="h-10 w-full" />
                         <Skeleton className="h-10 w-full" />
                     </div>
                 ) : (
-                    <OwnerBookingsDisplay bookings={ownerBookings} storesOwned={ownedStores} />
+                    <OwnerBookingsDisplay 
+                        bookings={ownerBookings} 
+                        storesOwned={ownedStores}
+                        onBookingUpdate={fetchOwnerData} // Pass callback to refresh data
+                    />
                 )}
             </CardContent>
         </Card>
