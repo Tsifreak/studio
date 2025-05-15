@@ -128,6 +128,13 @@ export interface Booking {
   notes?: string; 
 }
 
+// Firestore document data for Booking (includes Firestore Timestamps for date fields)
+export interface BookingDocumentData extends Omit<Booking, 'id' | 'createdAt' | 'bookingDate'> {
+  bookingDate: Timestamp; // For Firestore query
+  createdAt: Timestamp;
+}
+
+
 export interface Store {
   id: string;
   name:string;
@@ -173,19 +180,19 @@ export interface UserProfile {
   avatarUrl?: string;
   isAdmin?: boolean;
   totalUnreadMessages: number;
-  totalUnreadBookings: number; // Added for booking notifications
+  totalUnreadBookings: number;
   preferences?: UserPreferences;
 }
 
 // Represents the data structure in Firestore for the userProfiles collection
 export interface UserProfileFirestoreData {
-  name?: string; // Could be different from auth displayName if updated
-  email?: string; // Primarily for reference, auth email is source of truth
+  name?: string; 
+  email?: string; 
   avatarUrl?: string;
   preferences?: UserPreferences;
   totalUnreadMessages?: number;
   totalUnreadBookings?: number;
-  lastSeen?: Timestamp; // Example of other fields you might store
+  lastSeen?: Timestamp; 
   createdAt?: Timestamp;
 }
 
@@ -254,8 +261,4 @@ export interface ChatMessageFormData {
   imageFile?: File | null; 
 }
 
-// Firestore document data for Booking (includes Firestore Timestamps for date fields)
-export interface BookingDocumentData extends Omit<Booking, 'id' | 'createdAt' | 'bookingDate'> {
-  bookingDate: Timestamp; // For Firestore query
-  createdAt: Timestamp;
-}
+export type BookingStatus = Booking['status'];

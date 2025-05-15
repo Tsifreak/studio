@@ -69,7 +69,7 @@ const generateTimeSlots = (
   selectedDate: Date,
   storeAvailability: AvailabilitySlot[],
   serviceDuration: number,
-  existingBookings: Booking[] // Add existingBookings parameter
+  existingBookings: Booking[] 
 ): string[] => {
   const dayOfWeek = getDay(selectedDate);
   const dailySchedule = storeAvailability.find(slot => slot.dayOfWeek === dayOfWeek);
@@ -79,7 +79,7 @@ const generateTimeSlots = (
   }
 
   const slots: string[] = [];
-  const slotInterval = 15;
+  const slotInterval = 15; // Generate slots every 15 minutes
 
   const storeOpenMinutes = timeToMinutes(dailySchedule.startTime);
   const storeCloseMinutes = timeToMinutes(dailySchedule.endTime);
@@ -90,10 +90,12 @@ const generateTimeSlots = (
     const slotStart = currentMinutes;
     const slotEnd = currentMinutes + serviceDuration;
 
+    // Check if slot is within store operating hours
     if (slotEnd > storeCloseMinutes) {
       continue;
     }
 
+    // Check for overlaps with lunch break
     const overlapsWithLunch = lunchStartMinutes !== -1 && lunchEndMinutes !== -1 &&
       Math.max(slotStart, lunchStartMinutes) < Math.min(slotEnd, lunchEndMinutes);
 
@@ -101,9 +103,10 @@ const generateTimeSlots = (
       continue;
     }
 
+    // Check for overlaps with existing bookings
     let overlapsWithExistingBooking = false;
     for (const booking of existingBookings) {
-      // Ensure bookingDate matches selectedDate (already handled by fetching logic, but good to be safe)
+      // Ensure bookingDate matches selectedDate (this should be handled by fetching logic, but double check)
       if (format(new Date(booking.bookingDate), 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) continue;
 
       const existingBookingStartMinutes = timeToMinutes(booking.bookingTime);
@@ -156,7 +159,7 @@ export function BookingForm({
     if (selectedDate && storeId) {
       const fetchBookings = async () => {
         setIsLoadingExistingBookings(true);
-        setExistingBookings([]); // Clear previous bookings
+        setExistingBookings([]); 
         try {
           const dateString = format(selectedDate, "yyyy-MM-dd");
           const bookings = await getBookingsForStoreAndDate(storeId, dateString);

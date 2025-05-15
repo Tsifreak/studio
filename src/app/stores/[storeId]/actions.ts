@@ -178,17 +178,22 @@ export async function createBookingAction(
   }
 
   const { storeId, userId, userName, userEmail, serviceId, bookingDate, bookingTime, notes } = validatedFields.data;
+  console.log("Server Action: createBookingAction invoked with data:", validatedFields.data);
 
   try {
     const store = await getStoreByIdFromDB(storeId);
     if (!store) {
+      console.error(`Store not found for ID: ${storeId}`);
       return { success: false, message: "Το κέντρο εξυπηρέτησης δεν βρέθηκε." };
     }
+    console.log("Server Action: Store found:", store.name);
 
     const service = store.services.find(s => s.id === serviceId);
     if (!service) {
+      console.error(`Service not found for ID: ${serviceId} in store ${storeId}`);
       return { success: false, message: "Η επιλεγμένη υπηρεσία δεν βρέθηκε." };
     }
+    console.log("Server Action: Service found:", service.name);
 
     const bookingId = doc(collection(db, '_')).id;
 
@@ -208,11 +213,11 @@ export async function createBookingAction(
       createdAt: serverTimestamp(),
       notes: notes || "",
     };
+    console.log("Server Action: Preparing to add booking to DB with data:", newBookingData);
 
-    // Pass the explicit bookingId to be stored as a field within the document
     await addDoc(collection(db, "bookings"), { ...newBookingData, id: bookingId });
+    console.log("Server Action: Booking added to DB with ID:", bookingId);
     
-    // Increment store owner's unread bookings count
     if (store.ownerId) {
       const ownerProfileRef = doc(db, USER_PROFILES_COLLECTION, store.ownerId);
       try {
@@ -220,9 +225,12 @@ export async function createBookingAction(
           totalUnreadBookings: increment(1),
           lastSeen: serverTimestamp() 
         });
+        console.log(`Server Action: Incremented totalUnreadBookings for owner ${store.ownerId}`);
       } catch (profileError) {
-        console.warn(`Could not update unread bookings for owner ${store.ownerId}:`, profileError);
+        console.warn(`Server Action: Could not update unread bookings for owner ${store.ownerId}:`, profileError);
       }
+    } else {
+      console.warn(`Server Action: Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
     }
     
     revalidatePath(`/stores/${storeId}`);
@@ -231,15 +239,15 @@ export async function createBookingAction(
       success: true,
       message: `Η κράτησή σας για την υπηρεσία "${service.name}" στις ${new Date(bookingDate).toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
       booking: {
-        ...newBookingData, // This newBookingData doesn't have the id yet.
-        id: bookingId, // Add the generated id here for the return object
-        createdAt: new Date().toISOString(), // Client-side approximation
-        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0], // Convert Timestamp back to string for client
+        ...newBookingData,
+        id: bookingId,
+        createdAt: new Date().toISOString(), 
+        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0],
       },
     };
 
   } catch (error: any) {
-    console.error("Error creating booking. Raw error object:", error);
+    console.error("Server Action: Error creating booking. Raw error object:", error);
     if (error.code) {
       console.error("Firestore Error Code:", error.code);
     }
@@ -257,21 +265,22 @@ export async function createBookingAction(
 export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
   try {
     const targetDate = new Date(dateString); // Expects YYYY-MM-DD
-    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
-    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+    // Ensure the date is parsed correctly in UTC to avoid timezone issues with Firestore Timestamps
+    const startOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate(), 0, 0, 0, 0)));
+    const endOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate(), 23, 59, 59, 999)));
 
     const bookingsRef = collection(db, "bookings");
     const q = query(
       bookingsRef,
       where("storeId", "==", storeId),
-      where("bookingDate", ">=", Timestamp.fromDate(startOfDay)),
-      where("bookingDate", "<=", Timestamp.fromDate(endOfDay))
-      // orderBy("bookingTime", "asc") // We might sort client-side or add this if needed, requires index
+      where("bookingDate", ">=", startOfDay),
+      where("bookingDate", "<=", endOfDay)
+      // We might sort client-side or add orderBy("bookingTime", "asc") if needed, which requires an index
     );
 
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => {
-      const data = docSnap.data() as BookingDocumentData;
+      const data = docSnap.data() as BookingDocumentData; // Use BookingDocumentData
       return {
         ...data,
         id: docSnap.id,
@@ -284,6 +293,4 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
     return []; 
   }
 }
-
-
     
