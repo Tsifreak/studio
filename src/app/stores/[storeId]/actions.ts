@@ -209,6 +209,7 @@ export async function createBookingAction(
       notes: notes || "",
     };
 
+    // Pass the explicit bookingId to be stored as a field within the document
     await addDoc(collection(db, "bookings"), { ...newBookingData, id: bookingId });
     
     // Increment store owner's unread bookings count
@@ -217,11 +218,10 @@ export async function createBookingAction(
       try {
         await updateDoc(ownerProfileRef, {
           totalUnreadBookings: increment(1),
-          lastSeen: serverTimestamp() // Also update lastSeen or similar activity timestamp
+          lastSeen: serverTimestamp() 
         });
       } catch (profileError) {
         console.warn(`Could not update unread bookings for owner ${store.ownerId}:`, profileError);
-        // Continue even if profile update fails, booking is still made
       }
     }
     
@@ -231,15 +231,24 @@ export async function createBookingAction(
       success: true,
       message: `Η κράτησή σας για την υπηρεσία "${service.name}" στις ${new Date(bookingDate).toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
       booking: {
-        ...newBookingData,
-        id: bookingId,
-        createdAt: new Date().toISOString(),
-        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0],
+        ...newBookingData, // This newBookingData doesn't have the id yet.
+        id: bookingId, // Add the generated id here for the return object
+        createdAt: new Date().toISOString(), // Client-side approximation
+        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0], // Convert Timestamp back to string for client
       },
     };
 
-  } catch (error) {
-    console.error("Error creating booking:", error);
+  } catch (error: any) {
+    console.error("Error creating booking. Raw error object:", error);
+    if (error.code) {
+      console.error("Firestore Error Code:", error.code);
+    }
+    if (error.message) {
+      console.error("Error Message:", error.message);
+    }
+    if (error.details) {
+        console.error("Firestore Error Details:", error.details);
+    }
     return { success: false, message: "Παρουσιάστηκε σφάλμα κατά τη δημιουργία της κράτησής σας. Παρακαλώ δοκιμάστε ξανά." };
   }
 }
@@ -247,7 +256,7 @@ export async function createBookingAction(
 
 export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
   try {
-    const targetDate = new Date(dateString);
+    const targetDate = new Date(dateString); // Expects YYYY-MM-DD
     const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
     const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
 
@@ -257,6 +266,7 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
       where("storeId", "==", storeId),
       where("bookingDate", ">=", Timestamp.fromDate(startOfDay)),
       where("bookingDate", "<=", Timestamp.fromDate(endOfDay))
+      // orderBy("bookingTime", "asc") // We might sort client-side or add this if needed, requires index
     );
 
     const querySnapshot = await getDocs(q);
@@ -265,8 +275,8 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
       return {
         ...data,
         id: docSnap.id,
-        bookingDate: data.bookingDate.toDate().toISOString().split('T')[0],
-        createdAt: data.createdAt.toDate().toISOString(),
+        bookingDate: data.bookingDate.toDate().toISOString().split('T')[0], // Convert Timestamp to YYYY-MM-DD
+        createdAt: data.createdAt.toDate().toISOString(), // Convert Timestamp to ISO string
       } as Booking;
     });
   } catch (error) {
@@ -274,3 +284,6 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
     return []; 
   }
 }
+
+
+    
