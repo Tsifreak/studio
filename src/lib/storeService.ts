@@ -69,6 +69,7 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
     if (docSnap.exists()) {
       return mapDocToStore(docSnap);
     }
+    console.warn(`[getStoreByIdFromDB] No store found for ID: ${id}`);
     return undefined;
   } catch (error) {
     console.error(`Error fetching store ${id} from DB:`, error);
@@ -130,6 +131,8 @@ export async function addStoreToDB(data: StoreFormData, ownerId?: string): Promi
 }
 
 export const updateStoreInDB = async (storeId: string, updatedData: Partial<StoreFormData & { ownerId?: string }>): Promise<Store | undefined> => {
+  console.log(`[updateStoreInDB] Updating storeId: ${storeId}`);
+  console.log("[updateStoreInDB] Received updatedData:", JSON.stringify(updatedData, null, 2));
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   
   const firestoreUpdatePayload: { [key: string]: any } = {};
@@ -154,35 +157,40 @@ export const updateStoreInDB = async (storeId: string, updatedData: Partial<Stor
   if (updatedData.servicesJson !== undefined) {
     try {
       firestoreUpdatePayload.services = JSON.parse(updatedData.servicesJson);
-    } catch (e) {
-      console.warn(`Invalid JSON for services for store ${storeId}:`, e);
-      // Potentially throw error or skip update for this field
+    } catch (e: any) {
+      console.error(`[updateStoreInDB] Invalid JSON for services for store ${storeId}:`, e.message);
+      throw new Error(`Invalid JSON for services: ${e.message}`);
     }
   }
   if (updatedData.availabilityJson !== undefined) {
     try {
       firestoreUpdatePayload.availability = JSON.parse(updatedData.availabilityJson);
-    } catch (e) {
-      console.warn(`Invalid JSON for availability for store ${storeId}:`, e);
-      // Potentially throw error or skip update for this field
+    } catch (e: any) {
+      console.error(`[updateStoreInDB] Invalid JSON for availability for store ${storeId}:`, e.message);
+      throw new Error(`Invalid JSON for availability: ${e.message}`);
     }
   }
 
+  console.log("[updateStoreInDB] Constructed firestoreUpdatePayload:", JSON.stringify(firestoreUpdatePayload, null, 2));
+
   if (Object.keys(firestoreUpdatePayload).length === 0) {
+    console.log("[updateStoreInDB] No fields to update. Fetching existing store data.");
     const existingDoc = await getDoc(storeRef);
     return existingDoc.exists() ? mapDocToStore(existingDoc) : undefined;
   }
 
   try {
     await updateDoc(storeRef, firestoreUpdatePayload);
+    console.log(`[updateStoreInDB] Successfully updated store ${storeId} in Firestore.`);
     const updatedDoc = await getDoc(storeRef);
     if (updatedDoc.exists()) {
       return mapDocToStore(updatedDoc);
     }
+    console.warn(`[updateStoreInDB] Store ${storeId} not found after update.`);
     return undefined;
-  } catch (error) {
-    console.error(`Error updating store ${storeId} in DB:`, error);
-    throw error;
+  } catch (error: any) {
+    console.error(`[updateStoreInDB] Error updating store ${storeId} in DB: Code: ${error.code}, Message: ${error.message}`, error);
+    throw error; // Re-throw the error to be caught by the server action
   }
 };
 
@@ -241,3 +249,5 @@ export const addReviewToStoreInDB = async (storeId: string, newReview: Review): 
     return false;
   }
 };
+
+    

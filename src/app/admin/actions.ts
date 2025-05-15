@@ -44,8 +44,8 @@ const availabilitySlotSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/), // HH:mm format
   endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),   // HH:mm format
-  lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
-  lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
+  lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
 
@@ -126,8 +126,15 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 }
 
 export async function updateStoreAction(storeId: string, prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
+  console.log(`[updateStoreAction] Received request for storeId: ${storeId}`);
+  console.log("[updateStoreAction] FormData entries:");
+  for (const [key, value] of formData.entries()) {
+    console.log(`  ${key}: ${value}`);
+  }
+
   const existingStore = await getStoreByIdFromDB(storeId);
   if (!existingStore) {
+    console.error(`[updateStoreAction] Store not found for ID: ${storeId}`);
     return { success: false, message: "Το κέντρο δεν βρέθηκε." };
   }
 
@@ -147,18 +154,22 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   });
 
   if (!validatedFields.success) {
+     console.error("[updateStoreAction] Validation failed:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
      return {
       success: false,
       message: "Σφάλμα επικύρωσης.",
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
+  console.log("[updateStoreAction] Validation successful. Data:", validatedFields.data);
   
   try {
     const storeDataForUpdate = validatedFields.data as Partial<StoreFormData & { ownerId?: string }>;
+    console.log("[updateStoreAction] Calling updateStoreInDB with data:", storeDataForUpdate);
     const updatedRawStore = await updateStoreInDB(storeId, storeDataForUpdate);
 
     if (!updatedRawStore) {
+      console.error(`[updateStoreAction] updateStoreInDB returned no store for ID: ${storeId}`);
       return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Το κέντρο δεν βρέθηκε." };
     }
     const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
@@ -167,10 +178,15 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     revalidatePath('/');
     revalidatePath(`/stores/${storeId}`);
 
+    console.log(`[updateStoreAction] Store "${updatedSerializedStore.name}" updated successfully.`);
     return { success: true, message: `Το κέντρο "${updatedSerializedStore.name}" ενημερώθηκε επιτυχώς.`, store: updatedSerializedStore };
-  } catch (error) {
-    console.error("Error updating store:", error);
-    return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά." };
+  } catch (error: any) {
+    console.error("[updateStoreAction] Error during store update process:", error);
+    let message = "Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά.";
+    if (error.message) {
+        message += ` Λεπτομέρειες: ${error.message}`;
+    }
+    return { success: false, message: message };
   }
 }
 
@@ -225,3 +241,5 @@ export async function updateStoreCategoryAction(
     return { success: false, message: "Αποτυχία ενημέρωσης κατηγορίας. Παρακαλώ δοκιμάστε ξανά." };
   }
 }
+
+    
