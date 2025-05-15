@@ -4,34 +4,53 @@
 import { ProfileForm } from '@/components/auth/ProfileForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react'; // Added React for explicit import
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import type { Metadata } from 'next'; // For potential future use if moving to RSC with dynamic metadata
-import { MessageSquare } from 'lucide-react'; // Import MessageSquare icon
-
-// export const metadata: Metadata = { // Cannot be used in client component like this
-//   title: 'Πίνακας Ελέγχου | Amaxakis',
-//   description: 'Διαχειριστείτε τον λογαριασμό και τις προτιμήσεις σας στην Amaxakis.',
-// };
+import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2 } from 'lucide-react'; 
+import { getOwnerDashboardData } from './actions'; // Import the new server action
+import type { Booking, Store } from '@/lib/types';
+import { OwnerBookingsDisplay } from '@/components/dashboard/OwnerBookingsDisplay';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
 
+  const [ownerBookings, setOwnerBookings] = useState<Booking[]>([]);
+  const [ownedStores, setOwnedStores] = useState<Store[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && !isLoading && !user) {
-      // Construct the redirect query parameter correctly
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+    }
+
+    if (user && user.id) {
+      const fetchOwnerData = async () => {
+        setIsLoadingBookings(true);
+        try {
+          const data = await getOwnerDashboardData(user.id);
+          setOwnedStores(data.storesOwned);
+          setOwnerBookings(data.bookings);
+        } catch (error) {
+          console.error("Failed to fetch owner dashboard data:", error);
+          // Optionally set an error state here
+        } finally {
+          setIsLoadingBookings(false);
+        }
+      };
+      fetchOwnerData();
     }
   }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
-        <p className="text-lg text-muted-foreground">Φόρτωση πίνακα ελέγχου...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground ml-3">Φόρτωση πίνακα ελέγχου...</p>
       </div>
     );
   }
@@ -52,7 +71,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/'); // Redirect to home after logout
+    router.push('/'); 
   };
 
   return (
@@ -65,46 +84,74 @@ export default function DashboardPage() {
         <Button variant="outline" onClick={handleLogout}>Αποσύνδεση</Button>
       </div>
       
+      {ownedStores.length > 0 && (
+        <Card className="shadow-lg">
+            <CardHeader>
+                <CardTitle className="flex items-center">
+                    <ShoppingBag className="mr-2 h-5 w-5 text-primary" />
+                    Οι Κρατήσεις των Κέντρων μου ({ownerBookings.length})
+                </CardTitle>
+                <CardDescription>Διαχειριστείτε τις κρατήσεις για τα κέντρα εξυπηρέτησης που σας ανήκουν.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoadingBookings ? (
+                    <div className="space-y-4">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                ) : (
+                    <OwnerBookingsDisplay bookings={ownerBookings} storesOwned={ownedStores} />
+                )}
+            </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <ProfileForm />
         </div>
         <div className="lg:col-span-1 space-y-6">
-            <Card>
+            <Card className="shadow-md">
                 <CardHeader>
                     <CardTitle>Επισκόπηση Λογαριασμού</CardTitle>
-                    <CardDescription>Γρήγορη σύνοψη του λογαριασμού σας.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <p><strong>Όνομα:</strong> {user.name}</p>
                     <p><strong>Email:</strong> {user.email}</p>
-                    {/* Firebase User object does not have a join date directly. This could be stored in Firestore. */}
-                    {/* <p><strong>Joined:</strong> (Simulated) January 1, 2023</p> */} 
-                    <Button variant="link" className="p-0 h-auto text-primary" disabled>Προβολή Ιστορικού Επισκευών (Παράδειγμα)</Button>
+                    {user.isAdmin && <p className="text-sm font-semibold text-destructive">Ρόλος: Διαχειριστής</p>}
+                    {ownedStores.length > 0 && !user.isAdmin && <p className="text-sm font-semibold text-green-600">Ρόλος: Ιδιοκτήτης Κέντρου</p>}
+
+                    <Button asChild variant="link" className="p-0 h-auto text-primary">
+                        <Link href="/dashboard/my-bookings">Οι Κρατήσεις μου (Ως Πελάτης)</Link>
+                    </Button>
                 </CardContent>
             </Card>
-            <Card>
+            <Card className="shadow-md">
                 <CardHeader>
                     <CardTitle className="flex items-center">
                       <MessageSquare className="mr-2 h-5 w-5 text-primary" />
                       Οι Συνομιλίες μου
                     </CardTitle>
-                    <CardDescription>Δείτε και απαντήστε στις συνομιλίες σας με τα κέντρα εξυπηρέτησης.</CardDescription>
+                    <CardDescription>Δείτε και απαντήστε στις συνομιλίες σας.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Button asChild className="w-full">
-                        <Link href="/dashboard/chats">Προβολή Συνομιλιών</Link>
+                        <Link href="/dashboard/chats">Προβολή Συνομιλιών ({user.totalUnreadMessages || 0})</Link>
                     </Button>
                 </CardContent>
             </Card>
-             <Card>
+             <Card className="shadow-md">
                 <CardHeader>
                     <CardTitle>Γρήγοροι Σύνδεσμοι</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col space-y-2">
-                    <Button variant="outline" asChild><Link href="/">Περιήγηση στα Κέντρα Εξυπηρέτησης</Link></Button>
-                    <Button variant="outline" disabled>Οι Αγαπημένες μου Υπηρεσίες (Παράδειγμα)</Button>
-                    <Button variant="outline" disabled>Κέντρο Υποστήριξης (Παράδειγμα)</Button>
+                    <Button variant="outline" asChild><Link href="/"><Home className="mr-2"/>Αρχική Σελίδα</Link></Button>
+                     {user.isAdmin && (
+                        <Button variant="outline" asChild>
+                            <Link href="/admin"><CalendarCheck className="mr-2"/>Πίνακας Διαχείρισης</Link>
+                        </Button>
+                    )}
                 </CardContent>
             </Card>
         </div>
