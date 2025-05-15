@@ -1,0 +1,10 @@
+{
+  packages = [
+    pkgs.nodejs
+    pkgs.yarn
+    pkgs.psmisc
+  ];
+}
+
+devshell
+

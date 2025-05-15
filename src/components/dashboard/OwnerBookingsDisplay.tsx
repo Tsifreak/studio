@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { el } from 'date-fns/locale';
-import { ClipboardList, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { ClipboardList, CheckCircle, XCircle, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -19,9 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import React, { useActionState, useState, useTransition } from 'react';
+import React, { useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { updateBookingStatusAction } from '@/app/dashboard/actions'; // Assuming this is the correct path
+import { updateBookingStatusAction } from '@/app/dashboard/actions';
 
 interface OwnerBookingsDisplayProps {
   bookings: Booking[];
@@ -49,39 +49,29 @@ const getStatusVariant = (status: Booking['status']): "default" | "secondary" | 
 const getStatusText = (status: Booking['status']): string => {
     switch (status) {
         case 'pending': return 'Εκκρεμεί';
-        case 'confirmed': return 'Επιβεβαιωμένο';
+        case 'confirmed': return 'Αποδεκτό';
         case 'completed': return 'Ολοκληρωμένο';
         case 'cancelled_by_user': return 'Ακυρώθηκε (Χρήστης)';
-        case 'cancelled_by_store': return 'Ακυρώθηκε (Κατάστημα)';
+        case 'cancelled_by_store': return 'Απορρίφθηκε (Κατάστημα)';
         case 'no_show': return 'Δεν Εμφανίστηκε';
         default: return status;
     }
 };
 
-const initialFormState: { success: boolean; message: string; errors?: any; } = { 
-  success: false, 
-  message: "", 
-  errors: null
-};
-
 export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }: OwnerBookingsDisplayProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
+  const [bookingToManage, setBookingToManage] = useState<Booking | null>(null);
+  const [managementAction, setManagementAction] = useState<'accept' | 'decline' | null>(null);
 
-  // We don't need useActionState here as we are directly calling the action
-  // and handling its response manually.
 
   const handleUpdateStatus = async (bookingId: string, newStatus: BookingStatus, storeId: string) => {
     startTransition(async () => {
       const formData = new FormData();
       formData.append('bookingId', bookingId);
       formData.append('newStatus', newStatus);
-      formData.append('bookingStoreId', storeId); // Pass storeId for potential future authorization
+      formData.append('bookingStoreId', storeId);
 
-      // Directly call the server action.
-      // Note: server actions called this way don't return the state like useActionState.
-      // They return the promise of the action's result.
       const result = await updateBookingStatusAction(null, formData);
 
       if (result.success) {
@@ -89,7 +79,7 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
           title: "Επιτυχία",
           description: result.message,
         });
-        await onBookingUpdate(); // Refresh bookings list
+        await onBookingUpdate(); 
       } else {
         toast({
           title: "Σφάλμα",
@@ -97,9 +87,8 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
           variant: "destructive",
         });
       }
-      if (newStatus === 'cancelled_by_store') {
-        setBookingToCancel(null); // Close dialog after action
-      }
+      setBookingToManage(null); 
+      setManagementAction(null);
     });
   };
 
@@ -161,17 +150,24 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
                             <Button 
                                 variant="outline" 
                                 size="sm" 
-                                onClick={() => handleUpdateStatus(booking.id, 'confirmed', booking.storeId)}
-                                disabled={isPending}
+                                onClick={() => {
+                                    setBookingToManage(booking);
+                                    setManagementAction('accept');
+                                    // Directly call handleUpdateStatus for accept, or trigger a dialog if preferred
+                                    handleUpdateStatus(booking.id, 'confirmed', booking.storeId);
+                                }}
+                                disabled={isPending && bookingToManage?.id === booking.id && managementAction === 'accept'}
+                                className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
                             >
-                                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                                Επιβεβαίωση
+                                {isPending && bookingToManage?.id === booking.id && managementAction === 'accept' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
+                                Αποδοχή
                             </Button>
                             <AlertDialog
-                                open={bookingToCancel?.id === booking.id}
+                                open={bookingToManage?.id === booking.id && managementAction === 'decline'}
                                 onOpenChange={(isOpen) => {
-                                if (!isOpen && bookingToCancel?.id === booking.id) {
-                                    setBookingToCancel(null);
+                                if (!isOpen && bookingToManage?.id === booking.id) {
+                                    setBookingToManage(null);
+                                    setManagementAction(null);
                                 }
                                 }}
                             >
@@ -179,28 +175,31 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
                                     <Button 
                                         variant="destructive" 
                                         size="sm" 
-                                        onClick={() => setBookingToCancel(booking)}
-                                        disabled={isPending}
+                                        onClick={() => {
+                                            setBookingToManage(booking);
+                                            setManagementAction('decline');
+                                        }}
+                                        disabled={isPending && bookingToManage?.id === booking.id}
                                     >
-                                        <XCircle className="mr-2 h-4 w-4" />
-                                        Ακύρωση
+                                        <ThumbsDown className="mr-2 h-4 w-4" />
+                                        Απόρριψη
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Είστε σίγουροι για την ακύρωση;</AlertDialogTitle>
+                                    <AlertDialogTitle>Είστε σίγουροι για την απόρριψη;</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                    Αυτή η ενέργεια θα ακυρώσει την κράτηση για τον πελάτη {bookingToCancel?.userName} στην υπηρεσία "{bookingToCancel?.serviceName}".
+                                    Αυτή η ενέργεια θα απορρίψει την κράτηση για τον πελάτη {bookingToManage?.userName} στην υπηρεσία "{bookingToManage?.serviceName}".
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => setBookingToCancel(null)} disabled={isPending}>Άκυρο</AlertDialogCancel>
+                                    <AlertDialogCancel onClick={() => {setBookingToManage(null); setManagementAction(null);}} disabled={isPending}>Άκυρο</AlertDialogCancel>
                                     <AlertDialogAction 
-                                        onClick={() => bookingToCancel && handleUpdateStatus(bookingToCancel.id, 'cancelled_by_store', bookingToCancel.storeId)} 
+                                        onClick={() => bookingToManage && handleUpdateStatus(bookingToManage.id, 'cancelled_by_store', bookingToManage.storeId)} 
                                         className="bg-destructive hover:bg-destructive/90" 
                                         disabled={isPending}
                                     >
-                                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Ναι, Ακύρωση"}
+                                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Ναι, Απόρριψη"}
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                                 </AlertDialogContent>
