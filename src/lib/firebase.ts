@@ -3,7 +3,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getAnalytics, isSupported as isAnalyticsSupported, type Analytics } from "firebase/analytics";
 import { getFirestore, type Firestore } from 'firebase/firestore';
-import { getStorage, type FirebaseStorage } from 'firebase/storage'; // Added import
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -47,4 +47,4 @@ const db: Firestore = getFirestore(app);
 // Initialize Firebase Storage and get a reference to the service
 const storage: FirebaseStorage = getStorage(app);
 
-export { app, auth, analytics, db, storage }; // Added storage to exports
+export { app, auth, analytics, db, storage };
