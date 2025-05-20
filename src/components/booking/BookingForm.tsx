@@ -2,9 +2,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
-import React, { useEffect, useActionState, useState, useCallback } from "react";
+import React, { useEffect, useActionState, useState, useCallback, startTransition } from "react"; // Imported startTransition
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -14,134 +14,191 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import type { Service, AvailabilitySlot, Booking } from "@/lib/types";
-import { createBookingAction, getBookingsForStoreAndDate } from "@/app/stores/[storeId]/actions";
-import { format, getDay, addMinutes, setHours, setMinutes, parse } from "date-fns";
+import {
+  createBookingAction,
+  getBookingsForStoreAndDate,
+} from "@/app/stores/[storeId]/actions";
+import { format, getDay, isPast, parseISO } from "date-fns";
 import { el } from "date-fns/locale";
-import { CalendarIcon, Clock, Tag, Info, Edit3, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 
 interface BookingFormProps {
   selectedService: Service;
   storeId: string;
-  storeName: string;
+  storeName: string; // Added storeName prop
   storeAvailability: AvailabilitySlot[];
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (open: boolean) => void; // To close dialog on success
 }
 
+// Client-side schema, server-side will re-validate
 const bookingFormClientSchema = z.object({
   bookingDate: z.date({
-    required_error: "Η ημερομηνία κράτησης είναι υποχρεωτική.",
+    required_error: "Η ημερομηνία είναι υποχρεωτική.",
   }),
-  bookingTime: z.string().min(1, { message: "Η ώρα κράτησης είναι υποχρεωτική." })
-    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Μη έγκυρη μορφή ώρας (HH:mm)."),
-  notes: z.string().max(500, "Οι σημειώσεις δεν μπορούν να υπερβαίνουν τους 500 χαρακτήρες.").optional(),
+  bookingTime: z
+    .string()
+    .min(1, "Η ώρα είναι υποχρεωτική.")
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Μη έγκυρη ώρα (π.χ. 14:30)"),
+  notes: z
+    .string()
+    .max(500, "Οι σημειώσεις δεν μπορούν να ξεπερνούν τους 500 χαρακτήρες.")
+    .optional(),
+  // Hidden fields that will be populated
+  storeId: z.string(),
+  serviceId: z.string(),
+  userId: z.string().optional(), // Optional because user might not be logged in
+  userName: z.string().optional(),
+  userEmail: z.string().email().optional(),
 });
 
 type BookingFormClientValues = z.infer<typeof bookingFormClientSchema>;
 
-const initialFormState: { success: boolean; message: string; errors?: any; booking?: Booking } = {
+const initialFormState: {
+  success: boolean;
+  message: string;
+  errors?: any;
+  booking?: Booking;
+} = {
   success: false,
   message: "",
   errors: null,
   booking: undefined,
 };
 
+// Helper function to convert "HH:mm" to total minutes from midnight
 const timeToMinutes = (time: string): number => {
-  const [hours, minutes] = time.split(':').map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
 };
 
+// Helper function to convert total minutes from midnight to "HH:mm"
 const minutesToTime = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
 const generateTimeSlots = (
   selectedDate: Date,
   storeAvailability: AvailabilitySlot[],
   serviceDuration: number,
-  existingBookings: Booking[] 
+  existingBookings: Booking[]
 ): string[] => {
-  const dayOfWeek = getDay(selectedDate);
-  const dailySchedule = storeAvailability.find(slot => slot.dayOfWeek === dayOfWeek);
+  const dayOfWeek = getDay(selectedDate); // 0 (Sunday) - 6 (Saturday)
+  const dailySchedule = storeAvailability.find(
+    (slot) => slot.dayOfWeek === dayOfWeek
+  );
 
-  if (!dailySchedule) {
-    return [];
+  if (!dailySchedule || !dailySchedule.startTime || !dailySchedule.endTime) {
+    return []; // Store is closed on this day or schedule is incomplete
   }
 
   const slots: string[] = [];
-  const slotInterval = 15; // Generate slots every 15 minutes
+  const interval = 15; // Generate slots every 15 minutes
 
-  const storeOpenMinutes = timeToMinutes(dailySchedule.startTime);
-  const storeCloseMinutes = timeToMinutes(dailySchedule.endTime);
-  const lunchStartMinutes = dailySchedule.lunchBreakStartTime ? timeToMinutes(dailySchedule.lunchBreakStartTime) : -1;
-  const lunchEndMinutes = dailySchedule.lunchBreakEndTime ? timeToMinutes(dailySchedule.lunchBreakEndTime) : -1;
+  const openTime = timeToMinutes(dailySchedule.startTime);
+  const closeTime = timeToMinutes(dailySchedule.endTime);
 
-  for (let currentMinutes = storeOpenMinutes; currentMinutes <= storeCloseMinutes - serviceDuration; currentMinutes += slotInterval) {
-    const slotStart = currentMinutes;
-    const slotEnd = currentMinutes + serviceDuration;
+  const lunchStart = dailySchedule.lunchBreakStartTime
+    ? timeToMinutes(dailySchedule.lunchBreakStartTime)
+    : -1;
+  const lunchEnd = dailySchedule.lunchBreakEndTime
+    ? timeToMinutes(dailySchedule.lunchBreakEndTime)
+    : -1;
 
-    // Check if slot is within store operating hours
-    if (slotEnd > storeCloseMinutes) {
+  for (
+    let currentTime = openTime;
+    currentTime <= closeTime - serviceDuration;
+    currentTime += interval
+  ) {
+    const slotStartTime = currentTime;
+    const slotEndTime = currentTime + serviceDuration;
+
+    // Check if slot is within operating hours (redundant if loop condition is correct, but good for clarity)
+    if (slotEndTime > closeTime) {
       continue;
     }
 
-    // Check for overlaps with lunch break
-    const overlapsWithLunch = lunchStartMinutes !== -1 && lunchEndMinutes !== -1 &&
-      Math.max(slotStart, lunchStartMinutes) < Math.min(slotEnd, lunchEndMinutes);
+    // Check for overlap with lunch break
+    const overlapsLunch =
+      lunchStart !== -1 &&
+      lunchEnd !== -1 &&
+      Math.max(slotStartTime, lunchStart) < Math.min(slotEndTime, lunchEnd);
 
-    if (overlapsWithLunch) {
+    if (overlapsLunch) {
       continue;
     }
 
-    // Check for overlaps with existing bookings
-    let overlapsWithExistingBooking = false;
-    for (const booking of existingBookings) {
-      // Ensure bookingDate matches selectedDate (this should be handled by fetching logic, but double check)
-      if (format(new Date(booking.bookingDate), 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) continue;
+    // Check for overlap with existing bookings
+    const overlapsExistingBooking = existingBookings.some((booking) => {
+      // Ensure booking.bookingDate is treated as a date string "YYYY-MM-DD"
+      const bookingDateStr = typeof booking.bookingDate === 'string' 
+        ? booking.bookingDate.split('T')[0] // Handle ISO string
+        : format(parseISO(booking.bookingDate), 'yyyy-MM-dd'); // Handle Date object from Firestore Timestamp conversion
 
-      const existingBookingStartMinutes = timeToMinutes(booking.bookingTime);
-      const existingBookingEndMinutes = existingBookingStartMinutes + booking.serviceDurationMinutes;
-      
-      const currentSlotOverlaps = Math.max(slotStart, existingBookingStartMinutes) < Math.min(slotEnd, existingBookingEndMinutes);
-      if (currentSlotOverlaps) {
-        overlapsWithExistingBooking = true;
-        break;
+      if (bookingDateStr !== format(selectedDate, "yyyy-MM-dd")) {
+        return false; // Booking is not for the selected date
       }
+      const existingBookingStart = timeToMinutes(booking.bookingTime);
+      const existingBookingEnd =
+        existingBookingStart + booking.serviceDurationMinutes;
+      return (
+        Math.max(slotStartTime, existingBookingStart) <
+        Math.min(slotEndTime, existingBookingEnd)
+      );
+    });
+
+    if (overlapsExistingBooking) {
+      continue;
     }
 
-    if (!overlapsWithExistingBooking) {
-      slots.push(minutesToTime(slotStart));
-    }
+    slots.push(minutesToTime(slotStartTime));
   }
   return slots;
 };
-
 
 export function BookingForm({
   selectedService,
   storeId,
   storeName,
   storeAvailability,
-  onOpenChange
+  onOpenChange,
 }: BookingFormProps) {
-  const { user } = useAuth();
+  const { user } = useAuth(); // Assuming useAuth provides the current user
   const { toast } = useToast();
-  const [formState, formAction, isPending] = useActionState(createBookingAction, initialFormState);
-  
+
+  const [formState, formAction, isActionPending] = useActionState( // Renamed isPending to isActionPending
+    createBookingAction,
+    initialFormState
+  );
+
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [existingBookings, setExistingBookings] = useState<Booking[]>([]);
   const [isLoadingExistingBookings, setIsLoadingExistingBookings] = useState(false);
+
 
   const form = useForm<BookingFormClientValues>({
     resolver: zodResolver(bookingFormClientSchema),
@@ -149,26 +206,37 @@ export function BookingForm({
       bookingDate: undefined,
       bookingTime: "",
       notes: "",
+      storeId: storeId,
+      serviceId: selectedService.id,
+      userId: user?.id || undefined,
+      userName: user?.name || undefined,
+      userEmail: user?.email || undefined,
     },
   });
 
   const selectedDate = form.watch("bookingDate");
 
-  // Fetch existing bookings when date changes
+  // Fetch existing bookings when selectedDate changes
   useEffect(() => {
     if (selectedDate && storeId) {
       const fetchBookings = async () => {
         setIsLoadingExistingBookings(true);
-        setExistingBookings([]); 
+        setAvailableTimeSlots([]); // Clear previous slots
+        form.setValue("bookingTime", ""); // Reset selected time
         try {
-          const dateString = format(selectedDate, "yyyy-MM-dd");
-          const bookings = await getBookingsForStoreAndDate(storeId, dateString);
+          console.log(`Fetching bookings for store ${storeId} on date ${format(selectedDate, "yyyy-MM-dd")}`);
+          const bookings = await getBookingsForStoreAndDate(
+            storeId,
+            format(selectedDate, "yyyy-MM-dd")
+          );
           setExistingBookings(bookings);
+          console.log("Fetched existing bookings:", bookings);
         } catch (error) {
           console.error("Error fetching existing bookings:", error);
           toast({
             title: "Σφάλμα Φόρτωσης Κρατήσεων",
-            description: "Δεν ήταν δυνατή η φόρτωση των υπαρχουσών κρατήσεων. Παρακαλώ δοκιμάστε ξανά.",
+            description:
+              "Δεν ήταν δυνατή η φόρτωση των υπαρχουσών κρατήσεων. Παρακαλώ δοκιμάστε ξανά.",
             variant: "destructive",
           });
         } finally {
@@ -176,93 +244,127 @@ export function BookingForm({
         }
       };
       fetchBookings();
+    } else {
+      setExistingBookings([]); // Clear if no date selected
     }
-  }, [selectedDate, storeId, toast]);
+  }, [selectedDate, storeId, toast, form]);
 
-
-  // Generate available time slots based on date, service, availability, and existing bookings
-  useEffect(() => {
-    if (selectedDate && selectedService && storeAvailability && !isLoadingExistingBookings) {
+  // Generate available time slots when selectedDate, service, availability, or existingBookings change
+   useEffect(() => {
+    if (selectedDate && selectedService && storeAvailability.length > 0 && !isLoadingExistingBookings) {
       setIsLoadingSlots(true);
-      form.setValue("bookingTime", ""); 
-      const slots = generateTimeSlots(selectedDate, storeAvailability, selectedService.durationMinutes, existingBookings);
+      console.log("Generating time slots with existing bookings:", existingBookings);
+      const slots = generateTimeSlots(
+        selectedDate,
+        storeAvailability,
+        selectedService.durationMinutes,
+        existingBookings 
+      );
       setAvailableTimeSlots(slots);
       setIsLoadingSlots(false);
+      console.log("Generated available slots:", slots);
+       if (slots.length > 0 && !form.getValues("bookingTime")) {
+        // form.setValue("bookingTime", slots[0]); // Optionally auto-select first slot
+      } else if (slots.length === 0) {
+        form.setValue("bookingTime", ""); // Reset if no slots available
+      }
     } else {
       setAvailableTimeSlots([]);
     }
-  }, [selectedDate, selectedService, storeAvailability, form, existingBookings, isLoadingExistingBookings]);
+  }, [selectedDate, selectedService, storeAvailability, existingBookings, isLoadingExistingBookings, form]);
+
 
   useEffect(() => {
-    if (formState.message) {
+    if (!isActionPending && formState.message) { // Check !isActionPending before showing toast
       if (formState.success) {
-        toast({
-          title: "Επιτυχία Κράτησης!",
-          description: formState.message,
+        toast({ title: "✅ Επιτυχία", description: formState.message });
+        form.reset({
+            bookingDate: undefined,
+            bookingTime: "",
+            notes: "",
+            storeId: storeId,
+            serviceId: selectedService.id,
+            userId: user?.id || undefined,
+            userName: user?.name || undefined,
+            userEmail: user?.email || undefined,
         });
-        form.reset();
-        onOpenChange(false);
+        onOpenChange(false); // Close dialog on success
       } else {
         toast({
-          title: "Σφάλμα Κράτησης",
-          description: formState.message || "Παρουσιάστηκε ένα σφάλμα κατά την υποβολή της κράτησης.",
+          title: "❌ Σφάλμα Κράτησης",
+          description: formState.message || "Παρουσιάστηκε ένα σφάλμα κατά τη δημιουργία της κράτησής σας.",
           variant: "destructive",
         });
-        if (formState.errors) {
-          Object.entries(formState.errors).forEach(([key, value]) => {
-            form.setError(key as keyof BookingFormClientValues, {
-              type: "server",
-              message: Array.isArray(value) ? value.join(", ") : String(value),
-            });
-          });
-        }
       }
     }
-  }, [formState, toast, form, onOpenChange]);
+  }, [formState, toast, form, onOpenChange, storeId, selectedService.id, user, isActionPending]);
 
-  const isDayDisabled = useCallback((date: Date): boolean => {
-    if (date < new Date(new Date().setHours(0, 0, 0, 0))) return true; 
-    const dayOfWeek = getDay(date);
-    const scheduleForDay = storeAvailability.find(slot => slot.dayOfWeek === dayOfWeek);
-    return !scheduleForDay; 
-  }, [storeAvailability]);
+  const isDayDisabled = useCallback(
+    (date: Date): boolean => {
+      if (isPast(date) && !format(date, 'yyyy-MM-dd').includes(format(new Date(), 'yyyy-MM-dd'))) {
+        return true;
+      }
+      const day = getDay(date); // 0 (Sunday) - 6 (Saturday)
+      return !storeAvailability.some((slot) => slot.dayOfWeek === day && slot.startTime && slot.endTime);
+    },
+    [storeAvailability]
+  );
+
+  const handleFormSubmit = async (payload: FormData) => {
+    // Client-side validation before calling the action
+    if (!user?.id || !user?.name || !user?.email) {
+      toast({ title: "Σφάλμα", description: "Πρέπει να είστε συνδεδεμένος για να κάνετε κράτηση.", variant: "destructive" });
+      return;
+    }
+    if (!storeId || !selectedService?.id || !form.getValues("bookingDate") || !form.getValues("bookingTime")) {
+      toast({ title: "Ελλιπή Στοιχεία", description: "Παρακαλώ συμπληρώστε όλα τα απαραίτητα πεδία της φόρμας κράτησης.", variant: "destructive" });
+      return;
+    }
+
+    // Add all necessary fields to FormData payload
+    payload.set("storeId", storeId);
+    payload.set("storeName", storeName); // Pass storeName
+    payload.set("serviceId", selectedService.id);
+    payload.set("serviceName", selectedService.name); // Pass serviceName
+    payload.set("serviceDurationMinutes", String(selectedService.durationMinutes)); // Pass duration
+    payload.set("servicePrice", String(selectedService.price)); // Pass price
+    
+    payload.set("userId", user.id);
+    payload.set("userName", user.name);
+    payload.set("userEmail", user.email);
+    
+    const bookingDateValue = form.getValues("bookingDate");
+    if (bookingDateValue) {
+        payload.set("bookingDate", format(bookingDateValue, "yyyy-MM-dd"));
+    }
+    payload.set("bookingTime", form.getValues("bookingTime"));
+    payload.set("notes", form.getValues("notes") || "");
+
+
+    console.log("🔥 Booking form submitted ")
+    console.log("⏱ bookingTime:", payload.get('bookingTime'))
+    console.log("📅 bookingDate:", payload.get('bookingDate'))
+    
+    for (const [key, value] of payload.entries()) {
+      console.log(`📦 Payload field: ${key} = ${value}`);
+    }
+
+    startTransition(() => { // Wrap the call to formAction in startTransition
+      formAction(payload);
+    });
+  };
 
 
   return (
     <Form {...form}>
       <form
-        action={(payload) => {
-          console.log("🔥 Booking form submitted");
-  
-          const bookingTime = form.getValues("bookingTime");
-          const bookingDate = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
-  
-          console.log("⏱ bookingTime:", bookingTime);
-          console.log("📅 bookingDate:", bookingDate);
-  
-          for (const [key, value] of payload.entries()) {
-            console.log(`📦 Payload field: ${key} = ${value}`);
-          }
-  
-          if (!bookingTime || bookingTime === "loading" || bookingTime === "no-slots") {
-            toast({
-              title: "Η ώρα είναι υποχρεωτική",
-              description: "Παρακαλώ επιλέξτε μια έγκυρη ώρα κράτησης.",
-              variant: "destructive",
-            });
-            return;
-          }
-  
-          if (bookingDate) {
-            payload.set("bookingDate", bookingDate);
-          }
-  
-          formAction(payload);
-        }}
+        action={handleFormSubmit} // Use the custom handler
         className="space-y-6"
       >
         <CardHeader className="p-0 mb-4">
-          <CardTitle className="text-2xl text-primary">Κράτηση για: {selectedService.name}</CardTitle>
+          <CardTitle className="text-2xl text-primary">
+            Κράτηση για: {selectedService.name}
+          </CardTitle>
           <CardDescription>
             Διάρκεια: {selectedService.durationMinutes} λεπτά | Τιμή:{" "}
             {selectedService.price.toLocaleString("el-GR", {
@@ -271,43 +373,41 @@ export function BookingForm({
             })}
           </CardDescription>
         </CardHeader>
-  
-        <input type="hidden" name="storeId" value={storeId} />
-        <input type="hidden" name="serviceId" value={selectedService.id} />
-        {user && (
-          <>
-            <input type="hidden" name="userId" value={user.id} />
-            <input type="hidden" name="userName" value={user.name} />
-            <input type="hidden" name="userEmail" value={user.email || ""} />
-          </>
-        )}
-  
+
         <FormField
           control={form.control}
           name="bookingDate"
           render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Επιλέξτε Ημερομηνία</FormLabel>
+            <FormItem>
+              <FormLabel>Ημερομηνία</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
                       variant="outline"
-                      className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}
+                      className={`w-full text-left font-normal ${ // Ensure font-normal
+                        !field.value && "text-muted-foreground"
+                      }`}
                     >
-                      {field.value ? format(field.value, "PPP", { locale: el }) : "Επιλέξτε μια ημερομηνία"}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      {field.value
+                        ? format(field.value, "PPP", { locale: el })
+                        : "Επιλέξτε ημερομηνία"}
+                      <CalendarIcon className="ml-auto h-4 w-4" />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent align="start" className="w-auto p-0">
                   <Calendar
                     mode="single"
                     selected={field.value}
-                    onSelect={field.onChange}
+                    onSelect={(date) => {
+                        field.onChange(date);
+                        form.setValue("bookingTime", ""); // Reset time when date changes
+                        setAvailableTimeSlots([]); // Clear old slots immediately
+                    }}
                     disabled={isDayDisabled}
-                    initialFocus
                     locale={el}
+                    fromDate={new Date()} // Disable past dates
                   />
                 </PopoverContent>
               </Popover>
@@ -315,17 +415,17 @@ export function BookingForm({
             </FormItem>
           )}
         />
-  
+
         <FormField
           control={form.control}
           name="bookingTime"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Επιλέξτε Ώρα</FormLabel>
+              <FormLabel>Ώρα</FormLabel>
               <Select
                 onValueChange={field.onChange}
                 value={field.value}
-                disabled={!selectedDate || isLoadingSlots || isLoadingExistingBookings}
+                disabled={!selectedDate || isLoadingSlots || isLoadingExistingBookings || availableTimeSlots.length === 0}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -333,9 +433,7 @@ export function BookingForm({
                       placeholder={
                         isLoadingSlots || isLoadingExistingBookings
                           ? "Φόρτωση διαθέσιμων ωρών..."
-                          : !selectedDate
-                          ? "Επιλέξτε πρώτα ημερομηνία"
-                          : availableTimeSlots.length === 0
+                          : availableTimeSlots.length === 0 && selectedDate
                           ? "Δεν υπάρχουν διαθέσιμες ώρες"
                           : "Επιλέξτε ώρα"
                       }
@@ -344,32 +442,27 @@ export function BookingForm({
                 </FormControl>
                 <SelectContent>
                   {(isLoadingSlots || isLoadingExistingBookings) && (
-                    <SelectItem value="loading" disabled>
-                      Φόρτωση...
-                    </SelectItem>
+                    <div className="flex items-center justify-center p-2 text-muted-foreground">
+                       <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Φόρτωση...
+                    </div>
                   )}
-                  {!isLoadingSlots &&
-                    !isLoadingExistingBookings &&
-                    availableTimeSlots.length === 0 &&
-                    selectedDate && (
-                      <SelectItem value="no-slots" disabled>
-                        Δεν υπάρχουν διαθέσιμες ώρες
-                      </SelectItem>
-                    )}
-                  {!isLoadingSlots &&
-                    !isLoadingExistingBookings &&
-                    availableTimeSlots.map((slot) => (
-                      <SelectItem key={slot} value={slot}>
-                        {slot}
-                      </SelectItem>
-                    ))}
+                  {!isLoadingSlots && !isLoadingExistingBookings && availableTimeSlots.length === 0 && selectedDate && (
+                    <div className="p-2 text-center text-sm text-muted-foreground">
+                        Δεν υπάρχουν διαθέσιμες ώρες για αυτήν την ημερομηνία.
+                    </div>
+                  )}
+                  {!isLoadingSlots && !isLoadingExistingBookings && availableTimeSlots.map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      {slot}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>
           )}
         />
-  
+
         <FormField
           control={form.control}
           name="notes"
@@ -377,26 +470,19 @@ export function BookingForm({
             <FormItem>
               <FormLabel>Σημειώσεις (Προαιρετικό)</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Ειδικές οδηγίες ή πληροφορίες για την κράτησή σας..."
-                  className="min-h-[80px]"
-                  {...field}
-                />
+                <Textarea placeholder="Οποιαδήποτε επιπλέον πληροφορία για την κράτησή σας..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-  <input type="hidden" name="bookingTime" value={form.watch("bookingTime") || ""} />
 
-          <Button
+        <Button
           type="submit"
           className="w-full"
-          disabled={
-            isPending || !form.formState.isValid || isLoadingExistingBookings || isLoadingSlots
-          }
+          disabled={isActionPending || isLoadingSlots || isLoadingExistingBookings || !form.formState.isValid || !form.getValues("bookingTime")}
         >
-          {isPending ? (
+          {isActionPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Υποβολή Κράτησης...
@@ -408,6 +494,5 @@ export function BookingForm({
       </form>
     </Form>
   );
+}
 
-
-  

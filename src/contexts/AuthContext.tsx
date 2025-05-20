@@ -32,6 +32,7 @@ const USER_PROFILES_COLLECTION = 'userProfiles';
 
 interface AuthContextType {
   user: UserProfile | null;
+  firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<void>;
   signup: (name: string, email: string, pass: string) => Promise<void>;
@@ -65,21 +66,25 @@ const mapFirebaseUserToUserProfile = (
 
 export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let chatListenerUnsubscribe: Unsubscribe | null = null;
     let userProfileListenerUnsubscribe: Unsubscribe | null = null;
-
+  
     const authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Καθαρίζεις παλιούς listeners
       if (chatListenerUnsubscribe) chatListenerUnsubscribe();
       if (userProfileListenerUnsubscribe) userProfileListenerUnsubscribe();
       chatListenerUnsubscribe = null;
       userProfileListenerUnsubscribe = null;
-
+  
       if (firebaseUser) {
+        setFirebaseUser(firebaseUser); // ✅ Εδώ αποθηκεύεις το raw firebase user
+  
         const userProfileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
-
+  
         userProfileListenerUnsubscribe = onSnapshot(userProfileRef, (docSnap: DocumentSnapshot<UserProfileFirestoreData>) => {
           let firestoreData: UserProfileFirestoreData | undefined = undefined;
           if (docSnap.exists()) {
@@ -93,48 +98,48 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
               preferences: { darkMode: false, notifications: true },
               totalUnreadMessages: 0,
               totalUnreadBookings: 0,
-              createdAt: serverTimestamp() as any, // Firestore will convert this
+              createdAt: serverTimestamp() as any,
               lastSeen: serverTimestamp() as any,
             };
             setDoc(userProfileRef, defaultProfile).catch(e => console.error("Error creating default user profile:", e));
-            firestoreData = defaultProfile; // Use default for initial setUser
+            firestoreData = defaultProfile;
           }
           setUser(mapFirebaseUserToUserProfile(firebaseUser, firestoreData));
         });
-
-        // Subscribe to chats for real-time unread message count updates
+  
         chatListenerUnsubscribe = subscribeToUserChats(firebaseUser.uid, async (updatedChats: Chat[]) => {
           const calculatedUnreadMessages = updatedChats.reduce((acc, chat) => {
             const count = firebaseUser.uid === chat.userId ? chat.userUnreadCount : chat.ownerUnreadCount;
             return acc + (Number(count) || 0); 
           }, 0);
-          
-          // Update context state directly
+  
           setUser(currentProfile => {
             if (currentProfile && currentProfile.id === firebaseUser.uid && currentProfile.totalUnreadMessages !== calculatedUnreadMessages) {
               return { ...currentProfile, totalUnreadMessages: calculatedUnreadMessages };
             }
             return currentProfile;
           });
-
-          // Also update Firestore profile
+  
           try {
             const userProfileDoc = await getDoc(userProfileRef);
             if (userProfileDoc.exists()) {
-                if (userProfileDoc.data()?.totalUnreadMessages !== calculatedUnreadMessages) {
-                    await updateDoc(userProfileRef, { totalUnreadMessages: calculatedUnreadMessages });
-                }
+              if (userProfileDoc.data()?.totalUnreadMessages !== calculatedUnreadMessages) {
+                await updateDoc(userProfileRef, { totalUnreadMessages: calculatedUnreadMessages });
+              }
             }
           } catch (error) {
             console.error("Error updating unread messages in Firestore profile:", error);
           }
         });
+  
       } else {
         setUser(null);
+        setFirebaseUser(null);
       }
+  
       setIsLoading(false);
     });
-
+  
     return () => {
       authUnsubscribe();
       if (chatListenerUnsubscribe) chatListenerUnsubscribe();
@@ -250,6 +255,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const contextValue = useMemo(() => ({
     user,
+    firebaseUser,
     isLoading,
     login,
     signup,

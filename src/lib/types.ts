@@ -129,9 +129,22 @@ export interface Booking {
 }
 
 // Firestore document data for Booking (includes Firestore Timestamps for date fields)
-export interface BookingDocumentData extends Omit<Booking, 'id' | 'createdAt' | 'bookingDate'> {
-  bookingDate: Timestamp; // For Firestore query
-  createdAt: Timestamp;
+export interface BookingDocumentData {
+  id: string;
+  storeId: string;
+  storeName: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  serviceId: string;
+  serviceName: string;
+  serviceDurationMinutes: number;
+  servicePrice: number;
+  bookingDate: Timestamp; // για ερωτήματα Firestore
+  bookingTime: string;
+  status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
+  createdAt: Timestamp; // Firestore timestamp
+  notes?: string;
 }
 
 

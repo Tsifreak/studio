@@ -216,6 +216,7 @@ export async function createBookingAction(
     const bookingId = doc(collection(db, '_')).id; 
 
     const newBookingData: BookingDocumentData = {
+      id: bookingId, // 👈 προστέθηκε αυτό
       storeId,
       storeName: store.name,
       userId,
@@ -225,10 +226,10 @@ export async function createBookingAction(
       serviceName: service.name,
       serviceDurationMinutes: service.durationMinutes,
       servicePrice: service.price,
-      bookingDate: bookingDateTimestamp, 
-      bookingTime, 
+      bookingDate: bookingDateTimestamp,
+      bookingTime,
       status: 'pending',
-      createdAt: serverTimestamp() as Timestamp, // Firestore will convert this
+      createdAt: serverTimestamp() as Timestamp,
       notes: notes || "",
     };
     console.log("Server Action: Preparing to add booking to DB with data:", JSON.stringify(newBookingData, null, 2));
