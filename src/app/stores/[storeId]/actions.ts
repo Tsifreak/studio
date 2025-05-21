@@ -1,4 +1,3 @@
-
 "use server";
 
 import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData } from '@/lib/types'; 
@@ -222,6 +221,7 @@ export async function createBookingAction(
 
   try {
     console.log(`[createBookingAction] Processing booking for storeId: ${storeId}, serviceId: ${serviceId}`);
+    // The clientAuth.currentUser check here is mostly for debugging/awareness as Admin SDK will perform the write
     console.log(`[createBookingAction] Client SDK auth.currentUser?.uid in server action: ${clientAuth.currentUser?.uid || 'null'}. Admin SDK will be used for Firestore operations.`);
     
     const parsedBookingDate = new Date(bookingDate + "T00:00:00Z"); 
@@ -235,7 +235,7 @@ export async function createBookingAction(
 
     const bookingId = adminDb.collection(BOOKINGS_COLLECTION).doc().id;
 
-    const newBookingDataForFirestore = { // Data for Firestore with Admin SDK Timestamps
+    const newBookingDataForFirestore: BookingDocumentData = {
       id: bookingId, 
       storeId,
       storeName, 
@@ -249,7 +249,7 @@ export async function createBookingAction(
       bookingDate: bookingDateTimestamp, 
       bookingTime,
       status: 'pending' as Booking['status'], 
-      createdAt: admin.firestore.FieldValue.serverTimestamp(), // Admin SDK serverTimestamp
+      createdAt: admin.firestore.Timestamp.now(), // Using Timestamp.now() as serverTimestamp() needs to be resolved
       notes: notes || "",
     };
     console.log("[createBookingAction] Preparing to add booking to DB with data:", JSON.stringify(newBookingDataForFirestore, null, 2));
@@ -262,6 +262,9 @@ export async function createBookingAction(
         let clientErrorMessage = "Παρουσιάστηκε σφάλμα κατά την προσθήκη της κράτησής σας στη βάση δεδομένων.";
         if (bookingAddError.code) {
           clientErrorMessage += ` (Κωδικός Σφάλματος: ${bookingAddError.code})`;
+           if (bookingAddError.code.toLowerCase().includes("permission-denied") || bookingAddError.code.toLowerCase().includes("permissions")) {
+            clientErrorMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
+          }
         }
         throw new Error(clientErrorMessage); // Re-throw to be caught by the outer try-catch
     }
@@ -271,18 +274,18 @@ export async function createBookingAction(
     if (!storeDoc.exists) {
         console.warn(`[createBookingAction] Store ${storeId} not found after booking creation. Cannot update owner's unread count.`);
     } else {
-      const storeData = storeDoc.data() as Store;
-      if (storeData.ownerId) {
-        console.log(`[createBookingAction] Store has ownerId: ${storeData.ownerId}. Attempting to update owner's profile.`);
-        const ownerProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(storeData.ownerId);
+      const storeDataFromDB = storeDoc.data() as Store; // Type assertion
+      if (storeDataFromDB.ownerId) {
+        console.log(`[createBookingAction] Store has ownerId: ${storeDataFromDB.ownerId}. Attempting to update owner's profile.`);
+        const ownerProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(storeDataFromDB.ownerId);
         try {
           await ownerProfileRef.update({
             totalUnreadBookings: admin.firestore.FieldValue.increment(1),
-            lastSeen: admin.firestore.FieldValue.serverTimestamp() 
+            lastSeen: admin.firestore.FieldValue.serverTimestamp() // Use serverTimestamp here
           });
-          console.log(`[createBookingAction] Incremented totalUnreadBookings for owner ${storeData.ownerId}`);
+          console.log(`[createBookingAction] Incremented totalUnreadBookings for owner ${storeDataFromDB.ownerId}`);
         } catch (profileUpdateError: any) {
-          console.warn(`[createBookingAction] Could not update totalUnreadBookings for owner ${storeData.ownerId} using Admin SDK. This is non-critical for the booking itself. Error: Code: ${profileUpdateError.code}, Message: ${profileUpdateError.message}`);
+          console.warn(`[createBookingAction] Could not update totalUnreadBookings for owner ${storeDataFromDB.ownerId} using Admin SDK. This is non-critical for the booking itself. Error: Code: ${profileUpdateError.code}, Message: ${profileUpdateError.message}`);
         }
       } else {
         console.warn(`[createBookingAction] Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
@@ -291,6 +294,7 @@ export async function createBookingAction(
     
     revalidatePath(`/stores/${storeId}`);
     revalidatePath(`/dashboard`);
+    revalidatePath('/dashboard/my-bookings'); // Added specific revalidation
 
     return {
       success: true,
@@ -298,20 +302,20 @@ export async function createBookingAction(
       booking: { 
         ...newBookingDataForFirestore,
         id: bookingId,
-        createdAt: new Date().toISOString(), // For client-side type consistency, actual is server timestamp
+        // For client-side type consistency, actual is server timestamp
+        // We already have bookingDateTimestamp, use its toDate() method
+        createdAt: newBookingDataForFirestore.createdAt.toDate().toISOString(), 
         bookingDate: newBookingDataForFirestore.bookingDate.toDate().toISOString().split("T")[0], 
-        status: 'pending', // Explicitly set status for returned object
-      } as Booking, // Cast to Booking type for client
+        status: 'pending', 
+      } as Booking, 
     };
 
   } catch (error: any) {
     let detailedMessage = "Παρουσιάστηκε σφάλμα κατά τη δημιουργία της κράτησής σας. Παρακαλώ δοκιμάστε ξανά.";
-    if (error.message && error.message.includes("Άρνηση Πρόσβασης")) { 
-        detailedMessage = error.message;
-    } else if (error.code) {
+     if (error.message && typeof error.message === 'string') {
+        detailedMessage = error.message; // Use the specific error message if thrown
+    } else if (error.code) { // Fallback to error code if message is not specific enough
         detailedMessage += ` (Κωδικός Σφάλματος: ${String(error.code).toLowerCase()})`;
-    } else if (error.message && typeof error.message === 'string' && !error.message.includes(detailedMessage.substring(0, 50))) { 
-        detailedMessage += ` Λεπτομέρειες: ${error.message}`;
     }
     console.error("[createBookingAction] Outer try-catch error in createBookingAction. Error details logged above. Final error message for client:", detailedMessage);
     return { success: false, message: detailedMessage };
@@ -332,17 +336,17 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
     const startOfDay = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 0, 0, 0, 0)));
     const endOfDay = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 23, 59, 59, 999)));
     
-    console.log(`[getBookingsForStoreAndDate] Querying bookings between Admin SDK Timestamp ${startOfDay.toDate().toISOString()} and ${endOfDay.toDate().toISOString()}`);
+    console.log(`[getBookingsForStoreAndDate] Querying bookings using Admin SDK between Timestamp ${startOfDay.toDate().toISOString()} and ${endOfDay.toDate().toISOString()}`);
 
-    const bookingsRef = adminDb.collection(BOOKINGS_COLLECTION); // Use adminDb
-    const q = bookingsRef // Use adminDb query syntax
+    const bookingsRef = adminDb.collection(BOOKINGS_COLLECTION); 
+    const q = bookingsRef 
       .where("storeId", "==", storeId)
-      .where("bookingDate", ">=", startOfDay)
+      .where("bookingDate", "==", startOfDay)
       .where("bookingDate", "<=", endOfDay);
 
     const querySnapshot = await q.get();
     const bookings = querySnapshot.docs.map(docSnap => {
-      const data = docSnap.data() as BookingDocumentData; // Assume data() returns BookingDocumentData
+      const data = docSnap.data() as BookingDocumentData; 
       return {
         ...data,
         id: docSnap.id,
@@ -350,7 +354,7 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
         createdAt: data.createdAt instanceof admin.firestore.Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(), 
       } as Booking;
     });
-    console.log(`[getBookingsForStoreAndDate] Found ${bookings.length} bookings for store ${storeId} on ${dateString}.`);
+    console.log(`[getBookingsForStoreAndDate] Found ${bookings.length} bookings for store ${storeId} on ${dateString} using Admin SDK.`);
     return bookings;
   } catch (error: any) {
     console.error(`[getBookingsForStoreAndDate] Error fetching bookings for store ${storeId} on date ${dateString} using Admin SDK. Raw error:`, error);
