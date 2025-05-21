@@ -58,14 +58,17 @@ const mapDocToBooking = (docSnapshot: any): Booking => {
 
 export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings: Booking[], storesOwned: Store[] }> {
   if (!ownerId) {
+    console.warn("[getOwnerDashboardData] ownerId is undefined or null.");
     return { bookings: [], storesOwned: [] };
   }
+  console.log(`[getOwnerDashboardData] Fetching data for ownerId: ${ownerId}`);
 
   try {
     // 1. Fetch stores owned by the user
     const storesQuery = query(collection(db, STORE_COLLECTION), where("ownerId", "==", ownerId));
     const storesSnapshot = await getDocs(storesQuery);
     const storesOwned = storesSnapshot.docs.map(mapDocToStore);
+    console.log(`[getOwnerDashboardData] Found ${storesOwned.length} stores for owner ${ownerId}`);
 
     if (storesOwned.length === 0) {
       return { bookings: [], storesOwned: [] };
@@ -73,13 +76,8 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
 
     const storeIds = storesOwned.map(store => store.id);
 
-    // 2. Fetch bookings for those stores
-    // Firestore 'in' query is limited to 30 elements in the array.
-    // If an owner can own more than 30 stores, this needs pagination or multiple queries.
-    // For now, assuming fewer than 30 stores per owner.
     if (storeIds.length > 30) {
-        console.warn("Owner has more than 30 stores, booking fetch might be incomplete due to 'in' query limit.");
-        // Potentially fetch in chunks if this becomes an issue
+        console.warn(`[getOwnerDashboardData] Owner ${ownerId} has more than 30 stores (${storeIds.length}), booking fetch via 'in' query might be split or incomplete if not handled in chunks.`);
     }
     
     let bookings: Booking[] = [];
@@ -87,63 +85,100 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
         const bookingsQuery = query(
             collection(db, BOOKINGS_COLLECTION),
             where("storeId", "in", storeIds),
-            orderBy("bookingDate", "desc"), // Most recent bookings first
+            orderBy("bookingDate", "desc"), 
             orderBy("bookingTime", "asc")
         );
         const bookingsSnapshot = await getDocs(bookingsQuery);
         bookings = bookingsSnapshot.docs.map(mapDocToBooking);
+        console.log(`[getOwnerDashboardData] Found ${bookings.length} bookings for stores: ${storeIds.join(', ')}`);
     }
     
     return { bookings, storesOwned };
   } catch (error) {
-    console.error("Error fetching owner dashboard data:", error);
-    return { bookings: [], storesOwned: [] }; // Return empty on error
+    console.error(`[getOwnerDashboardData] Error fetching owner dashboard data for ${ownerId}:`, error);
+    return { bookings: [], storesOwned: [] }; 
   }
 }
 
 const bookingStatusUpdateSchema = z.object({
     bookingId: z.string().min(1, "Booking ID is required."),
     newStatus: z.enum(['pending', 'confirmed', 'completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show']),
-    // bookingStoreId: z.string().min(1, "Store ID for the booking is required."), // For future authorization
+    bookingStoreId: z.string().min(1, "Store ID for the booking is required."), 
 });
 
 export async function updateBookingStatusAction(
   prevState: any,
   formData: FormData
 ): Promise<{ success: boolean; message: string; errors?: any }> {
+  console.log("[updateBookingStatusAction] FormData entries:");
+  for (const [key, value] of formData.entries()) {
+    console.log(`  ${key}: ${value}`);
+  }
+
   const validatedFields = bookingStatusUpdateSchema.safeParse({
     bookingId: formData.get('bookingId'),
     newStatus: formData.get('newStatus'),
-    // bookingStoreId: formData.get('bookingStoreId'),
+    bookingStoreId: formData.get('bookingStoreId'),
   });
 
   if (!validatedFields.success) {
+    console.error("[updateBookingStatusAction] Zod validation failed:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
       message: "Μη έγκυρα δεδομένα για την ενημέρωση κατάστασης.",
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
+  console.log("[updateBookingStatusAction] Zod validation successful. Data:", validatedFields.data);
 
-  const { bookingId, newStatus } = validatedFields.data;
+  const { bookingId, newStatus, bookingStoreId } = validatedFields.data;
 
   try {
     const bookingRef = doc(db, BOOKINGS_COLLECTION, bookingId);
     
     // TODO: Add server-side authorization check here:
     // Ensure the authenticated user (if available via auth context or similar mechanism for server actions)
-    // is the owner of the store associated with this bookingId.
+    // is the owner of the store associated with this bookingId (bookingStoreId).
     // This is crucial for security. For now, we proceed without it.
+    console.log(`[updateBookingStatusAction] Attempting to update booking ${bookingId} to status ${newStatus}. Store ID for authorization context (not yet used): ${bookingStoreId}`);
 
     await updateDoc(bookingRef, {
       status: newStatus,
     });
+    console.log(`[updateBookingStatusAction] Booking ${bookingId} status updated to ${newStatus} in Firestore.`);
 
     revalidatePath('/dashboard');
     return { success: true, message: `Η κατάσταση της κράτησης ενημερώθηκε σε "${newStatus}".` };
 
+  } catch (error: any) {
+    console.error(`[updateBookingStatusAction] Error updating booking status for ${bookingId}:`, error);
+    let clientMessage = "Σφάλμα κατά την ενημέρωση της κατάστασης της κράτησης.";
+    if (error.code) {
+        clientMessage += ` (Code: ${error.code})`;
+    }
+    return { success: false, message: clientMessage };
+  }
+}
+
+export async function getUserBookings(userId: string): Promise<Booking[]> {
+  if (!userId) {
+    console.warn("[getUserBookings] userId is undefined or null.");
+    return [];
+  }
+  console.log(`[getUserBookings] Fetching bookings for userId: ${userId}`);
+  try {
+    const bookingsQuery = query(
+      collection(db, BOOKINGS_COLLECTION),
+      where("userId", "==", userId),
+      orderBy("bookingDate", "desc"),
+      orderBy("bookingTime", "asc")
+    );
+    const bookingsSnapshot = await getDocs(bookingsQuery);
+    const userBookings = bookingsSnapshot.docs.map(mapDocToBooking);
+    console.log(`[getUserBookings] Found ${userBookings.length} bookings for user ${userId}`);
+    return userBookings;
   } catch (error) {
-    console.error("Error updating booking status:", error);
-    return { success: false, message: "Σφάλμα κατά την ενημέρωση της κατάστασης της κράτησης." };
+    console.error(`[getUserBookings] Error fetching bookings for user ${userId}:`, error);
+    return [];
   }
 }

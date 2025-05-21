@@ -8,7 +8,7 @@ import React, { useEffect, useState, useCallback } from 'react'; // Added React,
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2, RefreshCw } from 'lucide-react'; 
+import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2, RefreshCw, ListOrdered } from 'lucide-react'; 
 import { getOwnerDashboardData } from './actions'; 
 import type { Booking, Store } from '@/lib/types';
 import { OwnerBookingsDisplay } from '@/components/dashboard/OwnerBookingsDisplay';
@@ -20,7 +20,7 @@ export default function DashboardPage() {
 
   const [ownerBookings, setOwnerBookings] = useState<Booking[]>([]);
   const [ownedStores, setOwnedStores] = useState<Store[]>([]);
-  const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false); // Renamed for clarity
+  const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false); 
 
   const fetchOwnerData = useCallback(async () => {
     if (user && user.id) {
@@ -31,12 +31,11 @@ export default function DashboardPage() {
         setOwnerBookings(data.bookings);
       } catch (error) {
         console.error("Failed to fetch owner dashboard data:", error);
-        // Optionally set an error state here
       } finally {
         setIsLoadingOwnerData(false);
       }
     }
-  }, [user]); // Added user to dependency array
+  }, [user]); 
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !isLoading && !user) {
@@ -44,10 +43,12 @@ export default function DashboardPage() {
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
     }
 
-    fetchOwnerData(); // Call fetchOwnerData directly
-  }, [user, isLoading, router, fetchOwnerData]); // Added fetchOwnerData to dependencies
+    if (user && user.id) { // Ensure user and user.id are available before fetching
+        fetchOwnerData();
+    }
+  }, [user, isLoading, router, fetchOwnerData]); 
 
-  if (isLoading) { // This is auth loading
+  if (isLoading) { 
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -110,7 +111,7 @@ export default function DashboardPage() {
                     <OwnerBookingsDisplay 
                         bookings={ownerBookings} 
                         storesOwned={ownedStores}
-                        onBookingUpdate={fetchOwnerData} // Pass callback to refresh data
+                        onBookingUpdate={fetchOwnerData} 
                     />
                 )}
             </CardContent>
@@ -133,7 +134,10 @@ export default function DashboardPage() {
                     {ownedStores.length > 0 && !user.isAdmin && <p className="text-sm font-semibold text-green-600">Ρόλος: Ιδιοκτήτης Κέντρου</p>}
 
                     <Button asChild variant="link" className="p-0 h-auto text-primary">
-                        <Link href="/dashboard/my-bookings">Οι Κρατήσεις μου (Ως Πελάτης)</Link>
+                        <Link href="/dashboard/my-bookings">
+                            <ListOrdered className="mr-2 h-4 w-4" />
+                            Οι Κρατήσεις μου (Ως Πελάτης)
+                        </Link>
                     </Button>
                 </CardContent>
             </Card>
