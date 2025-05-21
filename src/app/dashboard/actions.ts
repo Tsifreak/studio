@@ -161,24 +161,43 @@ export async function updateBookingStatusAction(
 }
 
 export async function getUserBookings(userId: string): Promise<Booking[]> {
+  console.log(`[getUserBookings] Attempting to fetch bookings for userId: ${userId}`);
   if (!userId) {
-    console.warn("[getUserBookings] userId is undefined or null.");
+    console.warn("[getUserBookings] userId is undefined or null. Returning empty array.");
     return [];
   }
-  console.log(`[getUserBookings] Fetching bookings for userId: ${userId}`);
+
   try {
     const bookingsQuery = query(
-      collection(db, BOOKINGS_COLLECTION),
+      collection(db, BOOKINGS_COLLECTION), // Still using client SDK 'db'
       where("userId", "==", userId),
       orderBy("bookingDate", "desc"),
       orderBy("bookingTime", "asc")
     );
+    console.log(`[getUserBookings] Constructed query for userId: ${userId}`);
     const bookingsSnapshot = await getDocs(bookingsQuery);
-    const userBookings = bookingsSnapshot.docs.map(mapDocToBooking);
-    console.log(`[getUserBookings] Found ${userBookings.length} bookings for user ${userId}`);
+    console.log(`[getUserBookings] Query successful. Found ${bookingsSnapshot.docs.length} booking documents for userId: ${userId}`);
+
+    if (bookingsSnapshot.empty) {
+      console.log(`[getUserBookings] No booking documents found for userId: ${userId}.`);
+      return [];
+    }
+
+    const userBookings = bookingsSnapshot.docs.map(doc => {
+      console.log(`[getUserBookings] Mapping document ID: ${doc.id}, Data:`, doc.data());
+      return mapDocToBooking(doc);
+    });
+    
+    console.log(`[getUserBookings] Successfully mapped ${userBookings.length} bookings for user ${userId}.`);
     return userBookings;
-  } catch (error) {
-    console.error(`[getUserBookings] Error fetching bookings for user ${userId}:`, error);
-    return [];
+  } catch (error: any) {
+    console.error(`[getUserBookings] Error fetching bookings for user ${userId}. Code: ${error.code}, Message: ${error.message}`, error);
+    // Potentially check for specific error codes like 'permission-denied' or 'failed-precondition' (missing index)
+    if (error.code === 'failed-precondition') {
+        console.error("[getUserBookings] Firestore query failed. This often indicates a missing composite index. Please check the Firebase console for index suggestions for the 'bookings' collection, likely needing (userId [ASC/DESC], bookingDate [DESC], bookingTime [ASC]).");
+    } else if (error.code === 'permission-denied') {
+        console.error("[getUserBookings] Firestore permission denied. Check your security rules for the 'bookings' collection to ensure the user has read access.");
+    }
+    return []; // Return empty array on error
   }
 }

@@ -94,22 +94,28 @@ export default function MyBookingsPage() {
 
   useEffect(() => {
     if (user && user.id) {
+      console.log(`MyBookingsPage: User found (ID: ${user.id}), attempting to fetch bookings.`);
       setIsLoadingBookings(true);
       setError(null);
       getUserBookings(user.id)
         .then(fetchedBookings => {
+          console.log(`MyBookingsPage: Received ${fetchedBookings.length} bookings from server action.`);
           setBookings(fetchedBookings);
         })
         .catch(err => {
-          console.error("Error fetching user bookings:", err);
+          console.error("MyBookingsPage: Error fetching user bookings:", err);
           setError("Δεν ήταν δυνατή η φόρτωση των κρατήσεών σας. Παρακαλώ δοκιμάστε ξανά.");
         })
         .finally(() => {
           setIsLoadingBookings(false);
+          console.log("MyBookingsPage: Finished fetching bookings.");
         });
     } else if (!authLoading && !user) {
+      console.log("MyBookingsPage: No user logged in and auth is not loading. Setting error.");
       setIsLoadingBookings(false);
       setError("Πρέπει να είστε συνδεδεμένοι για να δείτε αυτή τη σελίδα.");
+    } else if (authLoading) {
+        console.log("MyBookingsPage: Auth is loading, waiting...");
     }
   }, [user, authLoading]);
 
@@ -165,6 +171,7 @@ export default function MyBookingsPage() {
   const upcomingBookings = bookings.filter(b => isFuture(parseISO(b.bookingDate)) || format(parseISO(b.bookingDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') && !['completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show'].includes(b.status));
   const pastBookings = bookings.filter(b => isPast(parseISO(b.bookingDate)) && format(parseISO(b.bookingDate), 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd') || ['completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show'].includes(b.status));
 
+  console.log(`MyBookingsPage: Total bookings: ${bookings.length}, Upcoming: ${upcomingBookings.length}, Past: ${pastBookings.length}`);
 
   return (
     <div className="space-y-8">
