@@ -64,15 +64,20 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
     console.warn("[getOwnerDashboardData] ownerId is undefined or null. Returning empty data.");
     return { bookings: [], storesOwned: [] };
   }
-  console.log(`[getOwnerDashboardData] Attempting to fetch dashboard data for ownerId: ${ownerId} using Admin SDK.`);
+  console.log(`[getOwnerDashboardData] Attempting to fetch dashboard data for ownerId: '${ownerId}' using Admin SDK.`);
 
   let storesOwned: Store[] = [];
   try {
-    console.log(`[getOwnerDashboardData] Querying '${STORE_COLLECTION}' for stores where ownerId == '${ownerId}'`);
+    console.log(`[getOwnerDashboardData] Querying '${STORE_COLLECTION}' for stores where 'ownerId' == '${ownerId}'`);
     const storesQuery = adminDb.collection(STORE_COLLECTION).where("ownerId", "==", ownerId);
     const storesSnapshot = await storesQuery.get();
-    storesOwned = storesSnapshot.docs.map(mapAdminDocToStore);
-    console.log(`[getOwnerDashboardData] Found ${storesOwned.length} stores for ownerId '${ownerId}'. Stores:`, storesOwned.map(s => ({id: s.id, name: s.name})));
+    
+    if (storesSnapshot.empty) {
+        console.log(`[getOwnerDashboardData] No stores found for ownerId '${ownerId}'.`);
+    } else {
+        storesOwned = storesSnapshot.docs.map(mapAdminDocToStore);
+        console.log(`[getOwnerDashboardData] Found ${storesOwned.length} store(s) for ownerId '${ownerId}'. Stores:`, storesOwned.map(s => ({id: s.id, name: s.name})));
+    }
 
     if (storesOwned.length === 0) {
       console.log(`[getOwnerDashboardData] No stores owned by ${ownerId}. Returning empty bookings.`);
@@ -211,3 +216,5 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
     return []; 
   }
 }
+
+    

@@ -8,11 +8,12 @@ import React, { useEffect, useState, useCallback } from 'react'; // Added React,
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2, RefreshCw, ListOrdered } from 'lucide-react'; 
+import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2, RefreshCw, ListOrdered, AlertTriangle } from 'lucide-react'; 
 import { getOwnerDashboardData } from './actions'; 
 import type { Booking, Store } from '@/lib/types';
 import { OwnerBookingsDisplay } from '@/components/dashboard/OwnerBookingsDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function DashboardPage() {
   const { user, isLoading, logout } = useAuth();
@@ -21,16 +22,24 @@ export default function DashboardPage() {
   const [ownerBookings, setOwnerBookings] = useState<Booking[]>([]);
   const [ownedStores, setOwnedStores] = useState<Store[]>([]);
   const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false); 
+  const [ownerDataError, setOwnerDataError] = useState<string | null>(null);
 
   const fetchOwnerData = useCallback(async () => {
     if (user && user.id) {
       setIsLoadingOwnerData(true);
+      setOwnerDataError(null);
       try {
+        console.log(`[DashboardPage] Calling getOwnerDashboardData for user: ${user.email} (ID: ${user.id})`);
         const data = await getOwnerDashboardData(user.id);
         setOwnedStores(data.storesOwned);
         setOwnerBookings(data.bookings);
+        if (data.storesOwned.length === 0 && user.email === 'tsifrikas.a@gmail.com') {
+            console.warn(`[DashboardPage] User tsifrikas.a@gmail.com identified, but no stores were found for ownerId: ${user.id}. Check Firestore 'StoreInfo' collection for documents where 'ownerId' matches this UID.`);
+            setOwnerDataError("Δεν βρέθηκαν καταστήματα που ανήκουν σε εσάς. Βεβαιωθείτε ότι το 'Owner User ID' έχει ρυθμιστεί σωστά στα καταστήματά σας στην ενότητα διαχείρισης.");
+        }
       } catch (error) {
-        console.error("Failed to fetch owner dashboard data:", error);
+        console.error("[DashboardPage] Failed to fetch owner dashboard data:", error);
+        setOwnerDataError("Σφάλμα κατά τη φόρτωση δεδομένων ιδιοκτήτη.");
       } finally {
         setIsLoadingOwnerData(false);
       }
@@ -43,7 +52,7 @@ export default function DashboardPage() {
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
     }
 
-    if (user && user.id) { // Ensure user and user.id are available before fetching
+    if (user && user.id) { 
         fetchOwnerData();
     }
   }, [user, isLoading, router, fetchOwnerData]); 
@@ -76,6 +85,8 @@ export default function DashboardPage() {
     router.push('/'); 
   };
 
+  const isTsifrikasWithoutStores = user.email === 'tsifrikas.a@gmail.com' && ownedStores.length === 0 && !isLoadingOwnerData;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -86,6 +97,18 @@ export default function DashboardPage() {
         <Button variant="outline" onClick={handleLogout}>Αποσύνδεση</Button>
       </div>
       
+      {isTsifrikasWithoutStores && ownerDataError && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Ειδοποίηση Ιδιοκτήτη (tsifrikas.a@gmail.com)</AlertTitle>
+          <AlertDescription>
+            {ownerDataError}
+            <br />
+            Παρακαλώ ελέγξτε το UID σας ({user.id}) με το πεδίο `ownerId` στα έγγραφα των καταστημάτων σας στη συλλογή `StoreInfo` του Firestore.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {ownedStores.length > 0 && (
         <Card className="shadow-lg">
             <CardHeader>
@@ -130,8 +153,13 @@ export default function DashboardPage() {
                 <CardContent className="space-y-3">
                     <p><strong>Όνομα:</strong> {user.name}</p>
                     <p><strong>Email:</strong> {user.email}</p>
+                    <p><strong>User ID (UID):</strong> {user.id}</p> 
                     {user.isAdmin && <p className="text-sm font-semibold text-destructive">Ρόλος: Διαχειριστής</p>}
                     {ownedStores.length > 0 && !user.isAdmin && <p className="text-sm font-semibold text-green-600">Ρόλος: Ιδιοκτήτης Κέντρου</p>}
+                     {ownedStores.length === 0 && !user.isAdmin && user.email === 'tsifrikas.a@gmail.com' && (
+                        <p className="text-sm font-semibold text-orange-600">Ρόλος: Ιδιοκτήτης Κέντρου (Δεν βρέθηκαν ενεργά καταστήματα)</p>
+                    )}
+
 
                     <Button asChild variant="link" className="p-0 h-auto text-primary">
                         <Link href="/dashboard/my-bookings">
@@ -173,3 +201,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
