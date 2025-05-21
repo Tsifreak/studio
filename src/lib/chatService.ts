@@ -1,5 +1,6 @@
 
-import { db, storage } from '@/lib/firebase'; // Import storage
+import { db, storage } from '@/lib/firebase'; // Client SDK
+import { adminDb, admin } from '@/lib/firebase-admin'; // Admin SDK
 import {
   collection,
   query,
@@ -11,21 +12,32 @@ import {
   addDoc,
   updateDoc,
   writeBatch,
-  Timestamp,
-  serverTimestamp,
+  Timestamp as ClientTimestamp, // Alias client Timestamp
+  serverTimestamp as clientServerTimestamp, // Alias client serverTimestamp
   limit,
   onSnapshot,
   type Unsubscribe,
   type QuerySnapshot,
   type DocumentData,
+  type Firestore as ClientFirestore, // Type for client Firestore
 } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Firebase Storage imports
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Chat, ChatMessage, ChatMessageFormData } from '@/lib/types';
+import type { Timestamp as AdminTimestamp, Firestore as AdminFirestore } from 'firebase-admin/firestore'; // Admin Timestamp and Firestore type
 
 const CHATS_COLLECTION = 'chats';
 const MESSAGES_SUBCOLLECTION = 'messages';
 
-// Helper to convert Firestore Timestamps to ISO strings for Chat objects
+// Helper to convert Firestore Timestamps (client or admin) to ISO strings
+const mapTimestampToISO = (timestamp: ClientTimestamp | AdminTimestamp | undefined): string => {
+  if (!timestamp) return new Date().toISOString();
+  if (timestamp instanceof ClientTimestamp || timestamp.toDate) { // toDate is a good check for AdminTimestamp as well
+    return timestamp.toDate().toISOString();
+  }
+  return new Date().toISOString(); // Fallback
+};
+
+
 const mapDocToChat = (docSnapshot: DocumentData): Chat => {
   const data = docSnapshot.data();
   return {
@@ -37,18 +49,17 @@ const mapDocToChat = (docSnapshot: DocumentData): Chat => {
     userName: data.userName,
     userAvatarUrl: data.userAvatarUrl,
     ownerId: data.ownerId,
-    lastMessageAt: (data.lastMessageAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    lastMessageAt: mapTimestampToISO(data.lastMessageAt),
     lastMessageText: data.lastMessageText,
     lastMessageSenderId: data.lastMessageSenderId,
     lastImageUrl: data.lastImageUrl,
     userUnreadCount: data.userUnreadCount || 0,
     ownerUnreadCount: data.ownerUnreadCount || 0,
     participantIds: data.participantIds || [],
-    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    createdAt: mapTimestampToISO(data.createdAt),
   };
 };
 
-// Helper to convert Firestore Timestamps to ISO strings for ChatMessage objects
 const mapDocToChatMessage = (docSnapshot: DocumentData): ChatMessage => {
   const data = docSnapshot.data();
   return {
@@ -56,11 +67,12 @@ const mapDocToChatMessage = (docSnapshot: DocumentData): ChatMessage => {
     senderId: data.senderId,
     senderName: data.senderName,
     text: data.text,
-    imageUrl: data.imageUrl, // Add imageUrl
-    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    imageUrl: data.imageUrl,
+    createdAt: mapTimestampToISO(data.createdAt),
   };
 };
 
+// This function is called from client-side components, so it uses the client SDK (db)
 export const getUserChats = async (userId: string): Promise<Chat[]> => {
   try {
     const chatsRef = collection(db, CHATS_COLLECTION);
@@ -72,11 +84,12 @@ export const getUserChats = async (userId: string): Promise<Chat[]> => {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(mapDocToChat);
   } catch (error) {
-    console.error(`Error fetching chats for user ${userId}:`, error);
+    console.error(`Error fetching chats for user ${userId} (client SDK):`, error);
     throw error;
   }
 };
 
+// This function is called from client-side components, so it uses the client SDK (db)
 export const subscribeToUserChats = (
   userId: string,
   onUpdate: (chats: Chat[]) => void
@@ -92,14 +105,14 @@ export const subscribeToUserChats = (
     const chats = querySnapshot.docs.map(mapDocToChat);
     onUpdate(chats);
   }, (error) => {
-    console.error(`Error subscribing to chats for user ${userId}:`, error);
-    onUpdate([]); // Call onUpdate with empty array on error to clear previous state
+    console.error(`Error subscribing to chats for user ${userId} (client SDK):`, error);
+    onUpdate([]);
   });
 
   return unsubscribe;
 };
 
-
+// This function is called from client-side components, so it uses the client SDK (db)
 export const getChatMessages = async (chatId: string): Promise<ChatMessage[]> => {
   try {
     const messagesRef = collection(db, CHATS_COLLECTION, chatId, MESSAGES_SUBCOLLECTION);
@@ -107,11 +120,12 @@ export const getChatMessages = async (chatId: string): Promise<ChatMessage[]> =>
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(mapDocToChatMessage);
   } catch (error) {
-    console.error(`Error fetching messages for chat ${chatId}:`, error);
+    console.error(`Error fetching messages for chat ${chatId} (client SDK):`, error);
     throw error;
   }
 };
 
+// This function is called from client-side components, so it uses the client SDK (db)
 export const subscribeToChatMessages = (
   chatId: string,
   onUpdate: (messages: ChatMessage[]) => void
@@ -123,75 +137,76 @@ export const subscribeToChatMessages = (
     const messages = querySnapshot.docs.map(mapDocToChatMessage);
     onUpdate(messages);
   }, (error) => {
-    console.error(`Error subscribing to messages for chat ${chatId}:`, error);
+    console.error(`Error subscribing to messages for chat ${chatId} (client SDK):`, error);
   });
 
   return unsubscribe;
 };
 
 
+// This function is primarily called from client-side ChatView, so it defaults to client SDK
+// It can be optionally passed an AdminFirestore instance if called from a server action context.
 export const sendMessage = async (
   chatId: string,
   senderId: string,
   senderName: string,
   text: string,
-  recipientId: string, // The ID of the user who is NOT sending the message
-  imageFile?: File | null // Optional image file
+  recipientId: string,
+  imageFile?: File | null,
+  firestoreInstance: ClientFirestore | AdminFirestore = db // Default to client db
 ): Promise<ChatMessage> => {
-  const batch = writeBatch(db);
-  const chatRef = doc(db, CHATS_COLLECTION, chatId);
+  const isClientSide = firestoreInstance === db;
+  const batch = isClientSide ? writeBatch(db) : (firestoreInstance as AdminFirestore).batch();
+  const currentServerTimestamp = isClientSide ? clientServerTimestamp() : admin.firestore.FieldValue.serverTimestamp();
+
+  const chatRef = doc(firestoreInstance as ClientFirestore, CHATS_COLLECTION, chatId); // doc works with both client/admin
   const messagesColRef = collection(chatRef, MESSAGES_SUBCOLLECTION);
-  const newMessageRef = doc(messagesColRef); // Auto-generate ID
+  const newMessageRef = doc(messagesColRef);
 
   let imageUrl: string | undefined = undefined;
 
   if (imageFile) {
     try {
       const imageStoragePath = `chats/${chatId}/images/${Date.now()}-${imageFile.name}`;
-      const imageSisyphusRef = storageRef(storage, imageStoragePath); // Corrected variable name
+      const imageSisyphusRef = storageRef(storage, imageStoragePath);
       await uploadBytes(imageSisyphusRef, imageFile);
       imageUrl = await getDownloadURL(imageSisyphusRef);
     } catch (error) {
       console.error("Error uploading image to Firebase Storage:", error);
-      // Decide if you want to throw or send message without image
-      // For now, we'll send without image if upload fails
     }
   }
 
   const newMessageData: Omit<ChatMessage, 'id' | 'createdAt'> & { createdAt: any } = {
     senderId,
     senderName,
-    text: text || "", // Ensure text is not undefined
+    text: text || "",
     ...(imageUrl && { imageUrl }),
-    createdAt: serverTimestamp(), // Use serverTimestamp for consistency
+    createdAt: currentServerTimestamp,
   };
   batch.set(newMessageRef, newMessageData);
 
-  const chatDocSnap = await getDoc(chatRef); // Renamed to avoid conflict
+  const chatDocSnap = await getDoc(chatRef);
   if (!chatDocSnap.exists()) {
     throw new Error("Chat document not found.");
   }
-  const chatData = chatDocSnap.data() as Omit<Chat, 'id' | 'lastMessageAt' | 'createdAt'> & { lastMessageAt: Timestamp, createdAt: Timestamp};
-
+  const chatData = chatDocSnap.data() as Omit<Chat, 'id' | 'lastMessageAt' | 'createdAt'> & { lastMessageAt: ClientTimestamp | AdminTimestamp, createdAt: ClientTimestamp | AdminTimestamp };
 
   const updateData: Partial<Record<keyof Chat, any>> = {
     lastMessageText: text ? text.substring(0, 100) : (imageUrl ? "Εικόνα" : ""),
-    lastMessageAt: serverTimestamp(),
+    lastMessageAt: currentServerTimestamp,
     lastMessageSenderId: senderId,
-    ...(imageUrl && { lastImageUrl: imageUrl }), // Update lastImageUrl if an image was sent
+    ...(imageUrl && { lastImageUrl: imageUrl }),
   };
-  if (!imageUrl && updateData.hasOwnProperty('lastImageUrl')) { // Clear lastImageUrl if no image sent
+  if (!imageUrl && updateData.hasOwnProperty('lastImageUrl')) {
     updateData.lastImageUrl = null;
   }
 
-
-  // Increment unread count for the recipient
-  if (senderId === chatData.userId) { // Message from user to owner
+  if (senderId === chatData.userId) {
     updateData.ownerUnreadCount = (chatData.ownerUnreadCount || 0) + 1;
-    updateData.userUnreadCount = 0; // Sender's unread count is reset
-  } else if (senderId === chatData.ownerId) { // Message from owner to user
+    updateData.userUnreadCount = 0;
+  } else if (senderId === chatData.ownerId) {
     updateData.userUnreadCount = (chatData.userUnreadCount || 0) + 1;
-    updateData.ownerUnreadCount = 0; // Sender's unread count is reset
+    updateData.ownerUnreadCount = 0;
   }
 
   batch.update(chatRef, updateData);
@@ -204,14 +219,15 @@ export const sendMessage = async (
         senderName,
         text: text || "",
         ...(imageUrl && { imageUrl }),
-        createdAt: new Date().toISOString(), // Approximate, actual will be server time
+        createdAt: new Date().toISOString(), 
     };
   } catch (error) {
-    console.error(`Error sending message in chat ${chatId}:`, error);
+    console.error(`Error sending message in chat ${chatId} (using ${isClientSide ? 'client' : 'admin'} SDK):`, error);
     throw error;
   }
 };
 
+// This function is called from client-side components, so it uses the client SDK (db)
 export const markChatAsRead = async (chatId: string, currentUserId: string): Promise<void> => {
   const chatRef = doc(db, CHATS_COLLECTION, chatId);
   try {
@@ -231,13 +247,11 @@ export const markChatAsRead = async (chatId: string, currentUserId: string): Pro
       }
     }
   } catch (error) {
-    console.error(`Error marking chat ${chatId} as read for user ${currentUserId}:`, error);
-    // Don't throw, as this is a background operation
+    console.error(`Error marking chat ${chatId} as read for user ${currentUserId} (client SDK):`, error);
   }
 };
 
-// This function is specifically for the store contact form to initiate or add to a chat
-// It's kept separate from the generic sendMessage for clarity of its origin.
+// This function is called by a SERVER ACTION, so it MUST use adminDb
 export async function submitMessageToChat(
   storeId: string,
   storeName: string,
@@ -249,83 +263,86 @@ export async function submitMessageToChat(
   messageSubject: string,
   messageText: string
 ): Promise<{ success: boolean; message: string; chatId?: string }> {
-  const chatsRef = collection(db, CHATS_COLLECTION);
-  // Query for an existing chat between this user and store (owner)
-  const q = query(
-    chatsRef,
-    where('storeId', '==', storeId),
-    where('userId', '==', userId),
-    where('ownerId', '==', storeOwnerId),
-    limit(1)
-  );
-
-  const querySnapshot = await getDocs(q);
+  console.log("[submitMessageToChat - Admin SDK] Initiated for store:", storeName, "by user:", userName);
+  const chatsRefAdmin = adminDb.collection(CHATS_COLLECTION);
   const fullMessageText = `Θέμα: ${messageSubject}\n\n${messageText}`;
-  const batch = writeBatch(db);
+  const batch = adminDb.batch();
   let chatDocRef;
-  let existingChatData: Chat | null = null;
-
-  if (!querySnapshot.empty) {
-    // Chat exists
-    chatDocRef = querySnapshot.docs[0].ref;
-    existingChatData = mapDocToChat(querySnapshot.docs[0]);
-    const messagesColRef = collection(chatDocRef, MESSAGES_SUBCOLLECTION);
-    const newMessageRef = doc(messagesColRef);
-
-    batch.set(newMessageRef, {
-      senderId: userId,
-      senderName: userName,
-      text: fullMessageText,
-      createdAt: serverTimestamp(),
-    });
-    batch.update(chatDocRef, {
-      lastMessageText: fullMessageText.substring(0, 100),
-      lastMessageAt: serverTimestamp(),
-      lastMessageSenderId: userId,
-      lastImageUrl: null, // Initial contact form message doesn't include an image
-      ownerUnreadCount: (existingChatData.ownerUnreadCount || 0) + 1,
-      userUnreadCount: 0, // User sending the message has read it
-    });
-  } else {
-    // Chat doesn't exist, create new chat
-    chatDocRef = doc(chatsRef); // Auto-generate ID for new chat
-    batch.set(chatDocRef, {
-      storeId,
-      storeName,
-      storeLogoUrl: storeLogoUrl || null,
-      userId,
-      userName,
-      userAvatarUrl: userAvatarUrl || null,
-      ownerId: storeOwnerId,
-      lastMessageText: fullMessageText.substring(0, 100),
-      lastMessageAt: serverTimestamp(),
-      lastMessageSenderId: userId,
-      lastImageUrl: null, // No image for initial contact
-      userUnreadCount: 0,
-      ownerUnreadCount: 1,
-      participantIds: [userId, storeOwnerId].sort(),
-      createdAt: serverTimestamp(),
-    });
-
-    const messagesColRef = collection(chatDocRef, MESSAGES_SUBCOLLECTION);
-    const firstMessageRef = doc(messagesColRef);
-    batch.set(firstMessageRef, {
-      senderId: userId,
-      senderName: userName,
-      text: fullMessageText,
-      createdAt: serverTimestamp(),
-    });
-  }
 
   try {
+    const q = chatsRefAdmin
+      .where('storeId', '==', storeId)
+      .where('userId', '==', userId)
+      .where('ownerId', '==', storeOwnerId)
+      .limit(1);
+
+    const querySnapshot = await q.get();
+    console.log(`[submitMessageToChat - Admin SDK] Existing chat query found ${querySnapshot.docs.length} documents.`);
+
+    if (!querySnapshot.empty) {
+      chatDocRef = querySnapshot.docs[0].ref;
+      const existingChatData = querySnapshot.docs[0].data() as Chat; // Assuming data matches Chat type
+      console.log("[submitMessageToChat - Admin SDK] Existing chat found, ID:", chatDocRef.id);
+
+      const messagesColRefAdmin = chatDocRef.collection(MESSAGES_SUBCOLLECTION);
+      const newMessageRefAdmin = messagesColRefAdmin.doc(); // Auto-generate ID
+
+      batch.set(newMessageRefAdmin, {
+        senderId: userId,
+        senderName: userName,
+        text: fullMessageText,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      batch.update(chatDocRef, {
+        lastMessageText: fullMessageText.substring(0, 100),
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastMessageSenderId: userId,
+        lastImageUrl: null,
+        ownerUnreadCount: admin.firestore.FieldValue.increment(1), // Increment for owner
+        userUnreadCount: 0, // User sending message has read it
+      });
+    } else {
+      console.log("[submitMessageToChat - Admin SDK] No existing chat found. Creating new chat.");
+      chatDocRef = chatsRefAdmin.doc(); // Auto-generate ID for new chat
+      batch.set(chatDocRef, {
+        storeId,
+        storeName,
+        storeLogoUrl: storeLogoUrl || null,
+        userId,
+        userName,
+        userAvatarUrl: userAvatarUrl || null,
+        ownerId: storeOwnerId,
+        lastMessageText: fullMessageText.substring(0, 100),
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastMessageSenderId: userId,
+        lastImageUrl: null,
+        userUnreadCount: 0,
+        ownerUnreadCount: 1, // New chat, owner has 1 unread
+        participantIds: [userId, storeOwnerId].sort(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      const messagesColRefAdmin = chatDocRef.collection(MESSAGES_SUBCOLLECTION);
+      const firstMessageRefAdmin = messagesColRefAdmin.doc();
+      batch.set(firstMessageRefAdmin, {
+        senderId: userId,
+        senderName: userName,
+        text: fullMessageText,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
     await batch.commit();
+    console.log("[submitMessageToChat - Admin SDK] Batch commit successful. Chat ID:", chatDocRef.id);
     return { 
       success: true, 
       message: "Το μήνυμά σας εστάλη. Μπορείτε να δείτε αυτήν τη συνομιλία στον πίνακα ελέγχου σας.",
       chatId: chatDocRef.id 
     };
-  } catch (error) {
-    console.error("Error processing store query/chat via submitMessageToChat:", error);
-    return { success: false, message: "Παρουσιάστηκε σφάλμα κατά την επεξεργασία του ερωτήματός σας." };
+  } catch (error: any) {
+    console.error("[submitMessageToChat - Admin SDK] Error processing store query/chat:", error.message, error.stack);
+    return { success: false, message: `Παρουσιάστηκε σφάλμα κατά την επεξεργασία του ερωτήματός σας. Error: ${error.message}` };
   }
 }
+
+    
