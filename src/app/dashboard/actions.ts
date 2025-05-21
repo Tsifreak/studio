@@ -127,7 +127,7 @@ export async function updateBookingStatusAction(
   prevState: any,
   formData: FormData
 ): Promise<{ success: boolean; message: string; errors?: any }> {
-  console.log("[updateBookingStatusAction] FormData entries (Admin SDK will be used):");
+  console.log("[updateBookingStatusAction] FormData entries:");
   for (const [key, value] of formData.entries()) {
     console.log(`  ${key}: ${value}`);
   }
@@ -141,7 +141,7 @@ export async function updateBookingStatusAction(
   });
 
   if (!validatedFields.success) {
-    console.error("[updateBookingStatusAction] Zod validation failed:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
+    console.error("[updateBookingStatusAction] Zod validation failed. Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
       message: "Μη έγκυρα δεδομένα για την ενημέρωση κατάστασης.",
@@ -160,9 +160,8 @@ export async function updateBookingStatusAction(
     batch.update(bookingRef, { status: newStatus });
     console.log(`[updateBookingStatusAction] Admin SDK: Booking ${bookingId} status update added to batch.`);
 
-    // Update owner's pendingBookingsCount if status changed from 'pending'
     if (originalStatus === 'pending' && (newStatus === 'confirmed' || newStatus === 'cancelled_by_store')) {
-        const bookingDoc = await bookingRef.get();
+        const bookingDoc = await bookingRef.get(); // Fetch booking doc to get ownerId if not already available
         const bookingData = bookingDoc.data();
         if (bookingData && bookingData.ownerId) {
             const ownerProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(bookingData.ownerId);
@@ -173,7 +172,6 @@ export async function updateBookingStatusAction(
         }
     }
 
-    // Increment client's bookingStatusUpdatesCount
     const clientProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(clientUserId);
     batch.update(clientProfileRef, { bookingStatusUpdatesCount: admin.firestore.FieldValue.increment(1) });
     console.log(`[updateBookingStatusAction] Incremented bookingStatusUpdatesCount for client ${clientUserId}`);
@@ -195,7 +193,6 @@ export async function updateBookingStatusAction(
   }
 }
 
-// Helper to get status text
 const getStatusText = (status: BookingStatus): string => {
     switch (status) {
         case 'pending': return 'Εκκρεμεί';
@@ -232,7 +229,6 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
     }
 
     const userBookings = bookingsSnapshot.docs.map(docSnap => {
-      // console.log(`[getUserBookings] Admin SDK: Mapping document ID: ${docSnap.id}, Data:`, JSON.stringify(docSnap.data(), null, 2));
       return mapAdminDocToBooking(docSnap);
     });
     
@@ -260,12 +256,11 @@ export async function clearBookingStatusUpdatesAction(userId: string): Promise<{
       lastSeen: admin.firestore.FieldValue.serverTimestamp(),
     });
     console.log(`[clearBookingStatusUpdatesAction] Successfully cleared bookingStatusUpdatesCount for user ${userId}.`);
-    revalidatePath('/dashboard/my-bookings'); // Revalidate the page to reflect the cleared count
-    revalidatePath('/dashboard'); // Also revalidate dashboard for navbar updates potentially
+    revalidatePath('/dashboard/my-bookings'); 
+    revalidatePath('/dashboard'); 
     return { success: true, message: "Οι ειδοποιήσεις κατάστασης κράτησης εκκαθαρίστηκαν." };
   } catch (error: any) {
     console.error(`[clearBookingStatusUpdatesAction] Error clearing bookingStatusUpdatesCount for user ${userId}:`, error);
     return { success: false, message: "Σφάλμα κατά την εκκαθάριση των ειδοποιήσεων." };
   }
 }
-    

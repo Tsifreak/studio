@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { el } from 'date-fns/locale';
-import { ClipboardList, CheckCircle, XCircle, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ClipboardList, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -26,7 +26,7 @@ import { updateBookingStatusAction } from '@/app/dashboard/actions';
 interface OwnerBookingsDisplayProps {
   bookings: Booking[];
   storesOwned: Store[];
-  onBookingUpdate: () => Promise<void>; // Callback to refresh data
+  onBookingUpdate: () => Promise<void>; 
 }
 
 const getStatusVariant = (status: Booking['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -34,7 +34,7 @@ const getStatusVariant = (status: Booking['status']): "default" | "secondary" | 
     case 'pending':
       return 'outline';
     case 'confirmed':
-      return 'default'; // For owner view, "default" is fine (e.g., primary color)
+      return 'default'; 
     case 'completed':
       return 'secondary';
     case 'cancelled_by_user':
@@ -49,7 +49,7 @@ const getStatusVariant = (status: Booking['status']): "default" | "secondary" | 
 const getStatusText = (status: Booking['status']): string => {
     switch (status) {
         case 'pending': return 'Εκκρεμεί';
-        case 'confirmed': return 'Αποδεκτό'; // Owner sees it as "Accepted"
+        case 'confirmed': return 'Αποδεκτό';
         case 'completed': return 'Ολοκληρωμένο';
         case 'cancelled_by_user': return 'Ακυρώθηκε (Χρήστης)';
         case 'cancelled_by_store': return 'Απορρίφθηκε (Κατάστημα)';
@@ -64,13 +64,19 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
   const [bookingToManage, setBookingToManage] = useState<Booking | null>(null);
   const [managementAction, setManagementAction] = useState<'accept' | 'decline' | null>(null);
 
-
-  const handleUpdateStatus = async (bookingId: string, newStatus: BookingStatus, storeId: string) => {
+  const handleUpdateStatus = async (booking: Booking, newStatus: BookingStatus) => {
     startTransition(async () => {
       const formData = new FormData();
-      formData.append('bookingId', bookingId);
+      formData.append('bookingId', booking.id);
       formData.append('newStatus', newStatus);
-      formData.append('bookingStoreId', storeId); // Pass storeId for server-side validation if needed
+      formData.append('bookingStoreId', booking.storeId);
+      formData.append('clientUserId', booking.userId); // Ensure clientUserId is sent
+      formData.append('originalStatus', booking.status); // Ensure originalStatus is sent
+      
+      console.log("[OwnerBookingsDisplay] Submitting FormData for status update:");
+      for (const [key, value] of formData.entries()) {
+        console.log(`  ${key}: ${value}`);
+      }
 
       const result = await updateBookingStatusAction(null, formData);
 
@@ -151,7 +157,9 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => {
-                                    handleUpdateStatus(booking.id, 'confirmed', booking.storeId);
+                                    setBookingToManage(booking); // Set booking to manage for pending state
+                                    setManagementAction('accept'); // Set action type
+                                    handleUpdateStatus(booking, 'confirmed');
                                 }}
                                 disabled={isPending && bookingToManage?.id === booking.id && managementAction === 'accept'}
                                 className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
@@ -176,7 +184,7 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
                                             setBookingToManage(booking);
                                             setManagementAction('decline');
                                         }}
-                                        disabled={isPending && bookingToManage?.id === booking.id}
+                                        disabled={isPending && bookingToManage?.id === booking.id && managementAction === 'decline'}
                                     >
                                         <ThumbsDown className="mr-2 h-4 w-4" />
                                         Απόρριψη
@@ -192,7 +200,7 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
                                 <AlertDialogFooter>
                                     <AlertDialogCancel onClick={() => {setBookingToManage(null); setManagementAction(null);}} disabled={isPending}>Άκυρο</AlertDialogCancel>
                                     <AlertDialogAction 
-                                        onClick={() => bookingToManage && handleUpdateStatus(bookingToManage.id, 'cancelled_by_store', bookingToManage.storeId)} 
+                                        onClick={() => bookingToManage && handleUpdateStatus(bookingToManage, 'cancelled_by_store')} 
                                         className="bg-destructive hover:bg-destructive/90" 
                                         disabled={isPending}
                                     >
@@ -212,5 +220,3 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
     </div>
   );
 }
-
-    
