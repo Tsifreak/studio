@@ -4,7 +4,7 @@
 import type { Booking, BookingStatus, Store } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { el } from 'date-fns/locale';
 import { ClipboardList, CheckCircle, XCircle, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ const getStatusVariant = (status: Booking['status']): "default" | "secondary" | 
     case 'pending':
       return 'outline';
     case 'confirmed':
-      return 'default';
+      return 'default'; // For owner view, "default" is fine (e.g., primary color)
     case 'completed':
       return 'secondary';
     case 'cancelled_by_user':
@@ -49,7 +49,7 @@ const getStatusVariant = (status: Booking['status']): "default" | "secondary" | 
 const getStatusText = (status: Booking['status']): string => {
     switch (status) {
         case 'pending': return 'Εκκρεμεί';
-        case 'confirmed': return 'Αποδεκτό';
+        case 'confirmed': return 'Αποδεκτό'; // Owner sees it as "Accepted"
         case 'completed': return 'Ολοκληρωμένο';
         case 'cancelled_by_user': return 'Ακυρώθηκε (Χρήστης)';
         case 'cancelled_by_store': return 'Απορρίφθηκε (Κατάστημα)';
@@ -70,7 +70,7 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
       const formData = new FormData();
       formData.append('bookingId', bookingId);
       formData.append('newStatus', newStatus);
-      formData.append('bookingStoreId', storeId);
+      formData.append('bookingStoreId', storeId); // Pass storeId for server-side validation if needed
 
       const result = await updateBookingStatusAction(null, formData);
 
@@ -133,7 +133,7 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
                 <TableCell>{booking.serviceName}</TableCell>
                 <TableCell>{booking.userName} ({booking.userEmail})</TableCell>
                 <TableCell>
-                {format(new Date(booking.bookingDate), 'dd MMM yyyy', { locale: el })}
+                  {booking.bookingDate ? format(parseISO(booking.bookingDate), 'dd MMM yyyy', { locale: el }) : 'N/A'}
                 </TableCell>
                 <TableCell>{booking.bookingTime}</TableCell>
                 <TableCell>
@@ -151,9 +151,6 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => {
-                                    setBookingToManage(booking);
-                                    setManagementAction('accept');
-                                    // Directly call handleUpdateStatus for accept, or trigger a dialog if preferred
                                     handleUpdateStatus(booking.id, 'confirmed', booking.storeId);
                                 }}
                                 disabled={isPending && bookingToManage?.id === booking.id && managementAction === 'accept'}
@@ -215,3 +212,5 @@ export function OwnerBookingsDisplay({ bookings, storesOwned, onBookingUpdate }:
     </div>
   );
 }
+
+    
