@@ -201,18 +201,6 @@ export async function createBookingAction(
     bookingDate, bookingTime, notes 
   } = validatedFields.data;
 
-  // Explicit authentication check for the booking user context
-  if (!auth.currentUser || auth.currentUser.uid !== userId) {
-    const authErrorMsg = `Σφάλμα: Ασυμφωνία πιστοποίησης ή μη πιστοποιημένος χρήστης για την κράτηση. Client UID: ${userId}, Server Auth UID: ${auth.currentUser?.uid}`;
-    console.error(`[createBookingAction] Auth Check Failed: ${authErrorMsg}`);
-    return { 
-      success: false, 
-      message: "Σφάλμα πιστοποίησης κατά την προσπάθεια κράτησης. Βεβαιωθείτε ότι είστε συνδεδεμένοι σωστά." 
-    };
-  }
-  console.log(`[createBookingAction] Booking by authenticated user: ${auth.currentUser.email} (UID: ${auth.currentUser.uid}) for service ${serviceName}`);
-
-
   try {
     console.log(`Server Action: Processing booking for storeId: ${storeId}, serviceId: ${serviceId}`);
     
@@ -272,7 +260,6 @@ export async function createBookingAction(
         console.log(`Server Action: Incremented totalUnreadBookings for owner ${store.ownerId}`);
       } catch (profileUpdateError: any) {
         console.warn(`Server Action: Could not update totalUnreadBookings for owner ${store.ownerId}. This is non-critical for the booking itself. Error:`, profileUpdateError.message);
-        // Do not throw an error for the whole booking if only this part fails, but log it.
       }
     } else {
       console.warn(`Server Action: Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
@@ -310,7 +297,6 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
         console.error(`Server Action: Invalid dateString format for getBookingsForStoreAndDate: ${dateString}`);
         return [];
     }
-    // Ensure date is parsed as UTC to match Firestore Timestamp comparison
     const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); 
     
     const startOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 0, 0, 0, 0)));
@@ -345,4 +331,3 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
     return []; 
   }
 }
-    

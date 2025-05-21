@@ -1,10 +1,10 @@
 
-"use client"; // This page now uses client-side state for the dialog
+"use client"; 
 
 import { getStoreByIdFromDB } from '@/lib/storeService'; 
 import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot } from '@/lib/types'; 
 import Image from 'next/image';
-import { useParams } from 'next/navigation'; // Import useParams
+import { useParams } from 'next/navigation';
 import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2 } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,10 +24,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 
 export default function StoreDetailPage() {
-  const params = useParams<{ storeId: string }>(); // Use the hook
-  const storeId = params.storeId; // Get storeId from the hook's result
+  const params = useParams<{ storeId: string }>(); 
+  const storeId = params.storeId; 
 
-  const [storeData, setStoreData] = useState<Store | null | undefined>(undefined); // undefined for loading, null for not found
+  const [storeData, setStoreData] = useState<Store | null | undefined>(undefined); 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,14 +39,13 @@ export default function StoreDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-        // Ensure storeId is a string and not an array or undefined
         const currentStoreId = Array.isArray(storeId) ? storeId[0] : storeId;
         if (typeof currentStoreId === 'string') {
           const fetchedStore = await getStoreByIdFromDB(currentStoreId);
           if (fetchedStore) {
             setStoreData(fetchedStore);
           } else {
-            setStoreData(null); // Not found
+            setStoreData(null); 
           }
         } else {
           console.warn("storeId is not a string or is undefined:", currentStoreId);
@@ -81,7 +80,7 @@ export default function StoreDetailPage() {
                     </div>
                 </CardHeader>
             </Card>
-             <Skeleton className="h-10 w-1/3 mx-auto bg-muted mb-6" /> {/* TabsList Skeleton */}
+             <Skeleton className="h-10 w-1/3 mx-auto bg-muted mb-6" /> 
             <Card>
                 <CardHeader><Skeleton className="h-8 w-1/2 bg-muted" /></CardHeader>
                 <CardContent><Skeleton className="h-20 w-full bg-muted" /></CardContent>
@@ -101,7 +100,6 @@ export default function StoreDetailPage() {
   }
 
   if (!storeData) {
-    // This simulates the notFound() behavior for client components
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
         <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
@@ -118,7 +116,7 @@ export default function StoreDetailPage() {
 
   const serializableStore: SerializedStore = {
     ...storeData,
-    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => ({ // Handle both types
+    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => ({ 
       id: feature.id,
       name: feature.name,
       description: feature.description,
@@ -293,7 +291,7 @@ export default function StoreDetailPage() {
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground" /> {/* Changed from AlertTriangle */}
+                  <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground" /> 
                   <p className="mt-4 text-muted-foreground">Δεν υπάρχουν διαθέσιμες υπηρεσίες για κράτηση αυτή τη στιγμή.</p>
                 </div>
               )}
@@ -395,11 +393,11 @@ export default function StoreDetailPage() {
 
       {selectedServiceForBooking && (
         <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-          <DialogContent className="sm:max-w-[480px]"> {/* Adjusted width */}
+          <DialogContent className="sm:max-w-[480px]"> 
             <BookingForm
               selectedService={selectedServiceForBooking}
               storeId={serializableStore.id}
-              storeName={serializableStore.name}
+              storeName={serializableStore.name} 
               storeAvailability={serializableStore.availability}
               onOpenChange={setIsBookingDialogOpen}
             />
