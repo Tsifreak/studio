@@ -1,0 +1,51 @@
+ental: {
+    allowedDevOrigins: [
+      "3000-firebase-studio-1747039846284.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev",
+    ],
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+        port: '',
+        pathname: '/**',
+      }
+    ],
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Resolve Node.js modules to false for client-side bundles
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        child_process: false,
+        fs: false,
+        os: false,
+        path: false, // Often needed too
+        net: false, // Sometimes needed by auth libraries
+        tls: false, // Sometimes needed by auth libraries
+      };
+    }
+    return config;
+  },
+};
+
+module.exports = nextConfig;

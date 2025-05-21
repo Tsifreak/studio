@@ -55,7 +55,22 @@ const nextConfig: NextConfig = {
           os: false,
           path: false, 
           net: false, 
-          tls: false, 
+          tls: false,
+          // Add more common Node.js modules that might be pulled in by dependencies
+          http: false,
+          https: false,
+          stream: false,
+          crypto: false,
+          buffer: false,
+          zlib: false,
+          url: false,
+          assert: false,
+          constants: false,
+          util: false,
+          querystring: false,
+          tty: false,
+          events: false,
+          vm: false,
         },
       };
     }
