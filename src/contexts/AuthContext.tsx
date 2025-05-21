@@ -60,7 +60,8 @@ const mapFirebaseUserToUserProfile = (
     isAdmin: firebaseUser.email === ADMIN_EMAIL,
     preferences: firestoreProfileData?.preferences || defaultPreferences,
     totalUnreadMessages: firestoreProfileData?.totalUnreadMessages || 0,
-    totalUnreadBookings: firestoreProfileData?.totalUnreadBookings || 0,
+    pendingBookingsCount: firestoreProfileData?.pendingBookingsCount || 0,
+    bookingStatusUpdatesCount: firestoreProfileData?.bookingStatusUpdatesCount || 0,
   };
 };
 
@@ -73,48 +74,47 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     let chatListenerUnsubscribe: Unsubscribe | null = null;
     let userProfileListenerUnsubscribe: Unsubscribe | null = null;
   
-    const authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Καθαρίζεις παλιούς listeners
+    const authUnsubscribe = onAuthStateChanged(auth, async (currentFirebaseUser) => {
       if (chatListenerUnsubscribe) chatListenerUnsubscribe();
       if (userProfileListenerUnsubscribe) userProfileListenerUnsubscribe();
       chatListenerUnsubscribe = null;
       userProfileListenerUnsubscribe = null;
   
-      if (firebaseUser) {
-        setFirebaseUser(firebaseUser); // ✅ Εδώ αποθηκεύεις το raw firebase user
+      if (currentFirebaseUser) {
+        setFirebaseUser(currentFirebaseUser); 
   
-        const userProfileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
+        const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentFirebaseUser.uid);
   
         userProfileListenerUnsubscribe = onSnapshot(userProfileRef, (docSnap: DocumentSnapshot<UserProfileFirestoreData>) => {
           let firestoreData: UserProfileFirestoreData | undefined = undefined;
           if (docSnap.exists()) {
             firestoreData = docSnap.data();
           } else {
-            // Create default profile if it doesn't exist
             const defaultProfile: UserProfileFirestoreData = {
-              name: firebaseUser.displayName || 'User',
-              email: firebaseUser.email || '',
-              avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png`,
+              name: currentFirebaseUser.displayName || 'User',
+              email: currentFirebaseUser.email || '',
+              avatarUrl: currentFirebaseUser.photoURL || `https://placehold.co/100x100.png`,
               preferences: { darkMode: false, notifications: true },
               totalUnreadMessages: 0,
-              totalUnreadBookings: 0,
+              pendingBookingsCount: 0,
+              bookingStatusUpdatesCount: 0,
               createdAt: serverTimestamp() as any,
               lastSeen: serverTimestamp() as any,
             };
             setDoc(userProfileRef, defaultProfile).catch(e => console.error("Error creating default user profile:", e));
             firestoreData = defaultProfile;
           }
-          setUser(mapFirebaseUserToUserProfile(firebaseUser, firestoreData));
+          setUser(mapFirebaseUserToUserProfile(currentFirebaseUser, firestoreData));
         });
   
-        chatListenerUnsubscribe = subscribeToUserChats(firebaseUser.uid, async (updatedChats: Chat[]) => {
+        chatListenerUnsubscribe = subscribeToUserChats(currentFirebaseUser.uid, async (updatedChats: Chat[]) => {
           const calculatedUnreadMessages = updatedChats.reduce((acc, chat) => {
-            const count = firebaseUser.uid === chat.userId ? chat.userUnreadCount : chat.ownerUnreadCount;
+            const count = currentFirebaseUser.uid === chat.userId ? chat.userUnreadCount : chat.ownerUnreadCount;
             return acc + (Number(count) || 0); 
           }, 0);
   
           setUser(currentProfile => {
-            if (currentProfile && currentProfile.id === firebaseUser.uid && currentProfile.totalUnreadMessages !== calculatedUnreadMessages) {
+            if (currentProfile && currentProfile.id === currentFirebaseUser.uid && currentProfile.totalUnreadMessages !== calculatedUnreadMessages) {
               return { ...currentProfile, totalUnreadMessages: calculatedUnreadMessages };
             }
             return currentProfile;
@@ -145,12 +145,11 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       if (chatListenerUnsubscribe) chatListenerUnsubscribe();
       if (userProfileListenerUnsubscribe) userProfileListenerUnsubscribe();
     };
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []); 
 
   const login = useCallback(async (email: string, pass: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, pass);
-      // Auth state change will trigger profile fetch/update
     } catch (error) {
       console.error("Firebase login error:", error);
       throw error; 
@@ -160,25 +159,24 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const signup = useCallback(async (name: string, email: string, pass: string) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      const firebaseUser = userCredential.user;
-      await firebaseUpdateProfile(firebaseUser, {
+      const newFirebaseUser = userCredential.user; // Renamed to avoid conflict
+      await firebaseUpdateProfile(newFirebaseUser, {
         displayName: name,
         photoURL: `https://placehold.co/100x100.png` 
       });
-      // Create Firestore profile document
-      const userProfileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
+      const userProfileRef = doc(db, USER_PROFILES_COLLECTION, newFirebaseUser.uid);
       const initialProfileData: UserProfileFirestoreData = {
         name: name,
         email: email,
-        avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png`,
+        avatarUrl: newFirebaseUser.photoURL || `https://placehold.co/100x100.png`,
         preferences: { darkMode: false, notifications: true },
         totalUnreadMessages: 0,
-        totalUnreadBookings: 0,
+        pendingBookingsCount: 0,
+        bookingStatusUpdatesCount: 0,
         createdAt: serverTimestamp() as any,
         lastSeen: serverTimestamp() as any,
       };
       await setDoc(userProfileRef, initialProfileData);
-      // Auth state change will trigger profile fetch/update
     } catch (error) {
       console.error("Firebase signup error:", error);
       throw error;
@@ -188,7 +186,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const logout = useCallback(async () => {
     try {
       await signOut(auth);
-      // Auth state change will set user to null
     } catch (error) {
       console.error("Firebase logout error:", error);
       throw error;
@@ -228,16 +225,13 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         firestoreUpdates.preferences = preferences;
       }
       
-      // Update Firebase Auth profile (displayName, photoURL)
       if (Object.keys(profileUpdatesForFirebaseAuth).length > 0) {
         await firebaseUpdateProfile(currentUserAuth, profileUpdatesForFirebaseAuth);
       }
       
-      // Update Firestore userProfiles document
       const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUserAuth.uid);
       await updateDoc(userProfileRef, firestoreUpdates);
 
-      // Context state will update via the onSnapshot listener for userProfileRef
     } catch (error) {
       console.error("Firebase profile update error:", error);
       throw error;
@@ -262,7 +256,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     logout,
     updateUserProfile,
     sendPasswordReset,
-  }), [user, isLoading, login, signup, logout, updateUserProfile, sendPasswordReset]);
+  }), [user, firebaseUser, isLoading, login, signup, logout, updateUserProfile, sendPasswordReset]); // Added firebaseUser
 
   return (
     <AuthContext.Provider value={contextValue}>

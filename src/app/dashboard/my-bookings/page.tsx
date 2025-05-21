@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react'; // Added useCallback
 import { useAuth } from '@/hooks/useAuth';
-import { getUserBookings } from '../actions';
+import { getUserBookings, clearBookingStatusUpdatesAction } from '../actions'; // Added clearBookingStatusUpdatesAction
 import type { Booking } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 const getStatusVariant = (status: Booking['status']): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
     case 'pending': return 'outline';
-    case 'confirmed': return 'default'; // Consider a success/green variant if ShadCN theme supports it
+    case 'confirmed': return 'default'; 
     case 'completed': return 'secondary';
     case 'cancelled_by_user':
     case 'cancelled_by_store':
@@ -92,6 +92,17 @@ export default function MyBookingsPage() {
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const clearNotifications = useCallback(async (userId: string) => {
+    try {
+      await clearBookingStatusUpdatesAction(userId);
+      // Optionally, update local user context if it's not automatically updated by Firestore listener
+      // This depends on how AuthContext handles updates from Firestore.
+      console.log("Booking status update notifications cleared for user:", userId);
+    } catch (err) {
+      console.error("Failed to clear booking status update notifications:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (user && user.id) {
       console.log(`MyBookingsPage: User found (ID: ${user.id}), attempting to fetch bookings.`);
@@ -101,6 +112,9 @@ export default function MyBookingsPage() {
         .then(fetchedBookings => {
           console.log(`MyBookingsPage: Received ${fetchedBookings.length} bookings from server action.`);
           setBookings(fetchedBookings);
+          if (user.bookingStatusUpdatesCount > 0) {
+            clearNotifications(user.id);
+          }
         })
         .catch(err => {
           console.error("MyBookingsPage: Error fetching user bookings:", err);
@@ -117,7 +131,7 @@ export default function MyBookingsPage() {
     } else if (authLoading) {
         console.log("MyBookingsPage: Auth is loading, waiting...");
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, clearNotifications]);
 
   if (authLoading || isLoadingBookings) {
     return (

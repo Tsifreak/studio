@@ -126,6 +126,7 @@ export interface Booking {
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: string; // ISO string
   notes?: string; 
+  ownerId?: string; // Added ownerId to booking for easier notification
 }
 
 // Firestore document data for Booking (includes Firestore Timestamps for date fields)
@@ -145,6 +146,7 @@ export interface BookingDocumentData {
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: Timestamp; // Firestore timestamp
   notes?: string;
+  ownerId?: string; // Added ownerId to booking document
 }
 
 
@@ -193,7 +195,9 @@ export interface UserProfile {
   avatarUrl?: string;
   isAdmin?: boolean;
   totalUnreadMessages: number;
-  totalUnreadBookings: number;
+  // totalUnreadBookings: number; // Replaced by pendingBookingsCount for owners
+  pendingBookingsCount: number; // For store owners: count of bookings needing action
+  bookingStatusUpdatesCount: number; // For clients: count of their bookings that had status changes
   preferences?: UserPreferences;
 }
 
@@ -204,7 +208,9 @@ export interface UserProfileFirestoreData {
   avatarUrl?: string;
   preferences?: UserPreferences;
   totalUnreadMessages?: number;
-  totalUnreadBookings?: number;
+  // totalUnreadBookings?: number; // Replaced by pendingBookingsCount
+  pendingBookingsCount?: number; 
+  bookingStatusUpdatesCount?: number;
   lastSeen?: Timestamp; 
   createdAt?: Timestamp;
 }

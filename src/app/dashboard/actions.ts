@@ -2,17 +2,18 @@
 "use server";
 
 import { adminDb, admin } from '@/lib/firebase-admin'; // Import Admin SDK
-import type { Store, Booking, BookingDocumentData, BookingStatus } from '@/lib/types';
+import type { Store, Booking, BookingDocumentData, BookingStatus, UserProfileFirestoreData } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 const STORE_COLLECTION = 'StoreInfo';
 const BOOKINGS_COLLECTION = 'bookings';
+const USER_PROFILES_COLLECTION = 'userProfiles';
 
 // Helper to map Firestore doc data to Store (client-side representation)
 const mapAdminDocToStore = (docSnapshot: admin.firestore.DocumentSnapshot): Store => {
   const data = docSnapshot.data()!;
-  console.log(`[getOwnerDashboardData] Mapping store doc ID: ${docSnapshot.id}, Raw Data for mapAdminDocToStore:`, JSON.stringify(data, null, 2));
+  // console.log(`[getOwnerDashboardData] Mapping store doc ID: ${docSnapshot.id}, Raw Data for mapAdminDocToStore:`, JSON.stringify(data, null, 2));
   return {
     id: docSnapshot.id,
     name: data.name || '',
@@ -30,7 +31,7 @@ const mapAdminDocToStore = (docSnapshot: admin.firestore.DocumentSnapshot): Stor
     contactEmail: data.contactEmail,
     websiteUrl: data.websiteUrl,
     address: data.address,
-    ownerId: data.ownerId, // Ensure this is logged
+    ownerId: data.ownerId,
     services: data.services || [],
     availability: data.availability || [],
   };
@@ -38,7 +39,7 @@ const mapAdminDocToStore = (docSnapshot: admin.firestore.DocumentSnapshot): Stor
 
 // Helper to map Firestore doc data to Booking (client-side representation)
 const mapAdminDocToBooking = (docSnapshot: admin.firestore.DocumentSnapshot): Booking => {
-  const data = docSnapshot.data() as BookingDocumentData; // Assuming BookingDocumentData has Timestamps
+  const data = docSnapshot.data() as BookingDocumentData; 
   return {
     id: docSnapshot.id,
     storeId: data.storeId,
@@ -50,13 +51,12 @@ const mapAdminDocToBooking = (docSnapshot: admin.firestore.DocumentSnapshot): Bo
     serviceName: data.serviceName,
     serviceDurationMinutes: data.serviceDurationMinutes,
     servicePrice: data.servicePrice,
-    // Convert Firestore Timestamp to ISO string date part
     bookingDate: data.bookingDate instanceof admin.firestore.Timestamp ? data.bookingDate.toDate().toISOString().split('T')[0] : (typeof data.bookingDate === 'string' ? data.bookingDate : new Date().toISOString().split('T')[0]),
     bookingTime: data.bookingTime,
     status: data.status,
-    // Convert Firestore Timestamp to ISO string
     createdAt: data.createdAt instanceof admin.firestore.Timestamp ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()),
     notes: data.notes,
+    ownerId: data.ownerId,
   };
 };
 
@@ -69,41 +69,28 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
 
   let storesOwned: Store[] = [];
   try {
-    // DIAGNOSTIC CHANGE: Fetch any 5 stores to inspect their data, temporarily removing the ownerId filter.
-    console.log(`[getOwnerDashboardData] DIAGNOSTIC: Fetching up to 5 stores from '${STORE_COLLECTION}' to inspect ownerId fields.`);
-    const storesQuery = adminDb.collection(STORE_COLLECTION).limit(5); 
-    // Original query was: adminDb.collection(STORE_COLLECTION).where("ownerId", "==", ownerId);
+    const storesQuery = adminDb.collection(STORE_COLLECTION).where("ownerId", "==", ownerId);
+    console.log(`[getOwnerDashboardData] Querying '${STORE_COLLECTION}' for stores where 'ownerId' == '${ownerId}'`);
     
     const storesSnapshot = await storesQuery.get();
     
     if (storesSnapshot.empty) {
-        console.log(`[getOwnerDashboardData] DIAGNOSTIC: No stores found in '${STORE_COLLECTION}' at all (limit 5). Check collection name and Admin SDK initialization.`);
+        console.log(`[getOwnerDashboardData] No stores found for ownerId '${ownerId}'.`);
     } else {
-        console.log(`[getOwnerDashboardData] DIAGNOSTIC: Found ${storesSnapshot.docs.length} raw store document(s) with limit 5. Attempting to map...`);
         storesOwned = storesSnapshot.docs.map(doc => {
-             // Extra logging before mapping each doc
             console.log(`[getOwnerDashboardData] DIAGNOSTIC: Raw store doc ID: ${doc.id}, Data:`, JSON.stringify(doc.data(), null, 2));
             return mapAdminDocToStore(doc);
-        }).filter(store => store.ownerId === ownerId); // Filter client-side for this diagnostic step
-
-        if (storesOwned.length > 0) {
-            console.log(`[getOwnerDashboardData] DIAGNOSTIC: After client-side filter, found ${storesOwned.length} store(s) for ownerId '${ownerId}'. Stores:`, storesOwned.map(s => ({id: s.id, name: s.name, ownerId: s.ownerId })));
-        } else {
-            console.log(`[getOwnerDashboardData] DIAGNOSTIC: After client-side filter, NO stores matched ownerId '${ownerId}' from the sample of ${storesSnapshot.docs.length} stores fetched.`);
-        }
+        });
+        console.log(`[getOwnerDashboardData] Found ${storesOwned.length} store(s) for ownerId '${ownerId}'. Stores:`, storesOwned.map(s => ({id: s.id, name: s.name, ownerId: s.ownerId })));
     }
 
-    if (storesOwned.length === 0 && !ownerId) { // If still no specific ownerId was passed, this branch won't be hit as intended
-      console.log(`[getOwnerDashboardData] DIAGNOSTIC: No stores owned by ${ownerId} after diagnostic check. Returning empty bookings.`);
-      return { bookings: [], storesOwned: [] };
-    } else if (storesOwned.length === 0 && ownerId) {
-      console.log(`[getOwnerDashboardData] No stores were found for ownerId '${ownerId}' even after client-side filtering of sample data. Check data integrity.`);
+    if (storesOwned.length === 0) {
+      console.log(`[getOwnerDashboardData] No stores owned by ${ownerId}. Returning empty bookings.`);
       return { bookings: [], storesOwned: [] };
     }
-
 
     const storeIds = storesOwned.map(store => store.id);
-    console.log(`[getOwnerDashboardData] Store IDs for owner ${ownerId} (after potential client-side filter): ${storeIds.join(', ')}`);
+    console.log(`[getOwnerDashboardData] Store IDs for owner ${ownerId}: ${storeIds.join(', ')}`);
 
     if (storeIds.length > 30) {
         console.warn(`[getOwnerDashboardData] Owner ${ownerId} has more than 30 stores (${storeIds.length}), booking fetch via 'in' query might be split or incomplete if not handled in chunks.`);
@@ -124,14 +111,16 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
     return { bookings, storesOwned };
   } catch (error: any) {
     console.error(`[getOwnerDashboardData] Error fetching owner dashboard data for ${ownerId} with Admin SDK. Error Code: ${error.code}, Message: ${error.message}`, error);
-    return { bookings: [], storesOwned: [] }; // Return empty on error
+    return { bookings: [], storesOwned: [] }; 
   }
 }
 
 const bookingStatusUpdateSchema = z.object({
     bookingId: z.string().min(1, "Booking ID is required."),
     newStatus: z.enum(['pending', 'confirmed', 'completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show']),
-    bookingStoreId: z.string().min(1, "Store ID for the booking is required."), 
+    bookingStoreId: z.string().min(1, "Store ID for the booking is required."),
+    clientUserId: z.string().min(1, "Client User ID is required for notifications."),
+    originalStatus: z.enum(['pending', 'confirmed', 'completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show']),
 });
 
 export async function updateBookingStatusAction(
@@ -147,6 +136,8 @@ export async function updateBookingStatusAction(
     bookingId: formData.get('bookingId'),
     newStatus: formData.get('newStatus'),
     bookingStoreId: formData.get('bookingStoreId'),
+    clientUserId: formData.get('clientUserId'),
+    originalStatus: formData.get('originalStatus'),
   });
 
   if (!validatedFields.success) {
@@ -159,18 +150,39 @@ export async function updateBookingStatusAction(
   }
   console.log("[updateBookingStatusAction] Zod validation successful. Data:", validatedFields.data);
 
-  const { bookingId, newStatus, bookingStoreId } = validatedFields.data;
+  const { bookingId, newStatus, bookingStoreId, clientUserId, originalStatus } = validatedFields.data;
 
+  const batch = adminDb.batch();
+  const bookingRef = adminDb.collection(BOOKINGS_COLLECTION).doc(bookingId);
+  
   try {
-    const bookingRef = adminDb.collection(BOOKINGS_COLLECTION).doc(bookingId);
     console.log(`[updateBookingStatusAction] Admin SDK: Attempting to update booking ${bookingId} to status ${newStatus}. Store ID: ${bookingStoreId}`);
+    batch.update(bookingRef, { status: newStatus });
+    console.log(`[updateBookingStatusAction] Admin SDK: Booking ${bookingId} status update added to batch.`);
 
-    await bookingRef.update({
-      status: newStatus,
-    });
-    console.log(`[updateBookingStatusAction] Admin SDK: Booking ${bookingId} status updated to ${newStatus} in Firestore.`);
+    // Update owner's pendingBookingsCount if status changed from 'pending'
+    if (originalStatus === 'pending' && (newStatus === 'confirmed' || newStatus === 'cancelled_by_store')) {
+        const bookingDoc = await bookingRef.get();
+        const bookingData = bookingDoc.data();
+        if (bookingData && bookingData.ownerId) {
+            const ownerProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(bookingData.ownerId);
+            batch.update(ownerProfileRef, { pendingBookingsCount: admin.firestore.FieldValue.increment(-1) });
+            console.log(`[updateBookingStatusAction] Decremented pendingBookingsCount for owner ${bookingData.ownerId}`);
+        } else {
+            console.warn(`[updateBookingStatusAction] Could not find ownerId for booking ${bookingId} to decrement pending count.`);
+        }
+    }
+
+    // Increment client's bookingStatusUpdatesCount
+    const clientProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(clientUserId);
+    batch.update(clientProfileRef, { bookingStatusUpdatesCount: admin.firestore.FieldValue.increment(1) });
+    console.log(`[updateBookingStatusAction] Incremented bookingStatusUpdatesCount for client ${clientUserId}`);
+    
+    await batch.commit();
+    console.log(`[updateBookingStatusAction] Batch commit successful. Booking ${bookingId} status updated.`);
 
     revalidatePath('/dashboard');
+    revalidatePath('/dashboard/my-bookings');
     return { success: true, message: `Η κατάσταση της κράτησης ενημερώθηκε σε "${getStatusText(newStatus)}".` };
 
   } catch (error: any) {
@@ -183,7 +195,7 @@ export async function updateBookingStatusAction(
   }
 }
 
-// Helper to get status text, can be moved to a utils file if used elsewhere
+// Helper to get status text
 const getStatusText = (status: BookingStatus): string => {
     switch (status) {
         case 'pending': return 'Εκκρεμεί';
@@ -220,7 +232,7 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
     }
 
     const userBookings = bookingsSnapshot.docs.map(docSnap => {
-      console.log(`[getUserBookings] Admin SDK: Mapping document ID: ${docSnap.id}, Data:`, JSON.stringify(docSnap.data(), null, 2));
+      // console.log(`[getUserBookings] Admin SDK: Mapping document ID: ${docSnap.id}, Data:`, JSON.stringify(docSnap.data(), null, 2));
       return mapAdminDocToBooking(docSnap);
     });
     
@@ -228,13 +240,32 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
     return userBookings;
   } catch (error: any) {
     console.error(`[getUserBookings] Admin SDK: Error fetching bookings for user ${userId}. Code: ${error.code || 'N/A'}, Message: ${error.message || 'Unknown error'}`, error);
-    if (error.code === 'failed-precondition') {
-        console.error("[getUserBookings] Admin SDK: Firestore query failed. This often indicates a missing composite index. Please check the Firebase console for index suggestions for the 'bookings' collection, likely needing (userId [ASC/DESC], bookingDate [DESC], bookingTime [ASC]).");
+    if (String(error.code).includes('failed-precondition') || String(error.message).toLowerCase().includes('index')) {
+        console.error("[getUserBookings] Admin SDK: Firestore query failed, likely due to a MISSING COMPOSITE INDEX. Please check the Firebase console for index suggestions for the 'bookings' collection. The required index is likely: (userId [ASC/DESC], bookingDate [DESC], bookingTime [ASC]).");
     }
     return []; 
   }
 }
-    
-    
 
+export async function clearBookingStatusUpdatesAction(userId: string): Promise<{ success: boolean; message: string }> {
+  if (!userId) {
+    console.warn("[clearBookingStatusUpdatesAction] userId is undefined. Cannot clear notifications.");
+    return { success: false, message: "User ID is missing." };
+  }
+
+  try {
+    const userProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(userId);
+    await userProfileRef.update({
+      bookingStatusUpdatesCount: 0,
+      lastSeen: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`[clearBookingStatusUpdatesAction] Successfully cleared bookingStatusUpdatesCount for user ${userId}.`);
+    revalidatePath('/dashboard/my-bookings'); // Revalidate the page to reflect the cleared count
+    revalidatePath('/dashboard'); // Also revalidate dashboard for navbar updates potentially
+    return { success: true, message: "Οι ειδοποιήσεις κατάστασης κράτησης εκκαθαρίστηκαν." };
+  } catch (error: any) {
+    console.error(`[clearBookingStatusUpdatesAction] Error clearing bookingStatusUpdatesCount for user ${userId}:`, error);
+    return { success: false, message: "Σφάλμα κατά την εκκαθάριση των ειδοποιήσεων." };
+  }
+}
     

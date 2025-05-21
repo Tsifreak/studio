@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, LogOut, UserCircle, LogIn, UserPlus, ShieldCheck, Bell, MessageSquare } from 'lucide-react'; 
+import { LayoutDashboard, LogOut, UserCircle, LogIn, UserPlus, ShieldCheck, Bell, MessageSquare, CalendarCheck, ListOrdered } from 'lucide-react'; 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react'; 
 
@@ -22,7 +22,12 @@ export function Navbar() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false); 
+  
   const unreadMessages = Number(user?.totalUnreadMessages) || 0;
+  const pendingBookingsForOwner = Number(user?.pendingBookingsCount) || 0;
+  const clientBookingUpdates = Number(user?.bookingStatusUpdatesCount) || 0;
+
+  const showNotificationDot = unreadMessages > 0 || clientBookingUpdates > 0 || pendingBookingsForOwner > 0;
 
   useEffect(() => { 
     setIsClient(true);
@@ -37,7 +42,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Logo />
-        <nav className="flex items-center gap-2 sm:gap-4"> {/* Adjusted gap */}
+        <nav className="flex items-center gap-2 sm:gap-4">
           {!isClient || isLoading ? ( 
             <div className="h-10 w-24 animate-pulse rounded-md bg-muted"></div>
           ) : user ? (
@@ -46,11 +51,17 @@ export function Navbar() {
                 variant="ghost"
                 size="icon"
                 className="relative rounded-full"
-                onClick={() => router.push('/dashboard/chats')}
-                aria-label={`View chats, ${unreadMessages} unread`}
+                onClick={() => {
+                  // Prioritize: Owner pending bookings > Client booking updates > Chats
+                  if (pendingBookingsForOwner > 0) router.push('/dashboard'); // Owner dashboard to see their bookings
+                  else if (clientBookingUpdates > 0) router.push('/dashboard/my-bookings'); // Client bookings
+                  else if (unreadMessages > 0) router.push('/dashboard/chats'); // Chats
+                  else router.push('/dashboard'); // Default to dashboard
+                }}
+                aria-label={`Notifications. Unread Messages: ${unreadMessages}, Pending Bookings (Owner): ${pendingBookingsForOwner}, Booking Updates (Client): ${clientBookingUpdates}`}
               >
                 <Bell className="h-5 w-5" />
-                {unreadMessages > 0 && (
+                {showNotificationDot && (
                   <span
                     className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-600 z-30" 
                     aria-hidden="true"
@@ -67,7 +78,7 @@ export function Navbar() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuContent className="w-60" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">{user.name}</p>
@@ -80,6 +91,11 @@ export function Navbar() {
                   <DropdownMenuItem onClick={() => router.push('/dashboard')}>
                     <LayoutDashboard className="mr-2 h-4 w-4" />
                     Πίνακας Ελέγχου
+                    {pendingBookingsForOwner > 0 && (
+                       <span className="ml-auto text-xs bg-accent text-accent-foreground px-1.5 py-0.5 rounded-full">
+                        {pendingBookingsForOwner} εκκρεμείς
+                      </span>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push('/dashboard/chats')}>
                     <MessageSquare className="mr-2 h-4 w-4" />
@@ -87,6 +103,15 @@ export function Navbar() {
                     {unreadMessages > 0 && (
                       <span className="ml-auto text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full">
                         {unreadMessages > 9 ? '9+' : unreadMessages}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/dashboard/my-bookings')}>
+                    <ListOrdered className="mr-2 h-4 w-4" />
+                    Οι Κρατήσεις μου (Πελάτης)
+                     {clientBookingUpdates > 0 && (
+                       <span className="ml-auto text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded-full">
+                        {clientBookingUpdates} ενημερώσεις
                       </span>
                     )}
                   </DropdownMenuItem>
