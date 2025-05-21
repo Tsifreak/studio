@@ -1,6 +1,5 @@
 
 import type {NextConfig} from 'next';
-import type { Configuration as WebpackConfiguration } from 'webpack'; // Import Webpack type
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -10,11 +9,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  experimental: { 
-    allowedDevOrigins: [
-      "3000-firebase-studio-1747039846284.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev",
-    ],
-  },
+  // Removed experimental.allowedDevOrigins as it's not recognized
   images: {
     remotePatterns: [
       {
@@ -43,39 +38,7 @@ const nextConfig: NextConfig = {
       }
     ],
   },
-  webpack: (config: WebpackConfiguration, { isServer, webpack }) => {
-    if (!isServer) {
-      // Resolve Node.js modules to false for client-side bundles
-      config.resolve = {
-        ...config.resolve,
-        fallback: {
-          ...(config.resolve?.fallback || {}), // Spread existing fallbacks if any
-          child_process: false,
-          fs: false,
-          os: false,
-          path: false, 
-          net: false, 
-          tls: false,
-          // Add more common Node.js modules that might be pulled in by dependencies
-          http: false,
-          https: false,
-          stream: false,
-          crypto: false,
-          buffer: false,
-          zlib: false,
-          url: false,
-          assert: false,
-          constants: false,
-          util: false,
-          querystring: false,
-          tty: false,
-          events: false,
-          vm: false,
-        },
-      };
-    }
-    return config;
-  },
+  // Removed webpack configuration block as Turbopack is being used
 };
 
 export default nextConfig;
