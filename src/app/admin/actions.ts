@@ -12,6 +12,7 @@ import {
 } from '@/lib/storeService'; 
 import type { Store, StoreCategory, StoreFormData, Feature, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories } from '@/lib/types'; 
+import { auth } from '@/lib/firebase';
 
 // Helper function to convert Store to SerializedStore for client components
 function serializeStoreForClient(store: Store): SerializedStore {
@@ -23,7 +24,6 @@ function serializeStoreForClient(store: Store): SerializedStore {
         description: feature.description,
         icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
     })),
-    // Services and Availability are already in simple format
     services: store.services || [],
     availability: store.availability || [],
   };
@@ -61,7 +61,7 @@ const storeFormSchema = z.object({
   address: z.string().optional(),
   ownerId: z.string().optional().or(z.literal('')), 
   servicesJson: z.string().optional().refine((val) => {
-    if (!val || val.trim() === "") return true; // Allow empty
+    if (!val || val.trim() === "") return true; 
     try {
       const parsed = JSON.parse(val);
       servicesArraySchema.parse(parsed);
@@ -71,7 +71,7 @@ const storeFormSchema = z.object({
     }
   }, { message: "Μη έγκυρο JSON για τις υπηρεσίες ή δεν συμφωνεί με το σχήμα." }),
   availabilityJson: z.string().optional().refine((val) => {
-    if (!val || val.trim() === "") return true; // Allow empty
+    if (!val || val.trim() === "") return true;
     try {
       const parsed = JSON.parse(val);
       availabilityArraySchema.parse(parsed);
@@ -84,6 +84,11 @@ const storeFormSchema = z.object({
 
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
+  console.log("[addStoreAction] Received FormData entries:");
+  for (const [key, value] of formData.entries()) {
+    console.log(`  ${key}: ${value}`);
+  }
+  
   const validatedFields = storeFormSchema.safeParse({
     name: formData.get('name') || '',
     logoUrl: formData.get('logoUrl') || '',
@@ -100,17 +105,17 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
   });
 
   if (!validatedFields.success) {
+    console.error("[addStoreAction] Zod Validation Failed. Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
       message: "Σφάλμα επικύρωσης.",
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
+  console.log("[addStoreAction] Zod Validation Successful. Data:", validatedFields.data);
 
   try {
     const { ownerId, ...storeDataForDB } = validatedFields.data;
-    // servicesJson and availabilityJson are already validated as strings in the schema
-    // addStoreToDB will handle parsing or use defaults
     const newRawStore = await addStoreToDB(storeDataForDB as StoreFormData, ownerId || undefined); 
     const newSerializedStore = serializeStoreForClient(newRawStore);
     
@@ -120,7 +125,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
     return { success: true, message: `Το κέντρο "${newSerializedStore.name}" προστέθηκε επιτυχώς.`, store: newSerializedStore };
   } catch (error) {
-    console.error("Error adding store:", error);
+    console.error("Error adding store in addStoreAction:", error);
     return { success: false, message: "Αποτυχία προσθήκης κέντρου. Παρακαλώ δοκιμάστε ξανά." };
   }
 }
@@ -131,6 +136,15 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   for (const [key, value] of formData.entries()) {
     console.log(`  ${key}: ${value}`);
   }
+
+  // Authentication check
+  if (!auth.currentUser) {
+    const authErrorMsg = "Σφάλμα: Ο χρήστης δεν είναι πιστοποιημένος στο πλαίσιο της ενέργειας διακομιστή. Η ενημέρωση απέτυχε.";
+    console.error(`[updateStoreAction] ${authErrorMsg}`);
+    return { success: false, message: authErrorMsg };
+  }
+  console.log(`[updateStoreAction] User ${auth.currentUser.email} is authenticated.`);
+
 
   const existingStore = await getStoreByIdFromDB(storeId);
   if (!existingStore) {
@@ -154,14 +168,14 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   });
 
   if (!validatedFields.success) {
-     console.error("[updateStoreAction] Validation failed:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
+     console.error("[updateStoreAction] Zod Validation failed:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
      return {
       success: false,
       message: "Σφάλμα επικύρωσης.",
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  console.log("[updateStoreAction] Validation successful. Data:", validatedFields.data);
+  console.log("[updateStoreAction] Zod Validation successful. Data:", validatedFields.data);
   
   try {
     const storeDataForUpdate = validatedFields.data as Partial<StoreFormData & { ownerId?: string }>;
@@ -185,6 +199,9 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     let message = "Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά.";
     if (error.message) {
         message += ` Λεπτομέρειες: ${error.message}`;
+    }
+     if (error.code && error.code === 'permission-denied') {
+      message = "Σφάλμα: Άρνηση πρόσβασης. Δεν έχετε τα απαραίτητα δικαιώματα για αυτήν την ενέργεια.";
     }
     return { success: false, message: message };
   }
@@ -217,12 +234,14 @@ export async function updateStoreCategoryAction(
   const validatedCategory = categoryUpdateSchema.safeParse({ category: newCategory });
 
   if(!validatedCategory.success) {
+    console.error("[updateStoreCategoryAction] Zod Validation Failed. Errors:", JSON.stringify(validatedCategory.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
       message: "Μη έγκυρη κατηγορία.",
        errors: validatedCategory.error.flatten().fieldErrors,
     }
   }
+  console.log("[updateStoreCategoryAction] Zod Validation Successful. Data:", validatedCategory.data);
 
   try {
     const updatedRawStore = await updateStoreCategoryInDB(storeId, validatedCategory.data.category);
@@ -241,5 +260,3 @@ export async function updateStoreCategoryAction(
     return { success: false, message: "Αποτυχία ενημέρωσης κατηγορίας. Παρακαλώ δοκιμάστε ξανά." };
   }
 }
-
-    

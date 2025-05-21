@@ -106,12 +106,14 @@ export async function addReviewAction(
   });
 
   if (!validatedFields.success) {
+    console.error("[addReviewAction] Zod Validation Failed. Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
       message: "Σφάλμα επικύρωσης.",
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
+  console.log("[addReviewAction] Zod Validation Successful. Data:", validatedFields.data);
 
   const { storeId, userId, userName, userAvatarUrl, rating, comment } = validatedFields.data;
 
@@ -143,10 +145,14 @@ export async function addReviewAction(
 
 const bookingSchema = z.object({
   storeId: z.string().min(1),
+  storeName: z.string().min(1, "Store name is required."), // Added
   userId: z.string().min(1),
   userName: z.string().min(1, "User name is required for booking."),
   userEmail: z.string().email("Valid user email is required for booking."),
   serviceId: z.string().min(1),
+  serviceName: z.string().min(1, "Service name is required."), // Added
+  serviceDurationMinutes: z.coerce.number().int().positive("Service duration must be a positive number."), // Added and coerced
+  servicePrice: z.coerce.number().positive("Service price must be a positive number."), // Added and coerced
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format, expected YYYY-MM-DD"),
   bookingTime: z.string()
   .min(1, "Η ώρα είναι υποχρεωτική.")
@@ -165,17 +171,21 @@ export async function createBookingAction(
 
   const validatedFields = bookingSchema.safeParse({
     storeId: formData.get('storeId'),
+    storeName: formData.get('storeName'), // Added
     userId: formData.get('userId'),
     userName: formData.get('userName'),
     userEmail: formData.get('userEmail'),
     serviceId: formData.get('serviceId'),
+    serviceName: formData.get('serviceName'), // Added
+    serviceDurationMinutes: formData.get('serviceDurationMinutes'), // Added
+    servicePrice: formData.get('servicePrice'), // Added
     bookingDate: formData.get('bookingDate'),
     bookingTime: formData.get('bookingTime'),
     notes: formData.get('notes') || undefined,
   });
 
   if (!validatedFields.success) {
-    console.error("Server Action: createBookingAction validation failed.");
+    console.error("Server Action: createBookingAction Zod validation failed.");
     console.error("Validation Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
@@ -184,26 +194,17 @@ export async function createBookingAction(
     };
   }
   
-  console.log("Server Action: Validation successful. Validated data:", validatedFields.data);
-  const { storeId, userId, userName, userEmail, serviceId, bookingDate, bookingTime, notes } = validatedFields.data;
+  console.log("Server Action: Zod Validation successful. Validated data:", validatedFields.data);
+  const { 
+    storeId, storeName, userId, userName, userEmail, 
+    serviceId, serviceName, serviceDurationMinutes, servicePrice, 
+    bookingDate, bookingTime, notes 
+  } = validatedFields.data;
 
   try {
-    console.log(`Server Action: Fetching store details for storeId: ${storeId}`);
-    const store = await getStoreByIdFromDB(storeId);
-    if (!store) {
-      console.error(`Server Action: Store not found for ID: ${storeId}`);
-      return { success: false, message: "Το κέντρο εξυπηρέτησης δεν βρέθηκε." };
-    }
-    console.log("Server Action: Store found:", store.name);
-
-    const service = store.services.find(s => s.id === serviceId);
-    if (!service) {
-      console.error(`Server Action: Service not found for ID: ${serviceId} in store ${storeId}`);
-      return { success: false, message: "Η επιλεγμένη υπηρεσία δεν βρέθηκε." };
-    }
-    console.log("Server Action: Service found:", service.name);
-
-    const parsedBookingDate = new Date(bookingDate + "T00:00:00Z"); // Assume bookingDate is YYYY-MM-DD, parse as UTC midnight
+    console.log(`Server Action: Processing booking for storeId: ${storeId}, serviceId: ${serviceId}`);
+    
+    const parsedBookingDate = new Date(bookingDate + "T00:00:00Z"); 
     console.log(`Server Action: Raw bookingDate string: "${bookingDate}", Parsed as Date object (UTC):`, parsedBookingDate.toISOString());
     if (isNaN(parsedBookingDate.getTime())) {
         console.error(`Server Action: Invalid date created from bookingDate string: "${bookingDate}"`);
@@ -216,16 +217,16 @@ export async function createBookingAction(
     const bookingId = doc(collection(db, '_')).id; 
 
     const newBookingData: BookingDocumentData = {
-      id: bookingId, // 👈 προστέθηκε αυτό
+      id: bookingId, 
       storeId,
-      storeName: store.name,
+      storeName, // Directly use validated storeName
       userId,
       userName,
       userEmail,
       serviceId,
-      serviceName: service.name,
-      serviceDurationMinutes: service.durationMinutes,
-      servicePrice: service.price,
+      serviceName, // Directly use validated serviceName
+      serviceDurationMinutes, // Directly use validated duration
+      servicePrice, // Directly use validated price
       bookingDate: bookingDateTimestamp,
       bookingTime,
       status: 'pending',
@@ -235,7 +236,7 @@ export async function createBookingAction(
     console.log("Server Action: Preparing to add booking to DB with data:", JSON.stringify(newBookingData, null, 2));
     
     try {
-        await addDoc(collection(db, "bookings"), { ...newBookingData, id: bookingId }); // Add id for consistency if needed elsewhere, though Firestore auto-generates
+        await addDoc(collection(db, "bookings"), { ...newBookingData, id: bookingId }); 
         console.log("Server Action: Booking successfully added to 'bookings' collection with ID:", bookingId);
     } catch (bookingAddError: any) {
         console.error("Server Action: Firestore error while adding to 'bookings' collection. Raw error object:", bookingAddError);
@@ -245,7 +246,11 @@ export async function createBookingAction(
         return { success: false, message: `Σφάλμα κατά την αποθήκευση της κράτησης: ${bookingAddError.message || ' Άγνωστο σφάλμα Firestore'}` };
     }
     
-    if (store.ownerId) {
+    // Fetch the store to get ownerId
+    const store = await getStoreByIdFromDB(storeId);
+    if (!store) {
+        console.warn(`Server Action: Store ${storeId} not found after booking creation. Cannot update owner's unread count.`);
+    } else if (store.ownerId) {
       console.log(`Server Action: Store has ownerId: ${store.ownerId}. Attempting to update owner's profile.`);
       const ownerProfileRef = doc(db, USER_PROFILES_COLLECTION, store.ownerId);
       try {
@@ -256,23 +261,22 @@ export async function createBookingAction(
         console.log(`Server Action: Incremented totalUnreadBookings for owner ${store.ownerId}`);
       } catch (profileUpdateError: any) {
         console.warn(`Server Action: Could not update totalUnreadBookings for owner ${store.ownerId}. This is non-critical for the booking itself. Error:`, profileUpdateError.message);
-        // Non-critical error, booking is still made.
       }
     } else {
       console.warn(`Server Action: Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
     }
     
     revalidatePath(`/stores/${storeId}`);
-    // revalidatePath(`/dashboard`); // If owner's dashboard needs immediate update
+    revalidatePath(`/dashboard`); 
 
     return {
       success: true,
-      message: `Η κράτησή σας για την υπηρεσία "${service.name}" στις ${parsedBookingDate.toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
-      booking: { // Return data consistent with Booking type
+      message: `Η κράτησή σας για την υπηρεσία "${serviceName}" στις ${parsedBookingDate.toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
+      booking: { 
         ...newBookingData,
         id: bookingId,
-        createdAt: new Date().toISOString(), // Approximate, actual will be server time from serverTimestamp()
-        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0], // Convert Timestamp back to YYYY-MM-DD for client
+        createdAt: new Date().toISOString(), 
+        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0], 
       },
     };
 
@@ -289,13 +293,12 @@ export async function createBookingAction(
 export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
   console.log(`Server Action: getBookingsForStoreAndDate called for storeId: ${storeId}, dateString: ${dateString}`);
   try {
-    // Parse the dateString as UTC to avoid timezone shifts when comparing with Firestore Timestamps
-    const parts = dateString.split('-').map(Number); // [YYYY, MM, DD]
+    const parts = dateString.split('-').map(Number); 
     if (parts.length !== 3 || parts.some(isNaN)) {
         console.error(`Server Action: Invalid dateString format for getBookingsForStoreAndDate: ${dateString}`);
         return [];
     }
-    const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); // Month is 0-indexed
+    const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); 
     
     const startOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 0, 0, 0, 0)));
     const endOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 23, 59, 59, 999)));
