@@ -99,12 +99,11 @@ export function ForgotPasswordForm() {
       <CardFooter className="flex flex-col items-center space-y-2">
         <p className="text-sm text-muted-foreground">
           Θυμηθήκατε τον κωδικό σας;{" "}
-          <Link href="/login" legacyBehavior>
-            <a className="font-medium text-primary hover:underline">Σύνδεση</a>
+          <Link href="/login" className="font-medium text-primary hover:underline">
+            Σύνδεση
           </Link>
         </p>
       </CardFooter>
     </Card>
   );
 }
-

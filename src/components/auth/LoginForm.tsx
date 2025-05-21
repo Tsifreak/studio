@@ -135,10 +135,8 @@ export function LoginForm() {
                   </FormItem>
                 )}
               />
-              <Link href="/forgot-password" legacyBehavior>
-                <a className="text-sm text-primary hover:underline">
+              <Link href="/forgot-password" className="text-sm text-primary hover:underline">
                   Ξεχάσατε τον κωδικό;
-                </a>
               </Link>
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -150,8 +148,8 @@ export function LoginForm() {
       <CardFooter className="flex flex-col items-center space-y-2">
         <p className="text-sm text-muted-foreground">
           Δεν έχετε λογαριασμό;{" "}
-          <Link href="/signup" legacyBehavior>
-            <a className="font-medium text-primary hover:underline">Εγγραφείτε</a>
+          <Link href="/signup" className="font-medium text-primary hover:underline">
+            Εγγραφείτε
           </Link>
         </p>
       </CardFooter>
