@@ -1,10 +1,8 @@
 
 "use server";
 
-import { db } from '@/lib/firebase'; // Keep for client-side like mapping if needed, but adminDb for actual fetch
 import { adminDb, admin } from '@/lib/firebase-admin'; // Import Admin SDK
 import type { Store, Booking, BookingDocumentData, BookingStatus } from '@/lib/types';
-import { collection, query, where, getDocs, orderBy, Timestamp, doc, updateDoc } from 'firebase/firestore'; // Client SDK imports
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -63,22 +61,26 @@ const mapAdminDocToBooking = (docSnapshot: admin.firestore.DocumentSnapshot): Bo
 
 export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings: Booking[], storesOwned: Store[] }> {
   if (!ownerId) {
-    console.warn("[getOwnerDashboardData] ownerId is undefined or null.");
+    console.warn("[getOwnerDashboardData] ownerId is undefined or null. Returning empty data.");
     return { bookings: [], storesOwned: [] };
   }
-  console.log(`[getOwnerDashboardData] Fetching data for ownerId: ${ownerId} using Admin SDK`);
+  console.log(`[getOwnerDashboardData] Attempting to fetch dashboard data for ownerId: ${ownerId} using Admin SDK.`);
 
+  let storesOwned: Store[] = [];
   try {
+    console.log(`[getOwnerDashboardData] Querying '${STORE_COLLECTION}' for stores where ownerId == '${ownerId}'`);
     const storesQuery = adminDb.collection(STORE_COLLECTION).where("ownerId", "==", ownerId);
     const storesSnapshot = await storesQuery.get();
-    const storesOwned = storesSnapshot.docs.map(mapAdminDocToStore);
-    console.log(`[getOwnerDashboardData] Found ${storesOwned.length} stores for owner ${ownerId}`);
+    storesOwned = storesSnapshot.docs.map(mapAdminDocToStore);
+    console.log(`[getOwnerDashboardData] Found ${storesOwned.length} stores for ownerId '${ownerId}'. Stores:`, storesOwned.map(s => ({id: s.id, name: s.name})));
 
     if (storesOwned.length === 0) {
+      console.log(`[getOwnerDashboardData] No stores owned by ${ownerId}. Returning empty bookings.`);
       return { bookings: [], storesOwned: [] };
     }
 
     const storeIds = storesOwned.map(store => store.id);
+    console.log(`[getOwnerDashboardData] Store IDs owned by ${ownerId}: ${storeIds.join(', ')}`);
 
     if (storeIds.length > 30) {
         console.warn(`[getOwnerDashboardData] Owner ${ownerId} has more than 30 stores (${storeIds.length}), booking fetch via 'in' query might be split or incomplete if not handled in chunks.`);
@@ -86,6 +88,7 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
     
     let bookings: Booking[] = [];
     if (storeIds.length > 0) {
+        console.log(`[getOwnerDashboardData] Querying '${BOOKINGS_COLLECTION}' for bookings related to store IDs: ${storeIds.join(', ')}`);
         const bookingsQuery = adminDb.collection(BOOKINGS_COLLECTION)
             .where("storeId", "in", storeIds)
             .orderBy("bookingDate", "desc") 
@@ -96,9 +99,9 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
     }
     
     return { bookings, storesOwned };
-  } catch (error) {
-    console.error(`[getOwnerDashboardData] Error fetching owner dashboard data for ${ownerId} with Admin SDK:`, error);
-    return { bookings: [], storesOwned: [] }; 
+  } catch (error: any) {
+    console.error(`[getOwnerDashboardData] Error fetching owner dashboard data for ${ownerId} with Admin SDK. Error Code: ${error.code}, Message: ${error.message}`, error);
+    return { bookings: [], storesOwned: [] }; // Return empty on error
   }
 }
 
@@ -137,9 +140,6 @@ export async function updateBookingStatusAction(
 
   try {
     const bookingRef = adminDb.collection(BOOKINGS_COLLECTION).doc(bookingId);
-    // Note: With Admin SDK, Firestore rules are bypassed for this write.
-    // Server-side authorization (e.g., checking if the invoking user IS the owner of bookingStoreId)
-    // would be custom logic if needed, separate from Firestore rules.
     console.log(`[updateBookingStatusAction] Admin SDK: Attempting to update booking ${bookingId} to status ${newStatus}. Store ID: ${bookingStoreId}`);
 
     await bookingRef.update({
@@ -148,10 +148,10 @@ export async function updateBookingStatusAction(
     console.log(`[updateBookingStatusAction] Admin SDK: Booking ${bookingId} status updated to ${newStatus} in Firestore.`);
 
     revalidatePath('/dashboard');
-    return { success: true, message: `Η κατάσταση της κράτησης ενημερώθηκε σε "${newStatus}".` };
+    return { success: true, message: `Η κατάσταση της κράτησης ενημερώθηκε σε "${getStatusText(newStatus)}".` };
 
   } catch (error: any) {
-    console.error(`[updateBookingStatusAction] Admin SDK: Error updating booking status for ${bookingId}:`, error);
+    console.error(`[updateBookingStatusAction] Admin SDK: Error updating booking status for ${bookingId}: Code: ${error.code}, Message: ${error.message}`, error);
     let clientMessage = "Σφάλμα κατά την ενημέρωση της κατάστασης της κράτησης.";
     if (error.code) {
         clientMessage += ` (Code: ${error.code})`;
@@ -159,6 +159,20 @@ export async function updateBookingStatusAction(
     return { success: false, message: clientMessage };
   }
 }
+
+// Helper to get status text, can be moved to a utils file if used elsewhere
+const getStatusText = (status: BookingStatus): string => {
+    switch (status) {
+        case 'pending': return 'Εκκρεμεί';
+        case 'confirmed': return 'Αποδεκτό';
+        case 'completed': return 'Ολοκληρωμένο';
+        case 'cancelled_by_user': return 'Ακυρώθηκε (Χρήστης)';
+        case 'cancelled_by_store': return 'Απορρίφθηκε (Κατάστημα)';
+        case 'no_show': return 'Δεν Εμφανίστηκε';
+        default: return status;
+    }
+};
+
 
 export async function getUserBookings(userId: string): Promise<Booking[]> {
   console.log(`[getUserBookings] Attempting to fetch bookings for userId: ${userId} using Admin SDK.`);
@@ -168,7 +182,7 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
   }
 
   try {
-    const bookingsQuery = adminDb.collection(BOOKINGS_COLLECTION) // Use adminDb
+    const bookingsQuery = adminDb.collection(BOOKINGS_COLLECTION) 
       .where("userId", "==", userId)
       .orderBy("bookingDate", "desc")
       .orderBy("bookingTime", "asc");
@@ -183,19 +197,17 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
     }
 
     const userBookings = bookingsSnapshot.docs.map(docSnap => {
-      console.log(`[getUserBookings] Admin SDK: Mapping document ID: ${docSnap.id}, Data:`, docSnap.data());
-      return mapAdminDocToBooking(docSnap); // Use mapAdminDocToBooking
+      console.log(`[getUserBookings] Admin SDK: Mapping document ID: ${docSnap.id}, Data:`, JSON.stringify(docSnap.data(), null, 2));
+      return mapAdminDocToBooking(docSnap);
     });
     
     console.log(`[getUserBookings] Admin SDK: Successfully mapped ${userBookings.length} bookings for user ${userId}.`);
     return userBookings;
   } catch (error: any) {
     console.error(`[getUserBookings] Admin SDK: Error fetching bookings for user ${userId}. Code: ${error.code || 'N/A'}, Message: ${error.message || 'Unknown error'}`, error);
-    // The Admin SDK bypasses Firestore rules, so "permission-denied" is less likely here unless there's an issue with Admin SDK setup.
-    // "failed-precondition" for missing index is still very relevant.
     if (error.code === 'failed-precondition') {
         console.error("[getUserBookings] Admin SDK: Firestore query failed. This often indicates a missing composite index. Please check the Firebase console for index suggestions for the 'bookings' collection, likely needing (userId [ASC/DESC], bookingDate [DESC], bookingTime [ASC]).");
     }
-    return []; // Return empty array on error
+    return []; 
   }
 }
