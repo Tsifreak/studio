@@ -12,6 +12,7 @@ const BOOKINGS_COLLECTION = 'bookings';
 // Helper to map Firestore doc data to Store (client-side representation)
 const mapAdminDocToStore = (docSnapshot: admin.firestore.DocumentSnapshot): Store => {
   const data = docSnapshot.data()!;
+  console.log(`[getOwnerDashboardData] Mapping store doc ID: ${docSnapshot.id}, Raw Data for mapAdminDocToStore:`, JSON.stringify(data, null, 2));
   return {
     id: docSnapshot.id,
     name: data.name || '',
@@ -29,7 +30,7 @@ const mapAdminDocToStore = (docSnapshot: admin.firestore.DocumentSnapshot): Stor
     contactEmail: data.contactEmail,
     websiteUrl: data.websiteUrl,
     address: data.address,
-    ownerId: data.ownerId,
+    ownerId: data.ownerId, // Ensure this is logged
     services: data.services || [],
     availability: data.availability || [],
   };
@@ -68,24 +69,41 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
 
   let storesOwned: Store[] = [];
   try {
-    console.log(`[getOwnerDashboardData] Querying '${STORE_COLLECTION}' for stores where 'ownerId' == '${ownerId}'`);
-    const storesQuery = adminDb.collection(STORE_COLLECTION).where("ownerId", "==", ownerId);
+    // DIAGNOSTIC CHANGE: Fetch any 5 stores to inspect their data, temporarily removing the ownerId filter.
+    console.log(`[getOwnerDashboardData] DIAGNOSTIC: Fetching up to 5 stores from '${STORE_COLLECTION}' to inspect ownerId fields.`);
+    const storesQuery = adminDb.collection(STORE_COLLECTION).limit(5); 
+    // Original query was: adminDb.collection(STORE_COLLECTION).where("ownerId", "==", ownerId);
+    
     const storesSnapshot = await storesQuery.get();
     
     if (storesSnapshot.empty) {
-        console.log(`[getOwnerDashboardData] No stores found for ownerId '${ownerId}'.`);
+        console.log(`[getOwnerDashboardData] DIAGNOSTIC: No stores found in '${STORE_COLLECTION}' at all (limit 5). Check collection name and Admin SDK initialization.`);
     } else {
-        storesOwned = storesSnapshot.docs.map(mapAdminDocToStore);
-        console.log(`[getOwnerDashboardData] Found ${storesOwned.length} store(s) for ownerId '${ownerId}'. Stores:`, storesOwned.map(s => ({id: s.id, name: s.name})));
+        console.log(`[getOwnerDashboardData] DIAGNOSTIC: Found ${storesSnapshot.docs.length} raw store document(s) with limit 5. Attempting to map...`);
+        storesOwned = storesSnapshot.docs.map(doc => {
+             // Extra logging before mapping each doc
+            console.log(`[getOwnerDashboardData] DIAGNOSTIC: Raw store doc ID: ${doc.id}, Data:`, JSON.stringify(doc.data(), null, 2));
+            return mapAdminDocToStore(doc);
+        }).filter(store => store.ownerId === ownerId); // Filter client-side for this diagnostic step
+
+        if (storesOwned.length > 0) {
+            console.log(`[getOwnerDashboardData] DIAGNOSTIC: After client-side filter, found ${storesOwned.length} store(s) for ownerId '${ownerId}'. Stores:`, storesOwned.map(s => ({id: s.id, name: s.name, ownerId: s.ownerId })));
+        } else {
+            console.log(`[getOwnerDashboardData] DIAGNOSTIC: After client-side filter, NO stores matched ownerId '${ownerId}' from the sample of ${storesSnapshot.docs.length} stores fetched.`);
+        }
     }
 
-    if (storesOwned.length === 0) {
-      console.log(`[getOwnerDashboardData] No stores owned by ${ownerId}. Returning empty bookings.`);
+    if (storesOwned.length === 0 && !ownerId) { // If still no specific ownerId was passed, this branch won't be hit as intended
+      console.log(`[getOwnerDashboardData] DIAGNOSTIC: No stores owned by ${ownerId} after diagnostic check. Returning empty bookings.`);
+      return { bookings: [], storesOwned: [] };
+    } else if (storesOwned.length === 0 && ownerId) {
+      console.log(`[getOwnerDashboardData] No stores were found for ownerId '${ownerId}' even after client-side filtering of sample data. Check data integrity.`);
       return { bookings: [], storesOwned: [] };
     }
 
+
     const storeIds = storesOwned.map(store => store.id);
-    console.log(`[getOwnerDashboardData] Store IDs owned by ${ownerId}: ${storeIds.join(', ')}`);
+    console.log(`[getOwnerDashboardData] Store IDs for owner ${ownerId} (after potential client-side filter): ${storeIds.join(', ')}`);
 
     if (storeIds.length > 30) {
         console.warn(`[getOwnerDashboardData] Owner ${ownerId} has more than 30 stores (${storeIds.length}), booking fetch via 'in' query might be split or incomplete if not handled in chunks.`);
@@ -216,5 +234,7 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
     return []; 
   }
 }
+    
+    
 
     
