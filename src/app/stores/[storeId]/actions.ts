@@ -6,7 +6,7 @@ import { addReviewToStoreInDB, getStoreByIdFromDB } from '@/lib/storeService';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { collection, doc, addDoc, Timestamp, query, where, getDocs, writeBatch, limit, updateDoc, increment, serverTimestamp } from 'firebase/firestore'; 
-import { db } from '@/lib/firebase'; 
+import { db, auth } from '@/lib/firebase'; 
 import { submitMessageToChat } from '@/lib/chatService'; 
 
 const USER_PROFILES_COLLECTION = 'userProfiles';
@@ -145,14 +145,14 @@ export async function addReviewAction(
 
 const bookingSchema = z.object({
   storeId: z.string().min(1),
-  storeName: z.string().min(1, "Store name is required."), // Added
+  storeName: z.string().min(1, "Store name is required."),
   userId: z.string().min(1),
   userName: z.string().min(1, "User name is required for booking."),
   userEmail: z.string().email("Valid user email is required for booking."),
   serviceId: z.string().min(1),
-  serviceName: z.string().min(1, "Service name is required."), // Added
-  serviceDurationMinutes: z.coerce.number().int().positive("Service duration must be a positive number."), // Added and coerced
-  servicePrice: z.coerce.number().positive("Service price must be a positive number."), // Added and coerced
+  serviceName: z.string().min(1, "Service name is required."),
+  serviceDurationMinutes: z.coerce.number().int().positive("Service duration must be a positive number."),
+  servicePrice: z.coerce.number().positive("Service price must be a positive number."),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format, expected YYYY-MM-DD"),
   bookingTime: z.string()
   .min(1, "Η ώρα είναι υποχρεωτική.")
@@ -171,14 +171,14 @@ export async function createBookingAction(
 
   const validatedFields = bookingSchema.safeParse({
     storeId: formData.get('storeId'),
-    storeName: formData.get('storeName'), // Added
+    storeName: formData.get('storeName'),
     userId: formData.get('userId'),
     userName: formData.get('userName'),
     userEmail: formData.get('userEmail'),
     serviceId: formData.get('serviceId'),
-    serviceName: formData.get('serviceName'), // Added
-    serviceDurationMinutes: formData.get('serviceDurationMinutes'), // Added
-    servicePrice: formData.get('servicePrice'), // Added
+    serviceName: formData.get('serviceName'),
+    serviceDurationMinutes: formData.get('serviceDurationMinutes'),
+    servicePrice: formData.get('servicePrice'),
     bookingDate: formData.get('bookingDate'),
     bookingTime: formData.get('bookingTime'),
     notes: formData.get('notes') || undefined,
@@ -201,6 +201,18 @@ export async function createBookingAction(
     bookingDate, bookingTime, notes 
   } = validatedFields.data;
 
+  // Explicit authentication check for the booking user context
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    const authErrorMsg = `Σφάλμα: Ασυμφωνία πιστοποίησης ή μη πιστοποιημένος χρήστης για την κράτηση. Client UID: ${userId}, Server Auth UID: ${auth.currentUser?.uid}`;
+    console.error(`[createBookingAction] Auth Check Failed: ${authErrorMsg}`);
+    return { 
+      success: false, 
+      message: "Σφάλμα πιστοποίησης κατά την προσπάθεια κράτησης. Βεβαιωθείτε ότι είστε συνδεδεμένοι σωστά." 
+    };
+  }
+  console.log(`[createBookingAction] Booking by authenticated user: ${auth.currentUser.email} (UID: ${auth.currentUser.uid}) for service ${serviceName}`);
+
+
   try {
     console.log(`Server Action: Processing booking for storeId: ${storeId}, serviceId: ${serviceId}`);
     
@@ -219,14 +231,14 @@ export async function createBookingAction(
     const newBookingData: BookingDocumentData = {
       id: bookingId, 
       storeId,
-      storeName, // Directly use validated storeName
+      storeName, 
       userId,
       userName,
       userEmail,
       serviceId,
-      serviceName, // Directly use validated serviceName
-      serviceDurationMinutes, // Directly use validated duration
-      servicePrice, // Directly use validated price
+      serviceName, 
+      serviceDurationMinutes, 
+      servicePrice, 
       bookingDate: bookingDateTimestamp,
       bookingTime,
       status: 'pending',
@@ -246,7 +258,6 @@ export async function createBookingAction(
         return { success: false, message: `Σφάλμα κατά την αποθήκευση της κράτησης: ${bookingAddError.message || ' Άγνωστο σφάλμα Firestore'}` };
     }
     
-    // Fetch the store to get ownerId
     const store = await getStoreByIdFromDB(storeId);
     if (!store) {
         console.warn(`Server Action: Store ${storeId} not found after booking creation. Cannot update owner's unread count.`);
@@ -261,6 +272,7 @@ export async function createBookingAction(
         console.log(`Server Action: Incremented totalUnreadBookings for owner ${store.ownerId}`);
       } catch (profileUpdateError: any) {
         console.warn(`Server Action: Could not update totalUnreadBookings for owner ${store.ownerId}. This is non-critical for the booking itself. Error:`, profileUpdateError.message);
+        // Do not throw an error for the whole booking if only this part fails, but log it.
       }
     } else {
       console.warn(`Server Action: Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
@@ -298,6 +310,7 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
         console.error(`Server Action: Invalid dateString format for getBookingsForStoreAndDate: ${dateString}`);
         return [];
     }
+    // Ensure date is parsed as UTC to match Firestore Timestamp comparison
     const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); 
     
     const startOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 0, 0, 0, 0)));
@@ -320,7 +333,7 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
         ...data,
         id: docSnap.id,
         bookingDate: data.bookingDate.toDate().toISOString().split('T')[0], 
-        createdAt: data.createdAt.toDate().toISOString(), 
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(), 
       } as Booking;
     });
     console.log(`Server Action: Found ${bookings.length} bookings for store ${storeId} on ${dateString}.`);
