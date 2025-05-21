@@ -1,3 +1,4 @@
+
 "use server";
 
 import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData } from '@/lib/types'; 
@@ -101,6 +102,11 @@ export async function addReviewAction(
   formData: FormData
 ): Promise<{ success: boolean; message: string; errors?: any }> {
   
+  console.log("addReviewAction FormData entries:");
+  for (const [key, value] of formData.entries()) {
+    console.log(`  ${key}: ${value}`);
+  }
+  
   const validatedFields = reviewSchema.safeParse({
     storeId: formData.get('storeId'),
     userId: formData.get('userId'),
@@ -122,34 +128,41 @@ export async function addReviewAction(
 
   const { storeId, userId, userName, userAvatarUrl, rating, comment } = validatedFields.data;
 
-  const newReviewForFirestore = { // Data for Firestore, date as Admin SDK Timestamp
-    id: adminDb.collection('_').doc().id, // Generate a new ID
+  const newReviewForFirestore = { 
+    id: adminDb.collection('_').doc().id, 
     userId,
     userName,
     userAvatarUrl: userAvatarUrl || undefined,
     rating,
     comment,
-    date: admin.firestore.Timestamp.now(), // Use Admin SDK Timestamp
+    date: admin.firestore.Timestamp.now(), 
   };
 
   try {
     const storeRef = adminDb.collection(STORE_COLLECTION).doc(storeId);
     
-    // Atomically add the review and update the average rating
     await adminDb.runTransaction(async (transaction) => {
       const storeDoc = await transaction.get(storeRef);
       if (!storeDoc.exists) {
         throw new Error("Store not found for adding review.");
       }
       const storeData = storeDoc.data() as Store;
-      const existingReviews = storeData.reviews || [];
-      const updatedReviews = [...existingReviews, newReviewForFirestore];
+      
+      const existingReviews = (storeData.reviews || []).map(r => ({
+          ...r,
+          date: r.date instanceof admin.firestore.Timestamp ? r.date.toDate().toISOString() : r.date
+      }));
+
+      const updatedReviews = [...existingReviews, {
+        ...newReviewForFirestore,
+        date: newReviewForFirestore.date.toDate().toISOString()
+      }];
       
       const totalRating = updatedReviews.reduce((acc, review) => acc + review.rating, 0);
       const newAverageRating = updatedReviews.length > 0 ? totalRating / updatedReviews.length : 0;
 
       transaction.update(storeRef, {
-        reviews: admin.firestore.FieldValue.arrayUnion(newReviewForFirestore), // Use FieldValue for array union
+        reviews: admin.firestore.FieldValue.arrayUnion(newReviewForFirestore), 
         rating: newAverageRating,
       });
     });
@@ -164,15 +177,15 @@ export async function addReviewAction(
 
 const bookingSchema = z.object({
   storeId: z.string().min(1),
-  storeName: z.string().min(1, "Store name is required."),
+  storeName: z.string().min(1, "Το όνομα του καταστήματος είναι υποχρεωτικό."),
   userId: z.string().min(1),
-  userName: z.string().min(1, "User name is required for booking."),
-  userEmail: z.string().email("Valid user email is required for booking."),
+  userName: z.string().min(1, "Το όνομα χρήστη είναι υποχρεωτικό για την κράτηση."),
+  userEmail: z.string().email("Απαιτείται έγκυρο email χρήστη για την κράτηση."),
   serviceId: z.string().min(1),
-  serviceName: z.string().min(1, "Service name is required."),
-  serviceDurationMinutes: z.coerce.number().int().positive("Service duration must be a positive number."),
-  servicePrice: z.coerce.number().positive("Service price must be a positive number."),
-  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format, expected YYYY-MM-DD"),
+  serviceName: z.string().min(1, "Το όνομα της υπηρεσίας είναι υποχρεωτικό."),
+  serviceDurationMinutes: z.coerce.number().int().positive("Η διάρκεια της υπηρεσίας πρέπει να είναι θετικός αριθμός."),
+  servicePrice: z.coerce.number().positive("Η τιμή της υπηρεσίας πρέπει να είναι θετικός αριθμός."),
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Μη έγκυρη μορφή ημερομηνίας, αναμένεται YYYY-MM-DD"),
   bookingTime: z.string()
   .min(1, "Η ώρα είναι υποχρεωτική.")
   .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Μη έγκυρη μορφή ώρας (π.χ. 14:30)"),
@@ -183,7 +196,7 @@ export async function createBookingAction(
   prevState: any,
   formData: FormData
 ): Promise<{ success: boolean; message: string; errors?: any; booking?: Booking }> {
-  console.log("Server Action: createBookingAction invoked. FormData entries:");
+  console.log("Server Action: createBookingAction FormData entries:");
   for (const [key, value] of formData.entries()) {
     console.log(`  ${key}: ${value}`);
   }
@@ -204,7 +217,8 @@ export async function createBookingAction(
   });
 
   if (!validatedFields.success) {
-    console.error("[createBookingAction] Zod Validation Failed. Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
+    console.error("[createBookingAction] Zod Validation Failed. Raw Errors:", validatedFields.error);
+    console.error("[createBookingAction] Zod Validation Failed. Flattened Field Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
       message: "Σφάλμα επικύρωσης δεδομένων κράτησης.",
@@ -220,12 +234,11 @@ export async function createBookingAction(
   } = validatedFields.data;
 
   try {
-    console.log(`[createBookingAction] Processing booking for storeId: ${storeId}, serviceId: ${serviceId}`);
-    // The clientAuth.currentUser check here is mostly for debugging/awareness as Admin SDK will perform the write
-    console.log(`[createBookingAction] Client SDK auth.currentUser?.uid in server action: ${clientAuth.currentUser?.uid || 'null'}. Admin SDK will be used for Firestore operations.`);
+    console.log(`[createBookingAction] Client SDK auth.currentUser?.uid in server action (for info only): ${clientAuth.currentUser?.uid || 'null'}. Admin SDK will perform writes.`);
     
     const parsedBookingDate = new Date(bookingDate + "T00:00:00Z"); 
     console.log(`[createBookingAction] Raw bookingDate string: "${bookingDate}", Parsed as Date object (UTC):`, parsedBookingDate.toISOString());
+
     if (isNaN(parsedBookingDate.getTime())) {
         console.error(`[createBookingAction] Invalid date created from bookingDate string: "${bookingDate}"`);
         return { success: false, message: "Η παρεχόμενη ημερομηνία κράτησης είναι μη έγκυρη." };
@@ -249,52 +262,53 @@ export async function createBookingAction(
       bookingDate: bookingDateTimestamp, 
       bookingTime,
       status: 'pending' as Booking['status'], 
-      createdAt: admin.firestore.Timestamp.now(), // Using Timestamp.now() as serverTimestamp() needs to be resolved
+      createdAt: admin.firestore.Timestamp.now(),
       notes: notes || "",
     };
-    console.log("[createBookingAction] Preparing to add booking to DB with data:", JSON.stringify(newBookingDataForFirestore, null, 2));
+    console.log("[createBookingAction] Preparing to add booking to DB with Admin SDK. Data:", JSON.stringify(newBookingDataForFirestore, null, 2));
     
     try {
         await adminDb.collection(BOOKINGS_COLLECTION).doc(bookingId).set(newBookingDataForFirestore);
-        console.log("[createBookingAction] Booking successfully added to 'bookings' collection with ID:", bookingId);
+        console.log("[createBookingAction] Admin SDK: Booking successfully added to 'bookings' collection with ID:", bookingId);
     } catch (bookingAddError: any) {
         console.error("[createBookingAction] Admin SDK Firestore error while adding to 'bookings' collection. Raw error object:", bookingAddError);
         let clientErrorMessage = "Παρουσιάστηκε σφάλμα κατά την προσθήκη της κράτησής σας στη βάση δεδομένων.";
-        if (bookingAddError.code) {
-          clientErrorMessage += ` (Κωδικός Σφάλματος: ${bookingAddError.code})`;
-           if (bookingAddError.code.toLowerCase().includes("permission-denied") || bookingAddError.code.toLowerCase().includes("permissions")) {
+        
+        const errorCodeString = String(bookingAddError.code || ''); // Ensure code is a string
+        if (errorCodeString) {
+          clientErrorMessage += ` (Κωδικός Σφάλματος: ${errorCodeString})`;
+           if (errorCodeString.toLowerCase().includes("permission-denied") || errorCodeString.toLowerCase().includes("permissions")) {
             clientErrorMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
           }
         }
-        throw new Error(clientErrorMessage); // Re-throw to be caught by the outer try-catch
+        throw new Error(clientErrorMessage); 
     }
     
-    // Fetch store details using Admin SDK to get ownerId
-    const storeDoc = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
-    if (!storeDoc.exists) {
-        console.warn(`[createBookingAction] Store ${storeId} not found after booking creation. Cannot update owner's unread count.`);
+    const storeDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
+    if (!storeDocSnap.exists) {
+        console.warn(`[createBookingAction] Admin SDK: Store ${storeId} not found after booking creation. Cannot update owner's unread count.`);
     } else {
-      const storeDataFromDB = storeDoc.data() as Store; // Type assertion
+      const storeDataFromDB = storeDocSnap.data() as Store;
       if (storeDataFromDB.ownerId) {
-        console.log(`[createBookingAction] Store has ownerId: ${storeDataFromDB.ownerId}. Attempting to update owner's profile.`);
+        console.log(`[createBookingAction] Admin SDK: Store has ownerId: ${storeDataFromDB.ownerId}. Attempting to update owner's profile.`);
         const ownerProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(storeDataFromDB.ownerId);
         try {
           await ownerProfileRef.update({
             totalUnreadBookings: admin.firestore.FieldValue.increment(1),
-            lastSeen: admin.firestore.FieldValue.serverTimestamp() // Use serverTimestamp here
+            lastSeen: admin.firestore.FieldValue.serverTimestamp()
           });
-          console.log(`[createBookingAction] Incremented totalUnreadBookings for owner ${storeDataFromDB.ownerId}`);
+          console.log(`[createBookingAction] Admin SDK: Incremented totalUnreadBookings for owner ${storeDataFromDB.ownerId}`);
         } catch (profileUpdateError: any) {
-          console.warn(`[createBookingAction] Could not update totalUnreadBookings for owner ${storeDataFromDB.ownerId} using Admin SDK. This is non-critical for the booking itself. Error: Code: ${profileUpdateError.code}, Message: ${profileUpdateError.message}`);
+          console.warn(`[createBookingAction] Admin SDK: Could not update totalUnreadBookings for owner ${storeDataFromDB.ownerId}. This is non-critical for the booking itself. Error: Code: ${profileUpdateError.code}, Message: ${profileUpdateError.message}`);
         }
       } else {
-        console.warn(`[createBookingAction] Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
+        console.warn(`[createBookingAction] Admin SDK: Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
       }
     }
     
     revalidatePath(`/stores/${storeId}`);
     revalidatePath(`/dashboard`);
-    revalidatePath('/dashboard/my-bookings'); // Added specific revalidation
+    revalidatePath('/dashboard/my-bookings'); 
 
     return {
       success: true,
@@ -302,8 +316,6 @@ export async function createBookingAction(
       booking: { 
         ...newBookingDataForFirestore,
         id: bookingId,
-        // For client-side type consistency, actual is server timestamp
-        // We already have bookingDateTimestamp, use its toDate() method
         createdAt: newBookingDataForFirestore.createdAt.toDate().toISOString(), 
         bookingDate: newBookingDataForFirestore.bookingDate.toDate().toISOString().split("T")[0], 
         status: 'pending', 
@@ -313,8 +325,12 @@ export async function createBookingAction(
   } catch (error: any) {
     let detailedMessage = "Παρουσιάστηκε σφάλμα κατά τη δημιουργία της κράτησής σας. Παρακαλώ δοκιμάστε ξανά.";
      if (error.message && typeof error.message === 'string') {
-        detailedMessage = error.message; // Use the specific error message if thrown
-    } else if (error.code) { // Fallback to error code if message is not specific enough
+        if (error.message.toLowerCase().includes("permission-denied")) {
+           detailedMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
+        } else {
+           detailedMessage = error.message; 
+        }
+    } else if (error.code) { 
         detailedMessage += ` (Κωδικός Σφάλματος: ${String(error.code).toLowerCase()})`;
     }
     console.error("[createBookingAction] Outer try-catch error in createBookingAction. Error details logged above. Final error message for client:", detailedMessage);
@@ -324,25 +340,27 @@ export async function createBookingAction(
 
 
 export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
-  console.log(`[getBookingsForStoreAndDate] Called for storeId: ${storeId}, dateString: ${dateString}`);
+  console.log(`[getBookingsForStoreAndDate] Admin SDK: Called for storeId: ${storeId}, dateString: ${dateString}`);
   try {
     const parts = dateString.split('-').map(Number); 
     if (parts.length !== 3 || parts.some(isNaN)) {
-        console.error(`[getBookingsForStoreAndDate] Invalid dateString format: ${dateString}. Expected YYYY-MM-DD.`);
+        console.error(`[getBookingsForStoreAndDate] Admin SDK: Invalid dateString format: ${dateString}. Expected YYYY-MM-DD.`);
         return [];
     }
+    // Use Date.UTC for consistent UTC date interpretation
     const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); 
     
+    // Create Firestore Timestamps for the start and end of the target day in UTC
     const startOfDay = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 0, 0, 0, 0)));
     const endOfDay = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 23, 59, 59, 999)));
     
-    console.log(`[getBookingsForStoreAndDate] Querying bookings using Admin SDK between Timestamp ${startOfDay.toDate().toISOString()} and ${endOfDay.toDate().toISOString()}`);
+    console.log(`[getBookingsForStoreAndDate] Admin SDK: Querying bookings between Timestamp ${startOfDay.toDate().toISOString()} and ${endOfDay.toDate().toISOString()}`);
 
     const bookingsRef = adminDb.collection(BOOKINGS_COLLECTION); 
     const q = bookingsRef 
       .where("storeId", "==", storeId)
-      .where("bookingDate", "==", startOfDay)
-      .where("bookingDate", "<=", endOfDay);
+      .where("bookingDate", ">=", startOfDay) // Use '>=' for start of day
+      .where("bookingDate", "<=", endOfDay);  // Use '<=' for end of day
 
     const querySnapshot = await q.get();
     const bookings = querySnapshot.docs.map(docSnap => {
@@ -354,12 +372,15 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
         createdAt: data.createdAt instanceof admin.firestore.Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(), 
       } as Booking;
     });
-    console.log(`[getBookingsForStoreAndDate] Found ${bookings.length} bookings for store ${storeId} on ${dateString} using Admin SDK.`);
+    console.log(`[getBookingsForStoreAndDate] Admin SDK: Found ${bookings.length} bookings for store ${storeId} on ${dateString}.`);
     return bookings;
   } catch (error: any) {
-    console.error(`[getBookingsForStoreAndDate] Error fetching bookings for store ${storeId} on date ${dateString} using Admin SDK. Raw error:`, error);
+    console.error(`[getBookingsForStoreAndDate] Admin SDK: Error fetching bookings. Raw error:`, error);
     if (error.code) console.error("Firestore Error Code:", error.code);
     if (error.message) console.error("Error Message:", error.message);
     return []; 
   }
 }
+
+
+    
