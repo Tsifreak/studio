@@ -185,8 +185,7 @@ export async function createBookingAction(
   });
 
   if (!validatedFields.success) {
-    console.error("Server Action: createBookingAction Zod validation failed.");
-    console.error("Validation Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
+    console.error("[createBookingAction] Zod Validation Failed. Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
     return {
       success: false,
       message: "Σφάλμα επικύρωσης δεδομένων κράτησης.",
@@ -194,7 +193,7 @@ export async function createBookingAction(
     };
   }
   
-  console.log("Server Action: Zod Validation successful. Validated data:", validatedFields.data);
+  console.log("[createBookingAction] Zod Validation successful. Validated data:", validatedFields.data);
   const { 
     storeId, storeName, userId, userName, userEmail, 
     serviceId, serviceName, serviceDurationMinutes, servicePrice, 
@@ -202,23 +201,25 @@ export async function createBookingAction(
   } = validatedFields.data;
 
   try {
-    console.log(`Server Action: Processing booking for storeId: ${storeId}, serviceId: ${serviceId}`);
+    console.log(`[createBookingAction] Processing booking for storeId: ${storeId}, serviceId: ${serviceId}`);
     
-    // Date parsing and conversion
-    const parsedBookingDate = new Date(bookingDate + "T00:00:00Z"); // Assuming bookingDate is YYYY-MM-DD from client, parse as UTC midnight
-    console.log(`Server Action: Raw bookingDate string: "${bookingDate}", Parsed as Date object (UTC):`, parsedBookingDate.toISOString());
+    // Log client SDK auth state (often null or unreliable in server actions for writes)
+    console.log(`[createBookingAction] auth.currentUser?.uid from client SDK in server action: ${auth.currentUser?.uid || 'null'}`);
+    
+    const parsedBookingDate = new Date(bookingDate + "T00:00:00Z"); 
+    console.log(`[createBookingAction] Raw bookingDate string: "${bookingDate}", Parsed as Date object (UTC):`, parsedBookingDate.toISOString());
     if (isNaN(parsedBookingDate.getTime())) {
-        console.error(`Server Action: Invalid date created from bookingDate string: "${bookingDate}"`);
+        console.error(`[createBookingAction] Invalid date created from bookingDate string: "${bookingDate}"`);
         return { success: false, message: "Η παρεχόμενη ημερομηνία κράτησης είναι μη έγκυρη." };
     }
     const bookingDateTimestamp = Timestamp.fromDate(parsedBookingDate);
-    console.log("Server Action: Converted to Firestore Timestamp:", bookingDateTimestamp);
+    console.log("[createBookingAction] Converted to Firestore Timestamp:", bookingDateTimestamp);
 
 
-    const bookingId = doc(collection(db, '_')).id; // Generate a client-side unique ID for the booking
+    const bookingId = doc(collection(db, '_')).id;
 
     const newBookingData: BookingDocumentData = {
-      id: bookingId, // Include the generated ID in the document data
+      id: bookingId, 
       storeId,
       storeName, 
       userId,
@@ -228,95 +229,92 @@ export async function createBookingAction(
       serviceName, 
       serviceDurationMinutes, 
       servicePrice, 
-      bookingDate: bookingDateTimestamp, // Use the Firestore Timestamp for querying
+      bookingDate: bookingDateTimestamp, 
       bookingTime,
-      status: 'pending', // Default status
-      createdAt: serverTimestamp() as Timestamp, // Use serverTimestamp for creation
+      status: 'pending', 
+      createdAt: serverTimestamp() as Timestamp, 
       notes: notes || "",
     };
-    console.log("Server Action: Preparing to add booking to DB with data:", JSON.stringify(newBookingData, null, 2));
+    console.log("[createBookingAction] Preparing to add booking to DB with data:", JSON.stringify(newBookingData, null, 2));
     
     try {
-        // Firestore will generate its own ID, but we save ours for consistency if needed.
         await addDoc(collection(db, "bookings"), { ...newBookingData, id: bookingId }); 
-        console.log("Server Action: Booking successfully added to 'bookings' collection with ID:", bookingId);
+        console.log("[createBookingAction] Booking successfully added to 'bookings' collection with ID:", bookingId);
     } catch (bookingAddError: any) {
-        console.error("Server Action: Firestore error while adding to 'bookings' collection. Raw error object:", bookingAddError);
+        console.error("[createBookingAction] Firestore error while adding to 'bookings' collection. Raw error object:", bookingAddError);
         if (bookingAddError.code) console.error("Firestore Error Code:", bookingAddError.code);
         if (bookingAddError.message) console.error("Error Message:", bookingAddError.message);
         if (bookingAddError.details) console.error("Firestore Error Details:", bookingAddError.details);
-        // This re-throw will be caught by the outer catch.
-        throw bookingAddError; // Re-throw to be caught by the outer try-catch
+        
+        let clientErrorMessage = "Παρουσιάστηκε σφάλμα κατά την προσθήκη της κράτησής σας στη βάση δεδομένων.";
+        if (String(bookingAddError.code).toLowerCase().includes('permission-denied') || String(bookingAddError.message).toLowerCase().includes('permission-denied')) {
+          clientErrorMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
+        }
+        throw new Error(clientErrorMessage); // Re-throw to be caught by the outer try-catch
     }
     
-    // Attempt to update owner's profile for unread bookings notification
     const store = await getStoreByIdFromDB(storeId);
     if (!store) {
-        console.warn(`Server Action: Store ${storeId} not found after booking creation. Cannot update owner's unread count.`);
+        console.warn(`[createBookingAction] Store ${storeId} not found after booking creation. Cannot update owner's unread count.`);
     } else if (store.ownerId) {
-      console.log(`Server Action: Store has ownerId: ${store.ownerId}. Attempting to update owner's profile.`);
+      console.log(`[createBookingAction] Store has ownerId: ${store.ownerId}. Attempting to update owner's profile.`);
       const ownerProfileRef = doc(db, USER_PROFILES_COLLECTION, store.ownerId);
       try {
         await updateDoc(ownerProfileRef, {
           totalUnreadBookings: increment(1),
-          lastSeen: serverTimestamp() // Also update lastSeen for the owner
+          lastSeen: serverTimestamp() 
         });
-        console.log(`Server Action: Incremented totalUnreadBookings for owner ${store.ownerId}`);
+        console.log(`[createBookingAction] Incremented totalUnreadBookings for owner ${store.ownerId}`);
       } catch (profileUpdateError: any) {
-        // This is a non-critical error for the booking itself, so just log it.
-        console.warn(`Server Action: Could not update totalUnreadBookings for owner ${store.ownerId}. This is non-critical for the booking itself. Error:`, profileUpdateError.message);
+        console.warn(`[createBookingAction] Could not update totalUnreadBookings for owner ${store.ownerId}. This is non-critical for the booking itself. Error: Code: ${profileUpdateError.code}, Message: ${profileUpdateError.message}`);
       }
     } else {
-      console.warn(`Server Action: Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
+      console.warn(`[createBookingAction] Store ${storeId} does not have an ownerId. Cannot increment unread bookings.`);
     }
     
     revalidatePath(`/stores/${storeId}`);
-    revalidatePath(`/dashboard`); // Revalidate dashboard for owner or user
+    revalidatePath(`/dashboard`);
 
-    // Return the created booking (map Timestamps back to ISO strings for client)
     return {
       success: true,
       message: `Η κράτησή σας για την υπηρεσία "${serviceName}" στις ${parsedBookingDate.toLocaleDateString('el-GR')} ${bookingTime} υποβλήθηκε επιτυχώς.`,
       booking: { 
         ...newBookingData,
         id: bookingId,
-        createdAt: new Date().toISOString(), // Approximate, actual will be server time
-        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0], // Convert Timestamp to YYYY-MM-DD
+        createdAt: new Date().toISOString(), 
+        bookingDate: newBookingData.bookingDate.toDate().toISOString().split("T")[0], 
       },
     };
 
   } catch (error: any) {
     let detailedMessage = "Παρουσιάστηκε σφάλμα κατά τη δημιουργία της κράτησής σας. Παρακαλώ δοκιμάστε ξανά.";
-    if (error.code) {
-        detailedMessage += ` (Κωδικός Σφάλματος: ${error.code})`;
-    } else if (error.message && typeof error.message === 'string' && !error.message.includes(detailedMessage.substring(0, 50))) { // Avoid duplicating generic part
+    if (error.message && error.message.includes("Άρνηση Πρόσβασης")) { // Check for the custom error message
+        detailedMessage = error.message;
+    } else if (error.code) {
+        detailedMessage += ` (Κωδικός Σφάλματος: ${String(error.code).toLowerCase()})`;
+    } else if (error.message && typeof error.message === 'string' && !error.message.includes(detailedMessage.substring(0, 50))) { 
         detailedMessage += ` Λεπτομέρειες: ${error.message}`;
     }
-    console.error("Server Action: Outer try-catch error in createBookingAction. Raw error object:", error);
-    if (error.code) console.error("Error Code:", error.code);
-    if (error.message) console.error("Error Message:", error.message);
-    if (error.details) console.error("Error Details:", error.details);
+    console.error("[createBookingAction] Outer try-catch error in createBookingAction. Error details logged above. Final error message for client:", detailedMessage);
     return { success: false, message: detailedMessage };
   }
 }
 
 
 export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
-  console.log(`Server Action: getBookingsForStoreAndDate called for storeId: ${storeId}, dateString: ${dateString}`);
+  console.log(`[getBookingsForStoreAndDate] Called for storeId: ${storeId}, dateString: ${dateString}`);
   try {
-    // Ensure dateString is in YYYY-MM-DD format
-    const parts = dateString.split('-').map(Number); // Convert parts to numbers
+    const parts = dateString.split('-').map(Number); 
     if (parts.length !== 3 || parts.some(isNaN)) {
-        console.error(`Server Action: Invalid dateString format for getBookingsForStoreAndDate: ${dateString}. Expected YYYY-MM-DD.`);
+        console.error(`[getBookingsForStoreAndDate] Invalid dateString format: ${dateString}. Expected YYYY-MM-DD.`);
         return [];
     }
-    // Construct Date objects for start and end of day in UTC to match Firestore Timestamp behavior
-    const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); // Month is 0-indexed
+    const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); 
     
     const startOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 0, 0, 0, 0)));
     const endOfDay = Timestamp.fromDate(new Date(Date.UTC(targetDateUTC.getUTCFullYear(), targetDateUTC.getUTCMonth(), targetDateUTC.getUTCDate(), 23, 59, 59, 999)));
     
-    console.log(`Server Action: Querying bookings between Firestore Timestamp ${startOfDay.toDate().toISOString()} and ${endOfDay.toDate().toISOString()}`);
+    console.log(`[getBookingsForStoreAndDate] Querying bookings between Firestore Timestamp ${startOfDay.toDate().toISOString()} and ${endOfDay.toDate().toISOString()}`);
 
     const bookingsRef = collection(db, "bookings");
     const q = query(
@@ -324,8 +322,6 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
       where("storeId", "==", storeId),
       where("bookingDate", ">=", startOfDay),
       where("bookingDate", "<=", endOfDay)
-      // Not ordering by time here, as overlaps are checked based on start time and duration.
-      // If ordering is needed for display, it can be done client-side or in a different query.
     );
 
     const querySnapshot = await getDocs(q);
@@ -334,18 +330,17 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
       return {
         ...data,
         id: docSnap.id,
-        // Convert bookingDate Timestamp back to YYYY-MM-DD string for client consistency
         bookingDate: data.bookingDate.toDate().toISOString().split('T')[0], 
-        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(), // Ensure createdAt is also ISO string
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(), 
       } as Booking;
     });
-    console.log(`Server Action: Found ${bookings.length} bookings for store ${storeId} on ${dateString}.`);
+    console.log(`[getBookingsForStoreAndDate] Found ${bookings.length} bookings for store ${storeId} on ${dateString}.`);
     return bookings;
   } catch (error: any) {
-    console.error(`Server Action: Error fetching bookings for store ${storeId} on date ${dateString}. Raw error:`, error);
+    console.error(`[getBookingsForStoreAndDate] Error fetching bookings for store ${storeId} on date ${dateString}. Raw error:`, error);
     if (error.code) console.error("Firestore Error Code:", error.code);
     if (error.message) console.error("Error Message:", error.message);
-    return []; // Return empty array on error
+    return []; 
   }
 }
 
