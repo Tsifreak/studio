@@ -33,6 +33,21 @@ const nextConfig = {
       }
     ],
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Resolve Node.js modules to false for client-side bundles
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        child_process: false,
+        fs: false,
+        os: false,
+        path: false, // Often needed too
+        net: false, // Sometimes needed by auth libraries
+        tls: false, // Sometimes needed by auth libraries
+      };
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;
