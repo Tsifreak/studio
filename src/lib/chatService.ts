@@ -25,6 +25,9 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import type { Chat, ChatMessage, ChatMessageFormData } from '@/lib/types';
 // Removed AdminTimestamp import as it's no longer used here
 
+const CHATS_COLLECTION = 'chats';
+const MESSAGES_SUBCOLLECTION = 'messages';
+
 // Helper to convert Firestore Timestamps (client or admin) to ISO strings
 const mapTimestampToISO = (timestamp: ClientTimestamp | undefined): string => {
   if (!timestamp) return new Date().toISOString();
@@ -141,11 +144,11 @@ export const sendMessage = async (
   senderId: string,
   senderName: string,
   text: string,
-  recipientId: string, // Keep for potential client-side logic, but not directly used for unread counts here
+  recipientId: string, 
   imageFile?: File | null,
   firestoreInstance: ClientFirestore = db 
 ): Promise<ChatMessage> => {
-  const batch = writeBatch(firestoreInstance); // firestoreInstance is client 'db' by default
+  const batch = writeBatch(firestoreInstance); 
   const currentServerTimestamp = clientServerTimestamp();
 
   const chatRef = doc(firestoreInstance, CHATS_COLLECTION, chatId);
@@ -162,7 +165,6 @@ export const sendMessage = async (
       imageUrl = await getDownloadURL(imageSisyphusRef);
     } catch (error) {
       console.error("Error uploading image to Firebase Storage:", error);
-      // Potentially re-throw or handle, for now, it just means imageUrl will be undefined
     }
   }
 
@@ -177,7 +179,6 @@ export const sendMessage = async (
 
   const chatDocSnap = await getDoc(chatRef);
   if (!chatDocSnap.exists()) {
-    // This should ideally not happen if sendMessage is called for an existing chat
     throw new Error("Chat document not found when trying to send message.");
   }
   const chatData = chatDocSnap.data() as Omit<Chat, 'id' | 'lastMessageAt' | 'createdAt'> & { lastMessageAt: ClientTimestamp, createdAt: ClientTimestamp };
@@ -189,20 +190,15 @@ export const sendMessage = async (
   };
   if (imageUrl) {
     updateData.lastImageUrl = imageUrl;
-  } else {
-    // If there's no new image, and if lastImageUrl was set, we might want to clear it or leave it.
-    // For simplicity, if no new image, don't explicitly set lastImageUrl to null unless intended.
-    // If imageUrl is undefined, it won't be added to updateData.
-    // If you want to explicitly clear it: updateData.lastImageUrl = null;
   }
 
 
-  if (senderId === chatData.userId) { // User sent the message
+  if (senderId === chatData.userId) { 
     updateData.ownerUnreadCount = (chatData.ownerUnreadCount || 0) + 1;
-    updateData.userUnreadCount = 0; // Reset user's unread count as they sent the message
-  } else if (senderId === chatData.ownerId) { // Owner sent the message
+    updateData.userUnreadCount = 0; 
+  } else if (senderId === chatData.ownerId) { 
     updateData.userUnreadCount = (chatData.userUnreadCount || 0) + 1;
-    updateData.ownerUnreadCount = 0; // Reset owner's unread count as they sent the message
+    updateData.ownerUnreadCount = 0; 
   }
 
   batch.update(chatRef, updateData);
@@ -243,10 +239,7 @@ export const markChatAsRead = async (chatId: string, currentUserId: string): Pro
     }
   } catch (error) {
     console.error(`Error marking chat ${chatId} as read for user ${currentUserId} (client SDK):`, error);
-    // Do not throw error, as this is a non-critical background operation
   }
 };
-
-// submitMessageToChat function has been removed from here. 
-// Its logic will be integrated directly into the submitStoreQuery server action.
     
+
