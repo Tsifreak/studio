@@ -8,7 +8,7 @@ import {
 } from '@/lib/storeService'; 
 import type { Store, StoreCategory, StoreFormData, Feature, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories } from '@/lib/types'; 
-import { auth } from '@/lib/firebase'; // Client SDK for auth checks if needed for UI
+// import { auth } from '@/lib/firebase'; // Client SDK for auth checks if needed for UI. Admin SDK handles actual writes.
 import { adminDb, admin } from '@/lib/firebase-admin'; // Admin SDK
 
 const STORE_COLLECTION = 'StoreInfo';
@@ -135,7 +135,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
       pricingPlans: [],
       reviews: [],
       products: [],
-      ownerId: ownerId || undefined,
+      ownerId: ownerId || null, // Changed undefined to null
       services: services,
       availability: availability,
     };
@@ -162,17 +162,19 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     console.log(`  ${key}: ${value}`);
   }
   
-  // Client SDK auth.currentUser is unreliable here for Firestore writes, Admin SDK will bypass rules.
-  // Keep for UI/initial checks if desired, but Firestore operations will use Admin context.
-  if (!auth.currentUser) { 
-     console.warn("[updateStoreAction] auth.currentUser (client SDK) is null in server action. Proceeding with Admin SDK for Firestore operation.");
-  } else {
-    console.log(`[updateStoreAction] Client SDK auth.currentUser: ${auth.currentUser.email}. Admin SDK will be used for Firestore.`);
-  }
+  // No need to check auth.currentUser here, Admin SDK operates with service account privileges.
+  // const firebaseUser = auth.currentUser;
+  // if (!firebaseUser) {
+  //   const authErrorMsg = "Σφάλμα: Ο χρήστης δεν είναι πιστοποιημένος στο πλαίσιο της ενέργειας διακομιστή. Η ενημέρωση απέτυχε.";
+  //   console.error(`[updateStoreAction] ${authErrorMsg}`);
+  //   return { success: false, message: authErrorMsg };
+  // }
+  // console.log(`[updateStoreAction] Action initiated by user: ${firebaseUser.email}`);
 
-  const existingStore = await getStoreByIdFromDB(storeId); // Using client SDK for read
-  if (!existingStore) {
-    console.error(`[updateStoreAction] Store not found for ID: ${storeId}`);
+
+  const existingStoreDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
+  if (!existingStoreDocSnap.exists) {
+    console.error(`[updateStoreAction] Store not found with Admin SDK for ID: ${storeId}`);
     return { success: false, message: "Το κέντρο δεν βρέθηκε." };
   }
 
@@ -208,9 +210,16 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     if (tagsInput !== undefined) {
       firestoreUpdatePayload.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
     }
+
+    // Handle ownerId explicitly: if empty string, delete field or set to null.
+    // If a non-empty string, set it. If undefined (not in form), field is untouched.
     if (dataToUpdate.ownerId === '') {
-      firestoreUpdatePayload.ownerId = admin.firestore.FieldValue.delete(); // Or null if preferred
+      firestoreUpdatePayload.ownerId = null; // Store null instead of deleting for easier querying
+    } else if (dataToUpdate.ownerId) {
+      firestoreUpdatePayload.ownerId = dataToUpdate.ownerId;
     }
+    // If dataToUpdate.ownerId is undefined, it's not included in firestoreUpdatePayload, so it's not changed.
+
     if (servicesJson !== undefined) {
       try { firestoreUpdatePayload.services = JSON.parse(servicesJson); } 
       catch (e: any) { throw new Error(`Invalid JSON for services: ${e.message}`); }
@@ -223,13 +232,12 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     console.log("[updateStoreAction] Calling adminDb.collection(STORE_COLLECTION).doc(storeId).update() with payload:", firestoreUpdatePayload);
     await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload);
     
-    // Fetch the updated document using Admin SDK or client SDK for consistency with reads
     const updatedDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
     if (!updatedDocSnap.exists) {
         console.error(`[updateStoreAction] Store ${storeId} not found after update with Admin SDK.`);
         return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Το κέντρο δεν βρέθηκε μετά την ενημέρωση." };
     }
-    const updatedRawStore = { id: updatedDocSnap.id, ...updatedDocSnap.data() } as Store; // TODO: mapDocToStore for admin if needed
+    const updatedRawStore = { id: updatedDocSnap.id, ...updatedDocSnap.data() } as Store;
     const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
         
     revalidatePath('/admin/stores');
@@ -239,7 +247,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     console.log(`[updateStoreAction] Store "${updatedSerializedStore.name}" updated successfully.`);
     return { success: true, message: `Το κέντρο "${updatedSerializedStore.name}" ενημερώθηκε επιτυχώς.`, store: updatedSerializedStore };
   } catch (error: any) {
-    console.error("[updateStoreAction] Error during store update process:", error);
+    console.error("[updateStoreAction] Error during store update process with Admin SDK:", error);
     let message = `Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message || 'Unknown error'}`;
     if (error.code) message += ` (Code: ${error.code})`;
     return { success: false, message: message };
@@ -287,7 +295,7 @@ export async function updateStoreCategoryAction(
         console.error(`[updateStoreCategoryAction] Store ${storeId} not found after category update.`);
         return { success: false, message: "Αποτυχία ενημέρωσης κατηγορίας. Το κέντρο δεν βρέθηκε μετά την ενημέρωση." };
     }
-    const updatedRawStore = { id: updatedDocSnap.id, ...updatedDocSnap.data() } as Store; // TODO: mapDocToStore for admin
+    const updatedRawStore = { id: updatedDocSnap.id, ...updatedDocSnap.data() } as Store;
     const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
     
     revalidatePath('/admin/stores');
