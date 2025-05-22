@@ -1,18 +1,19 @@
 
 "use server";
 
-import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData, Store } from '@/lib/types'; 
+import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData, Store, Chat } from '@/lib/types'; 
 import { getStoreByIdFromDB } from '@/lib/storeService'; 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { adminDb, admin } from '@/lib/firebase-admin'; 
-// Note: chatService is now used by submitStoreQuery, but sendMessage from it is client-side
-// If we need to send messages from server, we'd call submitMessageToChat or a new admin-sdk based send.
-import { submitMessageToChat } from '@/lib/chatService'; // This will now use Admin SDK
+// Removed chatService import for submitMessageToChat as its logic will be inlined.
+import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
 
 const USER_PROFILES_COLLECTION = 'userProfiles';
 const STORE_COLLECTION = 'StoreInfo';
 const BOOKINGS_COLLECTION = 'bookings';
+const CHATS_COLLECTION = 'chats'; // Added for chat logic
+const MESSAGES_SUBCOLLECTION = 'messages'; // Added for chat logic
 
 const submissionAttempts = new Map<string, { count: number, lastAttempt: number }>();
 const MAX_ATTEMPTS = 5;
@@ -36,35 +37,98 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
   }
   
   try {
-    const storeDoc = await adminDb.collection(STORE_COLLECTION).doc(formData.storeId).get();
-    if (!storeDoc.exists) {
+    const storeDocSnap = await adminDb.collection(STORE_COLLECTION).doc(formData.storeId).get();
+    if (!storeDocSnap.exists) {
       console.error("[submitStoreQuery - Server Action] Store not found:", formData.storeId);
       return { success: false, message: "Το κέντρο εξυπηρέτησης δεν βρέθηκε." };
     }
-    const storeData = storeDoc.data();
+    const storeData = storeDocSnap.data() as Omit<Store, 'id'>;
     if (!storeData) {
       console.error("[submitStoreQuery - Server Action] No data for store:", formData.storeId);
       return { success: false, message: "Δεν βρέθηκαν δεδομένα για το κέντρο εξυπηρέτησης." };
     }
-    const store = { id: storeDoc.id, ...storeData } as Store; // Cast, ensure mapping if needed
+    const store = { id: storeDocSnap.id, ...storeData };
 
     if (store.ownerId && formData.userId && formData.userName) {
-      console.log(`[submitStoreQuery - Server Action] Store has owner ${store.ownerId}. Initiating chat via submitMessageToChat for user ${formData.userName} (${formData.userId}).`);
-      // submitMessageToChat now uses Admin SDK internally
-      const chatResult = await submitMessageToChat(
-        store.id,
-        store.name,
-        store.logoUrl,
-        store.ownerId,
-        formData.userId,
-        formData.userName,
-        formData.userAvatarUrl,
-        formData.subject,
-        formData.message
-      );
+      console.log(`[submitStoreQuery - Server Action] Store has owner ${store.ownerId}. Initiating chat for user ${formData.userName} (${formData.userId}).`);
+      
+      // --- Inlined logic from submitMessageToChat ---
+      const chatsRefAdmin = adminDb.collection(CHATS_COLLECTION);
+      const fullMessageText = `Θέμα: ${formData.subject}\n\n${formData.message}`;
+      const batch = adminDb.batch();
+      let chatDocRef;
+
+      const q = chatsRefAdmin
+        .where('storeId', '==', store.id)
+        .where('userId', '==', formData.userId)
+        .where('ownerId', '==', store.ownerId)
+        .limit(1);
+
+      const querySnapshot = await q.get();
+      console.log(`[submitStoreQuery/ChatLogic - Admin SDK] Existing chat query found ${querySnapshot.docs.length} documents.`);
+
+      if (!querySnapshot.empty) {
+        chatDocRef = querySnapshot.docs[0].ref;
+        console.log("[submitStoreQuery/ChatLogic - Admin SDK] Existing chat found, ID:", chatDocRef.id);
+
+        const messagesColRefAdmin = chatDocRef.collection(MESSAGES_SUBCOLLECTION);
+        const newMessageRefAdmin = messagesColRefAdmin.doc(); 
+
+        batch.set(newMessageRefAdmin, {
+          senderId: formData.userId,
+          senderName: formData.userName,
+          text: fullMessageText,
+          imageUrl: null, // Image sending not supported via this initial contact form
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        batch.update(chatDocRef, {
+          lastMessageText: fullMessageText.substring(0, 100),
+          lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastMessageSenderId: formData.userId,
+          lastImageUrl: null,
+          ownerUnreadCount: admin.firestore.FieldValue.increment(1), 
+          userUnreadCount: 0, 
+        });
+      } else {
+        console.log("[submitStoreQuery/ChatLogic - Admin SDK] No existing chat found. Creating new chat.");
+        chatDocRef = chatsRefAdmin.doc(); 
+        batch.set(chatDocRef, {
+          storeId: store.id,
+          storeName: store.name,
+          storeLogoUrl: store.logoUrl || null,
+          userId: formData.userId,
+          userName: formData.userName,
+          userAvatarUrl: formData.userAvatarUrl || null,
+          ownerId: store.ownerId,
+          lastMessageText: fullMessageText.substring(0, 100),
+          lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastMessageSenderId: formData.userId,
+          lastImageUrl: null,
+          userUnreadCount: 0,
+          ownerUnreadCount: 1, 
+          participantIds: [formData.userId, store.ownerId].sort(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        const messagesColRefAdmin = chatDocRef.collection(MESSAGES_SUBCOLLECTION);
+        const firstMessageRefAdmin = messagesColRefAdmin.doc();
+        batch.set(firstMessageRefAdmin, {
+          senderId: formData.userId,
+          senderName: formData.userName,
+          text: fullMessageText,
+          imageUrl: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      // --- End of inlined logic ---
+      
       setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
-      console.log("[submitStoreQuery - Server Action] Chat initiation result:", chatResult);
-      return chatResult;
+      return { 
+        success: true, 
+        message: "Το μήνυμά σας εστάλη. Μπορείτε να δείτε αυτήν τη συνομιλία στον πίνακα ελέγχου σας.",
+        chatId: chatDocRef.id 
+      };
 
     } else {
       console.log("[submitStoreQuery - Server Action] Store has no owner or user is not logged in. Saving to storeMessages.");
@@ -93,7 +157,11 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
 
   } catch (error: any) {
     console.error("[submitStoreQuery - Server Action] Error processing store query/chat:", error.message, error.stack);
-    return { success: false, message: `Παρουσιάστηκε σφάλμα κατά την επεξεργασία του ερωτήματός σας. Error: ${error.message}` };
+    let clientMessage = "Παρουσιάστηκε σφάλμα κατά την επεξεργασία του ερωτήματός σας.";
+    if (error.code || String(error.message).toLowerCase().includes("permission")) {
+        clientMessage += ` Error: ${error.message || 'missing or insufficient permissions'}`;
+    }
+    return { success: false, message: clientMessage };
   }
 }
 
@@ -154,7 +222,7 @@ export async function addReviewAction(
       if (!storeDoc.exists) {
         throw new Error("Store not found for adding review.");
       }
-      const storeData = storeDoc.data() as Store; 
+      const storeData = storeDoc.data() as Omit<Store, 'id'| 'reviews'> & {reviews?: any[]}; 
       
       const existingReviews = (storeData.reviews || []).map(r => ({
           ...r,
@@ -270,7 +338,7 @@ export async function createBookingAction(
         console.error(`[createBookingAction - Server Action] Admin SDK: ${storeNotFoundErrorMsg}`);
         return { success: false, message: storeNotFoundErrorMsg };
     }
-    const storeDataFromDB = storeDocSnap.data() as Store;
+    const storeDataFromDB = storeDocSnap.data() as Omit<Store, 'id'>;
     const storeOwnerId = storeDataFromDB.ownerId;
     console.log(`[createBookingAction - Server Action] Store ${storeId} found. OwnerId: ${storeOwnerId || 'Not set'}`);
 
@@ -341,7 +409,7 @@ export async function createBookingAction(
       booking: { 
         ...newBookingDataForFirestore,
         id: bookingId,
-        createdAt: new Date().toISOString(), // Approximate for client
+        createdAt: new Date().toISOString(), 
         bookingDate: newBookingDataForFirestore.bookingDate.toDate().toISOString().split("T")[0], 
         status: 'pending', 
       } as Booking, 
@@ -353,7 +421,7 @@ export async function createBookingAction(
         if (error.message.toLowerCase().includes("permission-denied") || error.message.includes("Άρνηση Πρόσβασης")) {
            detailedMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
         } else if (error.message.includes("Κωδικός Σφάλματος") || (typeof error.code === 'string' && error.code) || (typeof error.code === 'number' && error.code) ) {
-           detailedMessage = error.message; // Keep if already detailed
+           detailedMessage = error.message; 
            if(!detailedMessage.includes("Κωδικός Σφάλματος") && error.code) {
             detailedMessage += ` (Κωδικός Σφάλματος: ${error.code})`;
            }
@@ -413,6 +481,4 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
     return [];
   }
 }
-    
-
     
