@@ -126,7 +126,7 @@ export interface Booking {
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: string; // ISO string
   notes?: string; 
-  ownerId?: string; // Added ownerId to booking for easier notification
+  ownerId?: string; 
 }
 
 // Firestore document data for Booking (includes Firestore Timestamps for date fields)
@@ -141,12 +141,12 @@ export interface BookingDocumentData {
   serviceName: string;
   serviceDurationMinutes: number;
   servicePrice: number;
-  bookingDate: Timestamp; // για ερωτήματα Firestore
+  bookingDate: Timestamp | admin.firestore.Timestamp; 
   bookingTime: string;
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
-  createdAt: Timestamp; // Firestore timestamp
+  createdAt: Timestamp | admin.firestore.Timestamp;
   notes?: string;
-  ownerId?: string; // Added ownerId to booking document
+  ownerId?: string; 
 }
 
 
@@ -167,7 +167,7 @@ export interface Store {
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
-  ownerId?: string; 
+  ownerId?: string | null; 
   services: Service[]; 
   availability: AvailabilitySlot[]; 
 }
@@ -195,24 +195,21 @@ export interface UserProfile {
   avatarUrl?: string;
   isAdmin?: boolean;
   totalUnreadMessages: number;
-  // totalUnreadBookings: number; // Replaced by pendingBookingsCount for owners
-  pendingBookingsCount: number; // For store owners: count of bookings needing action
-  bookingStatusUpdatesCount: number; // For clients: count of their bookings that had status changes
+  pendingBookingsCount: number; 
+  bookingStatusUpdatesCount: number;
   preferences?: UserPreferences;
 }
 
-// Represents the data structure in Firestore for the userProfiles collection
 export interface UserProfileFirestoreData {
   name?: string; 
   email?: string; 
   avatarUrl?: string;
   preferences?: UserPreferences;
   totalUnreadMessages?: number;
-  // totalUnreadBookings?: number; // Replaced by pendingBookingsCount
   pendingBookingsCount?: number; 
   bookingStatusUpdatesCount?: number;
-  lastSeen?: Timestamp; 
-  createdAt?: Timestamp;
+  lastSeen?: Timestamp | admin.firestore.FieldValue; 
+  createdAt?: Timestamp | admin.firestore.FieldValue;
 }
 
 
@@ -227,10 +224,13 @@ export interface QueryFormData {
   userAvatarUrl?: string; 
 }
 
+// This FormData type is for the client-side StoreForm and what it sends.
+// The server-side action will then process file uploads from this data.
 export interface StoreFormData {
   name: string;
-  logoUrl: string;
-  bannerUrl?: string;
+  // logoUrl and bannerUrl are now primarily handled by server after upload
+  logoUrl?: string; // Can hold existing URL for display or be undefined if new file
+  bannerUrl?: string; // Can hold existing URL for display or be undefined if new file
   description: string;
   longDescription?: string;
   tagsInput?: string; 
@@ -240,6 +240,11 @@ export interface StoreFormData {
   ownerId?: string; 
   servicesJson?: string; 
   availabilityJson?: string;
+  // These fields will be present in FormData if files are selected
+  logoFile?: File | null;
+  bannerFile?: File | null;
+  existingLogoUrl?: string | null; // To track current URL during edit
+  existingBannerUrl?: string | null; // To track current URL during edit
 }
 
 export interface ReviewFormData {
@@ -281,3 +286,15 @@ export interface ChatMessageFormData {
 }
 
 export type BookingStatus = Booking['status'];
+
+// Add admin import for Firestore Timestamp if not already present
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: string;
+    }
+  }
+  // This is to allow File type to be recognized from 'buffer' if needed on server
+  // For FormData handling, native File type in newer Node is preferred.
+  // interface File extends Blob {} 
+}

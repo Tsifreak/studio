@@ -9,7 +9,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Removed experimental.allowedDevOrigins as it's not recognized
   images: {
     remotePatterns: [
       {
@@ -26,19 +25,20 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-        port: '',
-        pathname: '/**',
-      },
-      { 
-        protocol: 'https',
         hostname: 'placehold.co',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        port: '',
+        // Example: /your-project-id.appspot.com/**
+        // Use a more specific pathname if possible, e.g., /your-bucket-name/store-logos/**
+        pathname: `/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com/**`,
       }
     ],
   },
-  // Removed webpack configuration block as Turbopack is being used
 };
 
 export default nextConfig;

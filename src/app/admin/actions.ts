@@ -3,15 +3,58 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { 
-  getStoreByIdFromDB, // Keep using client SDK for reads if preferred, or switch to adminDb
-} from '@/lib/storeService'; 
 import type { Store, StoreCategory, StoreFormData, Feature, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories } from '@/lib/types'; 
-// import { auth } from '@/lib/firebase'; // Client SDK for auth checks if needed for UI. Admin SDK handles actual writes.
-import { adminDb, admin } from '@/lib/firebase-admin'; // Admin SDK
+import { adminDb, adminStorage, admin } from '@/lib/firebase-admin'; // Admin SDK for DB and Storage
+// Removed client SDK import: import { getStoreByIdFromDB } from '@/lib/storeService'; 
 
 const STORE_COLLECTION = 'StoreInfo';
+const MAX_FILE_SIZE_MB = 2;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Helper function to upload file to Firebase Storage using Admin SDK
+async function uploadFileToStorage(file: File, destinationFolder: string): Promise<string> {
+  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    throw new Error(`Μη υποστηριζόμενος τύπος αρχείου: ${file.type}. Επιτρέπονται: JPEG, PNG, WebP.`);
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    throw new Error(`Το αρχείο είναι πολύ μεγάλο (${(file.size / 1024 / 1024).toFixed(2)}MB). Μέγιστο επιτρεπτό μέγεθος: ${MAX_FILE_SIZE_MB}MB.`);
+  }
+
+  const bucket = adminStorage.bucket(); // Default bucket
+  const fileName = `${destinationFolder}/${Date.now()}-${Math.random().toString(36).substring(2,10)}-${file.name.replace(/\s+/g, '_')}`;
+  const blob = bucket.file(fileName);
+  
+  const blobStream = blob.createWriteStream({
+    metadata: {
+      contentType: file.type,
+    },
+    public: true, // Make the file publicly readable
+  });
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  return new Promise((resolve, reject) => {
+    blobStream.on('error', (err) => {
+      console.error(`[uploadFileToStorage] Error uploading to GCS:`, err);
+      reject(new Error(`Σφάλμα κατά το ανέβασμα του αρχείου: ${err.message}`));
+    });
+    blobStream.on('finish', async () => {
+      // The file is now public, construct the URL
+      // Note: For GCS, publicUrl might need to be constructed carefully or by making the object public
+      // and using the standard format: `https://storage.googleapis.com/[BUCKET_NAME]/[OBJECT_NAME]`
+      // For simplicity, assuming setPublic: true and then using standard URL format is okay.
+      // Or, ensure getPublicUrl() is available and works as expected with your bucket permissions.
+      // await blob.makePublic(); // Ensure it's public if createWriteStream doesn't guarantee it
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+      console.log(`[uploadFileToStorage] File uploaded to ${publicUrl}`);
+      resolve(publicUrl);
+    });
+    blobStream.end(buffer);
+  });
+}
+
 
 // Helper function to convert Store to SerializedStore for client components
 function serializeStoreForClient(store: Store): SerializedStore {
@@ -28,7 +71,6 @@ function serializeStoreForClient(store: Store): SerializedStore {
   };
 }
 
-// Zod schema for JSON validation
 const serviceSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -41,14 +83,15 @@ const servicesArraySchema = z.array(serviceSchema);
 
 const availabilitySlotSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
-  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/), // HH:mm format
-  endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),   // HH:mm format
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/), 
+  endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),   
   lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
   lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
 
-const storeFormSchema = z.object({
+// This Zod schema is for data *after* file uploads are processed and URLs are determined.
+const storeDbSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
   logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }),
   bannerUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το banner." }).optional().or(z.literal('')),
@@ -84,14 +127,45 @@ const storeFormSchema = z.object({
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
   console.log("[addStoreAction] Received FormData entries:");
+  const formEntries: { [key: string]: any } = {};
   for (const [key, value] of formData.entries()) {
-    console.log(`  ${key}: ${value}`);
+    formEntries[key] = value;
+    console.log(`  ${key}: ${value instanceof File ? `File: ${value.name}, Size: ${value.size}, Type: ${value.type}` : value}`);
+  }
+
+  let logoUrlToSave: string | undefined = undefined;
+  let bannerUrlToSave: string | undefined = undefined;
+
+  const logoFile = formData.get('logoFile') as File | null;
+  const bannerFile = formData.get('bannerFile') as File | null;
+
+  try {
+    if (logoFile && logoFile.size > 0) {
+      console.log("[addStoreAction] Processing logoFile upload...");
+      logoUrlToSave = await uploadFileToStorage(logoFile, 'store-logos');
+    } else {
+      const storeNameForPlaceholder = formData.get('name') as string || "store";
+      logoUrlToSave = `https://placehold.co/100x100.png?text=${encodeURIComponent(storeNameForPlaceholder.substring(0,3))}`;
+      console.log(`[addStoreAction] No logo file provided, using placeholder: ${logoUrlToSave}`);
+    }
+
+    if (bannerFile && bannerFile.size > 0) {
+      console.log("[addStoreAction] Processing bannerFile upload...");
+      bannerUrlToSave = await uploadFileToStorage(bannerFile, 'store-banners');
+    } else {
+      const storeNameForPlaceholder = formData.get('name') as string || "store";
+      bannerUrlToSave = `https://placehold.co/800x300.png?text=${encodeURIComponent(storeNameForPlaceholder)}`;
+      console.log(`[addStoreAction] No banner file provided, using placeholder: ${bannerUrlToSave}`);
+    }
+  } catch (uploadError: any) {
+    console.error("[addStoreAction] File upload error:", uploadError);
+    return { success: false, message: uploadError.message || "Σφάλμα κατά το ανέβασμα αρχείου." };
   }
   
-  const validatedFields = storeFormSchema.safeParse({
+  const validatedFields = storeDbSchema.safeParse({
     name: formData.get('name') || '',
-    logoUrl: formData.get('logoUrl') || '',
-    bannerUrl: formData.get('bannerUrl') || '', 
+    logoUrl: logoUrlToSave, 
+    bannerUrl: bannerUrlToSave || '', 
     description: formData.get('description') || '',
     longDescription: formData.get('longDescription') ?? undefined, 
     tagsInput: formData.get('tagsInput') ?? undefined,
@@ -111,7 +185,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  console.log("[addStoreAction] Zod Validation Successful. Data:", validatedFields.data);
+  console.log("[addStoreAction] Zod Validation Successful. Data (with image URLs):", validatedFields.data);
 
   try {
     const { ownerId, servicesJson, availabilityJson, tagsInput, ...storeCoreData } = validatedFields.data;
@@ -127,7 +201,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     }
 
     const storeDataForDB: Omit<Store, 'id'> = {
-      ...storeCoreData,
+      ...storeCoreData, // name, logoUrl, bannerUrl, description, longDescription, contactEmail, websiteUrl, address
       rating: 0,
       category: defaultCategorySlug as StoreCategory,
       tags: tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
@@ -135,7 +209,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
       pricingPlans: [],
       reviews: [],
       products: [],
-      ownerId: ownerId || null, // Changed undefined to null
+      ownerId: ownerId || null,
       services: services,
       availability: availability,
     };
@@ -157,20 +231,11 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
 export async function updateStoreAction(storeId: string, prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
   console.log(`[updateStoreAction] Received request for storeId: ${storeId}`);
-  console.log("[updateStoreAction] FormData entries:");
+  const formEntries: { [key: string]: any } = {};
   for (const [key, value] of formData.entries()) {
-    console.log(`  ${key}: ${value}`);
+    formEntries[key] = value;
+    console.log(`  ${key}: ${value instanceof File ? `File: ${value.name}, Size: ${value.size}, Type: ${value.type}`: value }`);
   }
-  
-  // No need to check auth.currentUser here, Admin SDK operates with service account privileges.
-  // const firebaseUser = auth.currentUser;
-  // if (!firebaseUser) {
-  //   const authErrorMsg = "Σφάλμα: Ο χρήστης δεν είναι πιστοποιημένος στο πλαίσιο της ενέργειας διακομιστή. Η ενημέρωση απέτυχε.";
-  //   console.error(`[updateStoreAction] ${authErrorMsg}`);
-  //   return { success: false, message: authErrorMsg };
-  // }
-  // console.log(`[updateStoreAction] Action initiated by user: ${firebaseUser.email}`);
-
 
   const existingStoreDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
   if (!existingStoreDocSnap.exists) {
@@ -178,10 +243,45 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     return { success: false, message: "Το κέντρο δεν βρέθηκε." };
   }
 
-  const validatedFields = storeFormSchema.safeParse({
+  let logoUrlToSave: string | undefined = formData.get('existingLogoUrl') as string || undefined;
+  let bannerUrlToSave: string | undefined = formData.get('existingBannerUrl') as string || undefined;
+
+  const logoFile = formData.get('logoFile') as File | null;
+  const bannerFile = formData.get('bannerFile') as File | null;
+
+  try {
+    if (logoFile && logoFile.size > 0) {
+      console.log("[updateStoreAction] Processing logoFile upload...");
+      logoUrlToSave = await uploadFileToStorage(logoFile, 'store-logos');
+      // TODO: Delete old logo from storage if new one is uploaded successfully
+    }
+    
+    if (bannerFile && bannerFile.size > 0) {
+      console.log("[updateStoreAction] Processing bannerFile upload...");
+      bannerUrlToSave = await uploadFileToStorage(bannerFile, 'store-banners');
+       // TODO: Delete old banner from storage
+    }
+  } catch (uploadError: any) {
+    console.error("[updateStoreAction] File upload error:", uploadError);
+    return { success: false, message: uploadError.message || "Σφάλμα κατά το ανέβασμα αρχείου." };
+  }
+  
+  // Ensure placeholders if URLs become empty and no file was uploaded to replace them
+  if (!logoUrlToSave && !(logoFile && logoFile.size > 0)) {
+      const storeNameForPlaceholder = formData.get('name') as string || "store";
+      logoUrlToSave = `https://placehold.co/100x100.png?text=${encodeURIComponent(storeNameForPlaceholder.substring(0,3))}`;
+  }
+  if (!bannerUrlToSave && !(bannerFile && bannerFile.size > 0)) {
+      const storeNameForPlaceholder = formData.get('name') as string || "store";
+      // bannerUrl can be empty string if user wants to remove it
+      bannerUrlToSave = formData.get('bannerUrl') === '' ? '' : `https://placehold.co/800x300.png?text=${encodeURIComponent(storeNameForPlaceholder)}`;
+  }
+
+
+  const validatedFields = storeDbSchema.safeParse({
     name: formData.get('name') || '',
-    logoUrl: formData.get('logoUrl') || '',
-    bannerUrl: formData.get('bannerUrl') || '',
+    logoUrl: logoUrlToSave,
+    bannerUrl: bannerUrlToSave || '', // Banner can be empty string
     description: formData.get('description') || '',
     longDescription: formData.get('longDescription') ?? undefined,
     tagsInput: formData.get('tagsInput') ?? undefined,
@@ -201,7 +301,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  console.log("[updateStoreAction] Zod Validation successful. Data:", validatedFields.data);
+  console.log("[updateStoreAction] Zod Validation successful. Data (with image URLs):", validatedFields.data);
   
   try {
     const { servicesJson, availabilityJson, tagsInput, ...dataToUpdate } = validatedFields.data;
@@ -211,15 +311,12 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
       firestoreUpdatePayload.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
     }
 
-    // Handle ownerId explicitly: if empty string, delete field or set to null.
-    // If a non-empty string, set it. If undefined (not in form), field is untouched.
     if (dataToUpdate.ownerId === '') {
-      firestoreUpdatePayload.ownerId = null; // Store null instead of deleting for easier querying
+      firestoreUpdatePayload.ownerId = null;
     } else if (dataToUpdate.ownerId) {
       firestoreUpdatePayload.ownerId = dataToUpdate.ownerId;
     }
-    // If dataToUpdate.ownerId is undefined, it's not included in firestoreUpdatePayload, so it's not changed.
-
+    
     if (servicesJson !== undefined) {
       try { firestoreUpdatePayload.services = JSON.parse(servicesJson); } 
       catch (e: any) { throw new Error(`Invalid JSON for services: ${e.message}`); }
@@ -256,6 +353,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
 
 export async function deleteStoreAction(storeId: string): Promise<{ success: boolean; message: string }> {
   try {
+    // TODO: Delete associated images from Firebase Storage
     await adminDb.collection(STORE_COLLECTION).doc(storeId).delete();
     revalidatePath('/admin/stores');
     revalidatePath('/');

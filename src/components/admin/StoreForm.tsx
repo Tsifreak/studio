@@ -20,14 +20,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import type { SerializedStore, Service, AvailabilitySlot } from '@/lib/types'; 
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useEffect, useActionState } from "react"; 
+import { useEffect, useActionState, useState, useRef } from "react"; 
+import Image from "next/image";
 
 interface StoreFormProps {
   store?: SerializedStore;
   action: (prevState: any, formData: FormData) => Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }>;
 }
 
-// Zod schema for JSON validation (client-side, also validated server-side)
 const serviceSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -39,7 +39,7 @@ const serviceSchema = z.object({
 const servicesArraySchema = z.array(serviceSchema);
 
 const availabilitySlotSchema = z.object({
-  dayOfWeek: z.number().int().min(0).max(6), // 0 (Sunday) - 6 (Saturday)
+  dayOfWeek: z.number().int().min(0).max(6), 
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required"),
   endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required"),
   lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "HH:mm format required").optional().or(z.literal('')),
@@ -47,12 +47,9 @@ const availabilitySlotSchema = z.object({
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
 
-
-// Client-side schema without category, includes JSON fields for services/availability
+// Client-side schema for form fields, excluding logoUrl and bannerUrl which are handled by file inputs
 const clientStoreFormSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
-  logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }).default('https://picsum.photos/seed/new_store_logo/100/100'),
-  bannerUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το banner." }).optional().or(z.literal('')).default('https://picsum.photos/seed/new_store_banner/800/300'),
   description: z.string().min(10, { message: "Η περιγραφή πρέπει να έχει τουλάχιστον 10 χαρακτήρες." }),
   longDescription: z.string().optional(),
   tagsInput: z.string().optional(), 
@@ -80,6 +77,11 @@ const clientStoreFormSchema = z.object({
       return false;
     }
   }, { message: "Μη έγκυρο JSON για τη διαθεσιμότητα ή δεν συμφωνεί με το σχήμα." }),
+  // Fields for actual file objects - not part of Zod validation for form values directly
+  // but will be appended to FormData. Validation for files (type, size) happens in server action.
+  // existingLogoUrl and existingBannerUrl are for hidden inputs if store exists
+  existingLogoUrl: z.string().optional(),
+  existingBannerUrl: z.string().optional(),
 });
 
 type ClientStoreFormValues = z.infer<typeof clientStoreFormSchema>;
@@ -91,19 +93,21 @@ const initialFormState: { success: boolean; message: string; errors?: any; store
   store: undefined 
 };
 
-
 export function StoreForm({ store, action }: StoreFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [formState, formAction, isPending] = useActionState(action, initialFormState);
+
+  const [logoPreview, setLogoPreview] = useState<string | null>(store?.logoUrl || null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(store?.bannerUrl || null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const bannerFileRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ClientStoreFormValues>({
     resolver: zodResolver(clientStoreFormSchema),
     defaultValues: store
       ? {
           name: store.name,
-          logoUrl: store.logoUrl,
-          bannerUrl: store.bannerUrl || '',
           description: store.description,
           longDescription: store.longDescription || '',
           tagsInput: store.tags?.join(', ') || '',
@@ -114,14 +118,14 @@ export function StoreForm({ store, action }: StoreFormProps) {
           servicesJson: store.services ? JSON.stringify(store.services, null, 2) : '[]',
           availabilityJson: store.availability ? JSON.stringify(store.availability.map(slot => ({
             ...slot,
-            lunchBreakStartTime: slot.lunchBreakStartTime || undefined, // Ensure empty string becomes undefined for consistent JSON
+            lunchBreakStartTime: slot.lunchBreakStartTime || undefined,
             lunchBreakEndTime: slot.lunchBreakEndTime || undefined,
           })), null, 2) : '[]',
+          existingLogoUrl: store.logoUrl || '',
+          existingBannerUrl: store.bannerUrl || '',
         }
       : {
           name: "",
-          logoUrl: "https://picsum.photos/seed/new_logo/100/100",
-          bannerUrl: "https://picsum.photos/seed/new_banner/800/300",
           description: "",
           longDescription: "",
           tagsInput: "",
@@ -131,6 +135,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
           ownerId: "",
           servicesJson: '[]',
           availabilityJson: '[]',
+          existingLogoUrl: '',
+          existingBannerUrl: '',
         },
   });
   
@@ -141,7 +147,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
         description: formState.message,
       });
       router.push('/admin/stores');
-      // No router.refresh() here as revalidation should handle it
     } else if (formState.message && !formState.success && formState.errors) {
        toast({
         title: "Σφάλμα Φόρμας",
@@ -166,6 +171,24 @@ export function StoreForm({ store, action }: StoreFormProps) {
     }
   }, [formState, toast, router, store, form]);
 
+  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setLogoPreview(URL.createObjectURL(file));
+    } else {
+      setLogoPreview(store?.logoUrl || null); // Revert to original if file is cleared
+    }
+  };
+
+  const handleBannerFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setBannerPreview(URL.createObjectURL(file));
+    } else {
+      setBannerPreview(store?.bannerUrl || null); // Revert to original
+    }
+  };
+
   const exampleServiceJson = JSON.stringify([
     { id: "service1", name: "Αλλαγή Λαδιών", description: "Συνθετικά λάδια και φίλτρο.", durationMinutes: 60, price: 50, availableDaysOfWeek: [1,2,3,4,5] },
     { id: "service2", name: "Έλεγχος Φρένων", description: "Έλεγχος και καθαρισμός.", durationMinutes: 45, price: 30, availableDaysOfWeek: [1,2,3,4,5,6] }
@@ -175,11 +198,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
     { dayOfWeek: 1, startTime: "09:00", endTime: "17:00", lunchBreakStartTime: "13:00", lunchBreakEndTime: "14:00" },
     { dayOfWeek: 2, startTime: "09:00", endTime: "17:00" },
     { dayOfWeek: 3, startTime: "09:00", endTime: "17:00", lunchBreakStartTime: "12:30", lunchBreakEndTime: "13:00" },
-    { dayOfWeek: 4, startTime: "09:00", endTime: "17:00" },
-    { dayOfWeek: 5, startTime: "09:00", endTime: "16:00" },
-    { dayOfWeek: 6, startTime: "10:00", endTime: "14:00" }
   ], null, 2);
-
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
@@ -193,6 +212,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
       </CardHeader>
       <Form {...form}>
         <form action={formAction} className="space-y-6">
+          <input type="hidden" {...form.register("existingLogoUrl")} />
+          <input type="hidden" {...form.register("existingBannerUrl")} />
           <CardContent className="space-y-6">
             <FormField
               control={form.control}
@@ -207,35 +228,46 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 </FormItem>
               )}
             />
+            
+            <FormItem>
+              <FormLabel>Λογότυπο</FormLabel>
+              {logoPreview && (
+                <div className="mt-2 mb-2">
+                  <Image src={logoPreview} alt="Προεπισκόπηση Λογοτύπου" width={100} height={100} className="rounded-md border object-cover" data-ai-hint="logo store"/>
+                </div>
+              )}
+              <FormControl>
+                <Input 
+                  type="file" 
+                  accept="image/png, image/jpeg, image/webp" 
+                  name="logoFile" // Name used in FormData
+                  ref={logoFileRef}
+                  onChange={handleLogoFileChange}
+                />
+              </FormControl>
+              <FormDescription>Προτεινόμενο μέγεθος: 100x100 pixels. Μέγιστο μέγεθος αρχείου: 2MB.</FormDescription>
+              <FormMessage />
+            </FormItem>
 
-            <FormField
-              control={form.control}
-              name="logoUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL Λογοτύπου</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://example.com/logo.png" {...field} />
-                  </FormControl>
-                   <FormDescription>Προτεινόμενο μέγεθος: 100x100 pixels.</FormDescription>
-                  <FormMessage />
-                </FormItem>
+            <FormItem>
+              <FormLabel>Banner (Προαιρετικό)</FormLabel>
+              {bannerPreview && (
+                <div className="mt-2 mb-2">
+                  <Image src={bannerPreview} alt="Προεπισκόπηση Banner" width={300} height={100} className="rounded-md border object-cover" data-ai-hint="banner store"/>
+                </div>
               )}
-            />
-             <FormField
-              control={form.control}
-              name="bannerUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL Banner (Προαιρετικό)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://example.com/banner.png" {...field} />
-                  </FormControl>
-                   <FormDescription>Προτεινόμενο μέγεθος: 800x300 pixels.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormControl>
+                <Input 
+                  type="file" 
+                  accept="image/png, image/jpeg, image/webp" 
+                  name="bannerFile" // Name used in FormData
+                  ref={bannerFileRef}
+                  onChange={handleBannerFileChange}
+                />
+              </FormControl>
+              <FormDescription>Προτεινόμενο μέγεθος: 800x300 pixels. Μέγιστο μέγεθος αρχείου: 2MB.</FormDescription>
+              <FormMessage />
+            </FormItem>
 
             <FormField
               control={form.control}
@@ -263,7 +295,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="tagsInput"
@@ -278,7 +309,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 </FormItem>
               )}
             />
-            
             <FormField
               control={form.control}
               name="contactEmail"
@@ -370,7 +400,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 </FormItem>
               )}
             />
-
           </CardContent>
           <CardFooter className="flex justify-end">
             <Button type="button" variant="outline" onClick={() => router.back()} className="mr-2" disabled={isPending}>
@@ -385,5 +414,3 @@ export function StoreForm({ store, action }: StoreFormProps) {
     </Card>
   );
 }
-
-    
