@@ -43,9 +43,9 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col items-center">
+    <div className="flex min-h-screen flex-col"> {/* Reverted: removed items-center */}
       <Navbar />
-      <main className="flex-grow container py-8 w-full"> {/* Ensure main takes available width if container has padding */}
+      <main className="flex-grow container py-8"> {/* Reverted: removed w-full */}
         {children}
       </main>
       <Footer />
