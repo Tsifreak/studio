@@ -33,12 +33,22 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'storage.googleapis.com',
         port: '',
-        // Example: /your-project-id.appspot.com/**
-        // Use a more specific pathname if possible, e.g., /your-bucket-name/store-logos/**
-        pathname: `/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com/**`,
+        // THIS IS THE LINE THAT NEEDS THE FIX!
+        // It must match your actual bucket name as seen in Google Cloud Storage.
+        pathname: '/cariera-9ba32.firebasestorage.app/**', 
       }
     ],
   },
+  // You might also have experimental.allowedDevOrigins here if you added it earlier
+  // For example:
+  /*
+  experimental: {
+    allowedDevOrigins: [
+      'https://6000-firebase-studio-1747039846284.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev',
+      // Add any other origins your dev environment might use
+    ],
+  },
+  */
 };
 
 export default nextConfig;

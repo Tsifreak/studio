@@ -16,7 +16,7 @@ if (!admin.apps.length) {
     }
     admin.initializeApp({
       credential: admin.credential.applicationDefault(),
-      storageBucket: `${projectId}.appspot.com`
+      storageBucket: "cariera-9ba32.firebasestorage.app"
     });
     console.log("[firebase-admin] Firebase Admin SDK initialized successfully.");
   } catch (error: any) {

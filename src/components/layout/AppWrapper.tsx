@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect } from 'react';
@@ -13,27 +14,20 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const root = window.document.documentElement;
-      const isDarkMode = user?.preferences?.darkMode;
+      const userPref = user?.preferences?.darkMode;
 
-      if (isDarkMode) {
-        root.classList.add('dark');
-      } else {
-        // Only remove 'dark' if explicitly false, not if undefined (during initial load)
-        // The initial load effect below handles the undefined case based on localStorage
-        if (isDarkMode === false) {
+      if (typeof userPref === 'boolean') { // Only act if preference is explicitly set
+        if (userPref) {
+          root.classList.add('dark');
+        } else {
           root.classList.remove('dark');
         }
-      }
-
-      // Persist to localStorage when the user object is available and has a preference
-      if (typeof user?.preferences?.darkMode !== 'undefined') {
-          localStorage.setItem('darkMode', JSON.stringify(user.preferences.darkMode));
+        localStorage.setItem('darkMode', JSON.stringify(userPref));
       }
     }
-  }, [user?.preferences?.darkMode]);
+  }, [user]); // Re-run when the user object changes
 
   // Effect to apply theme from localStorage on initial client-side load
-  // This runs once and helps prevent FOUC.
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedDarkMode = localStorage.getItem('darkMode');
@@ -45,15 +39,13 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
           root.classList.remove('dark');
         }
       }
-      // else, if nothing in localStorage, it defaults to light theme (no 'dark' class)
-      // until the AuthContext provides the user preference.
     }
-  }, []); // Empty dependency array: runs only once on mount
+  }, []);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col items-center">
       <Navbar />
-      <main className="flex-grow container py-8">
+      <main className="flex-grow container py-8 w-full"> {/* Ensure main takes available width if container has padding */}
         {children}
       </main>
       <Footer />
