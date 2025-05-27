@@ -106,6 +106,12 @@ const storeDbSchema = z.object({
   }, { message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}` }),
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
+  latitude: z.string().refine(val => !isNaN(parseFloat(val)), {
+    message: "Μη έγκυρο γεωγραφικό πλάτος",
+  }),
+  longitude: z.string().refine(val => !isNaN(parseFloat(val)), {
+    message: "Μη έγκυρο γεωγραφικό μήκος",
+  }),
   address: z.string().optional(),
   ownerId: z.string().optional().or(z.literal('')), 
   servicesJson: z.string().optional().refine((val) => {
@@ -220,6 +226,10 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     const storeDataForDB: Omit<Store, 'id'> = {
       ...storeCoreData,
       rating: 0,
+      location: {
+        latitude: parseFloat(validatedFields.data.latitude),
+        longitude: parseFloat(validatedFields.data.longitude),
+      },
       categories: categories,
       tags: tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
       features: [], 
@@ -326,6 +336,10 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   try {
     const { servicesJson, availabilityJson, tagsInput, categoriesInput, ...dataToUpdate } = validatedFields.data;
     const firestoreUpdatePayload: { [key: string]: any } = { ...dataToUpdate };
+    firestoreUpdatePayload.location = {
+      latitude: parseFloat(validatedFields.data.latitude),
+      longitude: parseFloat(validatedFields.data.longitude),
+    };
 
     if (tagsInput !== undefined) {
       firestoreUpdatePayload.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);

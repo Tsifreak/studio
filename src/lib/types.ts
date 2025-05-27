@@ -1,4 +1,4 @@
-
+import type * as admin from 'firebase-admin';
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Review {
@@ -170,7 +170,11 @@ export interface Store {
   address?: string;
   ownerId?: string | null; 
   services: Service[]; 
-  availability: AvailabilitySlot[]; 
+  availability: AvailabilitySlot[];
+  location: {
+    latitude: number;
+    longitude: number;
+  }; 
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
