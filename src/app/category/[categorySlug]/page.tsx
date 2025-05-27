@@ -1,13 +1,12 @@
 
 import { getAllStoresFromDB } from '@/lib/storeService';
 import type { Store, StoreCategory } from '@/lib/types';
-import { AppCategories } from '@/lib/types'; // Import AppCategories
+import { AppCategories } from '@/lib/types'; 
 import { StoreCard } from '@/components/store/StoreCard';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import type { Metadata } from 'next';
-// import { notFound } from 'next/navigation'; // notFound seems not used, commenting out
 
 interface CategoryPageProps {
   params: { categorySlug: string };
@@ -52,7 +51,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   const translatedCategoryName = categoryInfo.translatedName;
   const allStores = await getAllStoresFromDB();
-  const storesInCategory = allStores.filter(store => store.category === categorySlug);
+  // Filter stores to include those that have the current categorySlug in their 'categories' array
+  const storesInCategory = allStores.filter(store => store.categories && store.categories.includes(categorySlug));
 
   return (
     <div className="space-y-8">

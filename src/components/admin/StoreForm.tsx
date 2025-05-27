@@ -17,7 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { SerializedStore, Service, AvailabilitySlot } from '@/lib/types'; 
+import type { SerializedStore } from '@/lib/types'; 
+import { StoreCategoriesSlugs, AppCategories } from '@/lib/types'; // Import for category validation
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useActionState, useState, useRef } from "react"; 
@@ -47,12 +48,16 @@ const availabilitySlotSchema = z.object({
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
 
-// Client-side schema for form fields, excluding logoUrl and bannerUrl which are handled by file inputs
 const clientStoreFormSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
   description: z.string().min(10, { message: "Η περιγραφή πρέπει να έχει τουλάχιστον 10 χαρακτήρες." }),
   longDescription: z.string().optional(),
   tagsInput: z.string().optional(), 
+  categoriesInput: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true; // Allow empty or undefined
+    const slugs = val.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
+  }, { message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}` }),
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
   address: z.string().optional(),
@@ -77,9 +82,6 @@ const clientStoreFormSchema = z.object({
       return false;
     }
   }, { message: "Μη έγκυρο JSON για τη διαθεσιμότητα ή δεν συμφωνεί με το σχήμα." }),
-  // Fields for actual file objects - not part of Zod validation for form values directly
-  // but will be appended to FormData. Validation for files (type, size) happens in server action.
-  // existingLogoUrl and existingBannerUrl are for hidden inputs if store exists
   existingLogoUrl: z.string().optional(),
   existingBannerUrl: z.string().optional(),
 });
@@ -111,6 +113,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           description: store.description,
           longDescription: store.longDescription || '',
           tagsInput: store.tags?.join(', ') || '',
+          categoriesInput: store.categories?.join(', ') || '', // For multiple categories
           contactEmail: store.contactEmail || '',
           websiteUrl: store.websiteUrl || '',
           address: store.address || '',
@@ -129,6 +132,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
           description: "",
           longDescription: "",
           tagsInput: "",
+          categoriesInput: "", // For multiple categories
           contactEmail: "",
           websiteUrl: "",
           address: "",
@@ -176,7 +180,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
     if (file) {
       setLogoPreview(URL.createObjectURL(file));
     } else {
-      setLogoPreview(store?.logoUrl || null); // Revert to original if file is cleared
+      setLogoPreview(store?.logoUrl || null); 
     }
   };
 
@@ -185,7 +189,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
     if (file) {
       setBannerPreview(URL.createObjectURL(file));
     } else {
-      setBannerPreview(store?.bannerUrl || null); // Revert to original
+      setBannerPreview(store?.bannerUrl || null); 
     }
   };
 
@@ -199,6 +203,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
     { dayOfWeek: 2, startTime: "09:00", endTime: "17:00" },
     { dayOfWeek: 3, startTime: "09:00", endTime: "17:00", lunchBreakStartTime: "12:30", lunchBreakEndTime: "13:00" },
   ], null, 2);
+
+  const availableCategorySlugs = AppCategories.map(cat => cat.slug).join(', ');
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
@@ -240,7 +246,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <Input 
                   type="file" 
                   accept="image/png, image/jpeg, image/webp" 
-                  name="logoFile" // Name used in FormData
+                  name="logoFile"
                   ref={logoFileRef}
                   onChange={handleLogoFileChange}
                 />
@@ -260,7 +266,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <Input 
                   type="file" 
                   accept="image/png, image/jpeg, image/webp" 
-                  name="bannerFile" // Name used in FormData
+                  name="bannerFile" 
                   ref={bannerFileRef}
                   onChange={handleBannerFileChange}
                 />
@@ -291,6 +297,20 @@ export function StoreForm({ store, action }: StoreFormProps) {
                   <FormControl>
                     <Textarea placeholder="Μια πιο λεπτομερής περιγραφή των υπηρεσιών και της φιλοσοφίας του κέντρου." {...field} rows={6} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="categoriesInput"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Κατηγορίες</FormLabel>
+                  <FormControl>
+                    <Input placeholder="π.χ. mechanic, electrician" {...field} />
+                  </FormControl>
+                  <FormDescription>Καταχωρίστε κατηγορίες χωρισμένες με κόμμα. Διαθέσιμες κατηγορίες: {availableCategorySlugs}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

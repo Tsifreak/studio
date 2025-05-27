@@ -3,17 +3,15 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { Store, StoreCategory, StoreFormData, Feature, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
-import { AppCategories } from '@/lib/types'; 
-import { adminDb, adminStorage, admin } from '@/lib/firebase-admin'; // Admin SDK for DB and Storage
-// Removed client SDK import: import { getStoreByIdFromDB } from '@/lib/storeService'; 
+import type { Store, StoreCategory, StoreFormData, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
+import { AppCategories, StoreCategoriesSlugs } from '@/lib/types'; 
+import { adminDb, adminStorage, admin } from '@/lib/firebase-admin';
 
 const STORE_COLLECTION = 'StoreInfo';
 const MAX_FILE_SIZE_MB = 2;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-// Helper function to upload file to Firebase Storage using Admin SDK
 async function uploadFileToStorage(file: File, destinationFolder: string): Promise<string> {
   if (!ALLOWED_FILE_TYPES.includes(file.type)) {
     throw new Error(`Μη υποστηριζόμενος τύπος αρχείου: ${file.type}. Επιτρέπονται: JPEG, PNG, WebP.`);
@@ -22,7 +20,18 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
     throw new Error(`Το αρχείο είναι πολύ μεγάλο (${(file.size / 1024 / 1024).toFixed(2)}MB). Μέγιστο επιτρεπτό μέγεθος: ${MAX_FILE_SIZE_MB}MB.`);
   }
 
-  const bucket = adminStorage.bucket(); // Default bucket
+  if (!adminStorage) {
+    console.error("[uploadFileToStorage] Firebase Admin Storage is not initialized.");
+    throw new Error("Η υπηρεσία αποθήκευσης αρχείων δεν είναι διαθέσιμη.");
+  }
+  const bucket = adminStorage.bucket();
+  if (!bucket) {
+      console.error("[uploadFileToStorage] Default bucket not available in Admin Storage.");
+      throw new Error("Ο προεπιλεγμένος χώρος αποθήκευσης δεν είναι διαθέσιμος.");
+  }
+  console.log(`[uploadFileToStorage] Attempting to use bucket: '${bucket.name}'`);
+
+
   const fileName = `${destinationFolder}/${Date.now()}-${Math.random().toString(36).substring(2,10)}-${file.name.replace(/\s+/g, '_')}`;
   const blob = bucket.file(fileName);
   
@@ -30,23 +39,17 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
     metadata: {
       contentType: file.type,
     },
-    public: true, // Make the file publicly readable
+    public: true, 
   });
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
   return new Promise((resolve, reject) => {
     blobStream.on('error', (err) => {
-      console.error(`[uploadFileToStorage] Error uploading to GCS:`, err);
+      console.error(`[uploadFileToStorage] Error uploading to GCS (Bucket: ${bucket.name}, File: ${fileName}):`, err);
       reject(new Error(`Σφάλμα κατά το ανέβασμα του αρχείου: ${err.message}`));
     });
     blobStream.on('finish', async () => {
-      // The file is now public, construct the URL
-      // Note: For GCS, publicUrl might need to be constructed carefully or by making the object public
-      // and using the standard format: `https://storage.googleapis.com/[BUCKET_NAME]/[OBJECT_NAME]`
-      // For simplicity, assuming setPublic: true and then using standard URL format is okay.
-      // Or, ensure getPublicUrl() is available and works as expected with your bucket permissions.
-      // await blob.makePublic(); // Ensure it's public if createWriteStream doesn't guarantee it
       const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
       console.log(`[uploadFileToStorage] File uploaded to ${publicUrl}`);
       resolve(publicUrl);
@@ -55,8 +58,6 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
   });
 }
 
-
-// Helper function to convert Store to SerializedStore for client components
 function serializeStoreForClient(store: Store): SerializedStore {
   return {
     ...store,
@@ -66,6 +67,7 @@ function serializeStoreForClient(store: Store): SerializedStore {
         description: feature.description,
         icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
     })),
+    categories: store.categories || [], // Ensure categories is an array
     services: store.services || [],
     availability: store.availability || [],
   };
@@ -90,7 +92,6 @@ const availabilitySlotSchema = z.object({
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
 
-// This Zod schema is for data *after* file uploads are processed and URLs are determined.
 const storeDbSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
   logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }),
@@ -98,6 +99,11 @@ const storeDbSchema = z.object({
   description: z.string().min(10, { message: "Η περιγραφή πρέπει να έχει τουλάχιστον 10 χαρακτήρες." }),
   longDescription: z.string().optional(),
   tagsInput: z.string().optional(),
+  categoriesInput: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true; // Allow empty or undefined
+    const slugs = val.split(',').map(s => s.trim()).filter(Boolean);
+    return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
+  }, { message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}` }),
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
   address: z.string().optional(),
@@ -105,6 +111,7 @@ const storeDbSchema = z.object({
   servicesJson: z.string().optional().refine((val) => {
     if (!val || val.trim() === "") return true; 
     try {
+      JSON.parse(val); // Check if valid JSON first
       const parsed = JSON.parse(val);
       servicesArraySchema.parse(parsed);
       return true;
@@ -115,6 +122,7 @@ const storeDbSchema = z.object({
   availabilityJson: z.string().optional().refine((val) => {
     if (!val || val.trim() === "") return true;
     try {
+      JSON.parse(val); // Check if valid JSON first
       const parsed = JSON.parse(val);
       availabilityArraySchema.parse(parsed);
       return true;
@@ -127,6 +135,11 @@ const storeDbSchema = z.object({
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
   console.log("[addStoreAction] Received FormData entries:");
+  if (!adminDb || !adminStorage) {
+    const errorMsg = "Σφάλμα: Το Firebase Admin SDK δεν έχει αρχικοποιηθεί σωστά. Ελέγξτε τα διαπιστευτήρια του service account και τις μεταβλητές περιβάλλοντος.";
+    console.error(`[addStoreAction] ${errorMsg}`);
+    return { success: false, message: errorMsg };
+  }
   const formEntries: { [key: string]: any } = {};
   for (const [key, value] of formData.entries()) {
     formEntries[key] = value;
@@ -141,21 +154,17 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
   try {
     if (logoFile && logoFile.size > 0) {
-      console.log("[addStoreAction] Processing logoFile upload...");
       logoUrlToSave = await uploadFileToStorage(logoFile, 'store-logos');
     } else {
       const storeNameForPlaceholder = formData.get('name') as string || "store";
       logoUrlToSave = `https://placehold.co/100x100.png?text=${encodeURIComponent(storeNameForPlaceholder.substring(0,3))}`;
-      console.log(`[addStoreAction] No logo file provided, using placeholder: ${logoUrlToSave}`);
     }
 
     if (bannerFile && bannerFile.size > 0) {
-      console.log("[addStoreAction] Processing bannerFile upload...");
       bannerUrlToSave = await uploadFileToStorage(bannerFile, 'store-banners');
     } else {
       const storeNameForPlaceholder = formData.get('name') as string || "store";
       bannerUrlToSave = `https://placehold.co/800x300.png?text=${encodeURIComponent(storeNameForPlaceholder)}`;
-      console.log(`[addStoreAction] No banner file provided, using placeholder: ${bannerUrlToSave}`);
     }
   } catch (uploadError: any) {
     console.error("[addStoreAction] File upload error:", uploadError);
@@ -169,6 +178,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     description: formData.get('description') || '',
     longDescription: formData.get('longDescription') ?? undefined, 
     tagsInput: formData.get('tagsInput') ?? undefined,
+    categoriesInput: formData.get('categoriesInput') ?? undefined,
     contactEmail: formData.get('contactEmail') || '',
     websiteUrl: formData.get('websiteUrl') || '',
     address: formData.get('address') ?? undefined,
@@ -185,12 +195,19 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  console.log("[addStoreAction] Zod Validation Successful. Data (with image URLs):", validatedFields.data);
-
+  
   try {
-    const { ownerId, servicesJson, availabilityJson, tagsInput, ...storeCoreData } = validatedFields.data;
+    const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput, ...storeCoreData } = validatedFields.data;
     
-    const defaultCategorySlug = AppCategories.length > 0 ? AppCategories[0].slug : "mechanic";
+    let categories: StoreCategory[] = [];
+    if (categoriesInput) {
+        categories = categoriesInput.split(',').map(s => s.trim()).filter(Boolean) as StoreCategory[];
+    }
+    if (categories.length === 0 && AppCategories.length > 0) {
+        categories.push(AppCategories[0].slug as StoreCategory); // Default to first category if none provided
+    }
+
+
     let services: Service[] = [];
     if (servicesJson) {
       try { services = JSON.parse(servicesJson); } catch (e) { console.warn("Could not parse servicesJson:", e); }
@@ -201,9 +218,9 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     }
 
     const storeDataForDB: Omit<Store, 'id'> = {
-      ...storeCoreData, // name, logoUrl, bannerUrl, description, longDescription, contactEmail, websiteUrl, address
+      ...storeCoreData,
       rating: 0,
-      category: defaultCategorySlug as StoreCategory,
+      categories: categories,
       tags: tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
       features: [], 
       pricingPlans: [],
@@ -220,6 +237,8 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     
     revalidatePath('/admin/stores');
     revalidatePath('/');
+    // Revalidate all category pages (can be broad, consider more targeted revalidation if performance becomes an issue)
+    AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
     revalidatePath(`/stores/${newSerializedStore.id}`);
 
     return { success: true, message: `Το κέντρο "${newSerializedStore.name}" προστέθηκε επιτυχώς.`, store: newSerializedStore };
@@ -230,61 +249,63 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 }
 
 export async function updateStoreAction(storeId: string, prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
+  if (!adminDb || !adminStorage) {
+    const errorMsg = "Σφάλμα: Το Firebase Admin SDK δεν έχει αρχικοποιηθεί σωστά. Ελέγξτε τα διαπιστευτήρια του service account και τις μεταβλητές περιβάλλοντος.";
+    console.error(`[updateStoreAction] ${errorMsg}`);
+    return { success: false, message: errorMsg };
+  }
   console.log(`[updateStoreAction] Received request for storeId: ${storeId}`);
   const formEntries: { [key: string]: any } = {};
   for (const [key, value] of formData.entries()) {
     formEntries[key] = value;
-    console.log(`  ${key}: ${value instanceof File ? `File: ${value.name}, Size: ${value.size}, Type: ${value.type}`: value }`);
   }
+  console.log("[updateStoreAction] FormData entries:", formEntries);
+
 
   const existingStoreDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
   if (!existingStoreDocSnap.exists) {
     console.error(`[updateStoreAction] Store not found with Admin SDK for ID: ${storeId}`);
     return { success: false, message: "Το κέντρο δεν βρέθηκε." };
   }
+  const existingStoreData = existingStoreDocSnap.data();
 
-  let logoUrlToSave: string | undefined = formData.get('existingLogoUrl') as string || undefined;
-  let bannerUrlToSave: string | undefined = formData.get('existingBannerUrl') as string || undefined;
+  let logoUrlToSave: string | undefined = formData.get('existingLogoUrl') as string || existingStoreData?.logoUrl || undefined;
+  let bannerUrlToSave: string | undefined = formData.get('existingBannerUrl') as string || existingStoreData?.bannerUrl || undefined;
+
 
   const logoFile = formData.get('logoFile') as File | null;
   const bannerFile = formData.get('bannerFile') as File | null;
 
   try {
     if (logoFile && logoFile.size > 0) {
-      console.log("[updateStoreAction] Processing logoFile upload...");
       logoUrlToSave = await uploadFileToStorage(logoFile, 'store-logos');
-      // TODO: Delete old logo from storage if new one is uploaded successfully
     }
     
     if (bannerFile && bannerFile.size > 0) {
-      console.log("[updateStoreAction] Processing bannerFile upload...");
       bannerUrlToSave = await uploadFileToStorage(bannerFile, 'store-banners');
-       // TODO: Delete old banner from storage
     }
   } catch (uploadError: any) {
     console.error("[updateStoreAction] File upload error:", uploadError);
     return { success: false, message: uploadError.message || "Σφάλμα κατά το ανέβασμα αρχείου." };
   }
   
-  // Ensure placeholders if URLs become empty and no file was uploaded to replace them
   if (!logoUrlToSave && !(logoFile && logoFile.size > 0)) {
       const storeNameForPlaceholder = formData.get('name') as string || "store";
       logoUrlToSave = `https://placehold.co/100x100.png?text=${encodeURIComponent(storeNameForPlaceholder.substring(0,3))}`;
   }
   if (!bannerUrlToSave && !(bannerFile && bannerFile.size > 0)) {
       const storeNameForPlaceholder = formData.get('name') as string || "store";
-      // bannerUrl can be empty string if user wants to remove it
       bannerUrlToSave = formData.get('bannerUrl') === '' ? '' : `https://placehold.co/800x300.png?text=${encodeURIComponent(storeNameForPlaceholder)}`;
   }
-
 
   const validatedFields = storeDbSchema.safeParse({
     name: formData.get('name') || '',
     logoUrl: logoUrlToSave,
-    bannerUrl: bannerUrlToSave || '', // Banner can be empty string
+    bannerUrl: bannerUrlToSave || '', 
     description: formData.get('description') || '',
     longDescription: formData.get('longDescription') ?? undefined,
     tagsInput: formData.get('tagsInput') ?? undefined,
+    categoriesInput: formData.get('categoriesInput') ?? undefined,
     contactEmail: formData.get('contactEmail') || '',
     websiteUrl: formData.get('websiteUrl') || '',
     address: formData.get('address') ?? undefined,
@@ -301,15 +322,23 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  console.log("[updateStoreAction] Zod Validation successful. Data (with image URLs):", validatedFields.data);
   
   try {
-    const { servicesJson, availabilityJson, tagsInput, ...dataToUpdate } = validatedFields.data;
+    const { servicesJson, availabilityJson, tagsInput, categoriesInput, ...dataToUpdate } = validatedFields.data;
     const firestoreUpdatePayload: { [key: string]: any } = { ...dataToUpdate };
 
     if (tagsInput !== undefined) {
       firestoreUpdatePayload.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
     }
+    if (categoriesInput !== undefined) {
+        const parsedCategories = categoriesInput.split(',').map(s => s.trim()).filter(Boolean) as StoreCategory[];
+        firestoreUpdatePayload.categories = parsedCategories.length > 0 ? parsedCategories : (AppCategories.length > 0 ? [AppCategories[0].slug as StoreCategory] : []);
+    } else {
+        // If categoriesInput is not provided at all, retain existing or set default if it becomes empty
+        const currentCategories = existingStoreData?.categories || [];
+        firestoreUpdatePayload.categories = currentCategories.length > 0 ? currentCategories : (AppCategories.length > 0 ? [AppCategories[0].slug as StoreCategory] : []);
+    }
+
 
     if (dataToUpdate.ownerId === '') {
       firestoreUpdatePayload.ownerId = null;
@@ -326,7 +355,6 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
       catch (e: any) { throw new Error(`Invalid JSON for availability: ${e.message}`); }
     }
     
-    console.log("[updateStoreAction] Calling adminDb.collection(STORE_COLLECTION).doc(storeId).update() with payload:", firestoreUpdatePayload);
     await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload);
     
     const updatedDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
@@ -339,9 +367,9 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         
     revalidatePath('/admin/stores');
     revalidatePath('/');
+    AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
     revalidatePath(`/stores/${storeId}`);
 
-    console.log(`[updateStoreAction] Store "${updatedSerializedStore.name}" updated successfully.`);
     return { success: true, message: `Το κέντρο "${updatedSerializedStore.name}" ενημερώθηκε επιτυχώς.`, store: updatedSerializedStore };
   } catch (error: any) {
     console.error("[updateStoreAction] Error during store update process with Admin SDK:", error);
@@ -352,57 +380,20 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
 }
 
 export async function deleteStoreAction(storeId: string): Promise<{ success: boolean; message: string }> {
+  if (!adminDb) {
+    const errorMsg = "Σφάλμα: Το Firebase Admin SDK δεν έχει αρχικοποιηθεί σωστά.";
+    console.error(`[deleteStoreAction] ${errorMsg}`);
+    return { success: false, message: errorMsg };
+  }
   try {
-    // TODO: Delete associated images from Firebase Storage
     await adminDb.collection(STORE_COLLECTION).doc(storeId).delete();
     revalidatePath('/admin/stores');
     revalidatePath('/');
+    AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
     revalidatePath(`/stores/${storeId}`); 
     return { success: true, message: "Το κέντρο διαγράφηκε επιτυχώς." };
   } catch (error: any) {
     console.error("Error deleting store with Admin SDK:", error);
     return { success: false, message: `Αποτυχία διαγραφής κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message}` };
-  }
-}
-
-const categoryUpdateSchema = z.object({
-  category: z.enum(AppCategories.map(c => c.slug) as [string, ...string[]]),
-});
-
-export async function updateStoreCategoryAction(
-  storeId: string, 
-  newCategory: StoreCategory
-): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> { 
-  const validatedCategory = categoryUpdateSchema.safeParse({ category: newCategory });
-
-  if(!validatedCategory.success) {
-    console.error("[updateStoreCategoryAction] Zod Validation Failed. Errors:", JSON.stringify(validatedCategory.error.flatten().fieldErrors, null, 2));
-    return {
-      success: false,
-      message: "Μη έγκυρη κατηγορία.",
-       errors: validatedCategory.error.flatten().fieldErrors,
-    }
-  }
-  console.log("[updateStoreCategoryAction] Zod Validation Successful. Data:", validatedCategory.data);
-
-  try {
-    await adminDb.collection(STORE_COLLECTION).doc(storeId).update({ category: validatedCategory.data.category });
-    
-    const updatedDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
-     if (!updatedDocSnap.exists) {
-        console.error(`[updateStoreCategoryAction] Store ${storeId} not found after category update.`);
-        return { success: false, message: "Αποτυχία ενημέρωσης κατηγορίας. Το κέντρο δεν βρέθηκε μετά την ενημέρωση." };
-    }
-    const updatedRawStore = { id: updatedDocSnap.id, ...updatedDocSnap.data() } as Store;
-    const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
-    
-    revalidatePath('/admin/stores');
-    revalidatePath('/');
-    revalidatePath(`/stores/${storeId}`);
-
-    return { success: true, message: `Η κατηγορία του κέντρου "${updatedSerializedStore.name}" ενημερώθηκε επιτυχώς.`, store: updatedSerializedStore };
-  } catch (error: any) {
-    console.error("Error updating store category with Admin SDK:", error);
-    return { success: false, message: `Αποτυχία ενημέρωσης κατηγορίας. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message}` };
   }
 }

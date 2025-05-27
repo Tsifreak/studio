@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit3, Trash2, Eye, ShieldAlert, Home } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Eye, ShieldAlert, Home, Tag } from 'lucide-react';
 import { getAllStoresFromDB } from '@/lib/storeService'; 
 import type { Store, StoreCategory } from '@/lib/types';
-import { AppCategories } from '@/lib/types'; // Import AppCategories
+import { AppCategories } from '@/lib/types'; 
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,12 +20,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
-import { deleteStoreAction, updateStoreCategoryAction } from '../actions'; 
+import { deleteStoreAction } from '../actions'; 
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge'; // Import Badge for displaying categories
 
 export default function AdminStoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -76,26 +75,10 @@ export default function AdminStoresPage() {
     });
   };
 
-  const handleCategoryChange = async (storeId: string, newCategorySlug: StoreCategory) => {
-    startTransition(async () => {
-        const result = await updateStoreCategoryAction(storeId, newCategorySlug);
-        if (result.success && result.store) {
-            toast({
-                title: "Επιτυχής Ενημέρωση Κατηγορίας",
-                description: result.message,
-            });
-            await fetchStores();
-        } else {
-            toast({
-                title: "Σφάλμα Ενημέρωσης Κατηγορίας",
-                description: result.message || "Άγνωστο σφάλμα.",
-                variant: "destructive",
-            });
-            await fetchStores();
-        }
-    });
+  const getCategoryNames = (categorySlugs: StoreCategory[]): string => {
+    if (!categorySlugs || categorySlugs.length === 0) return 'Καμία';
+    return categorySlugs.map(slug => AppCategories.find(cat => cat.slug === slug)?.translatedName || slug).join(', ');
   };
-
 
   if (isLoading) {
     return (
@@ -169,7 +152,7 @@ export default function AdminStoresPage() {
       <Card>
         <CardHeader>
           <CardTitle>Λίστα Κέντρων ({stores.length})</CardTitle>
-          <CardDescription>Τα τρέχοντα κέντρα εξυπηρέτησης στην πλατφόρμα. Η κατηγορία μπορεί να αλλάξει απευθείας από αυτή τη λίστα.</CardDescription>
+          <CardDescription>Τα τρέχοντα κέντρα εξυπηρέτησης στην πλατφόρμα.</CardDescription>
         </CardHeader>
         <CardContent>
           {stores.length > 0 ? (
@@ -177,7 +160,7 @@ export default function AdminStoresPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Όνομα Κέντρου</TableHead>
-                  <TableHead className="w-[250px]">Κατηγορία</TableHead>
+                  <TableHead className="w-[300px]">Κατηγορίες</TableHead>
                   <TableHead className="text-right">Ενέργειες</TableHead>
                 </TableRow>
               </TableHeader>
@@ -186,22 +169,17 @@ export default function AdminStoresPage() {
                   <TableRow key={store.id}>
                     <TableCell className="font-medium">{store.name}</TableCell>
                     <TableCell>
-                      <Select
-                        value={store.category}
-                        onValueChange={(newCategorySlug) => handleCategoryChange(store.id, newCategorySlug as StoreCategory)}
-                        disabled={isPending}
-                      >
-                        <SelectTrigger className="w-full h-9">
-                          <SelectValue placeholder="Επιλέξτε κατηγορία" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {AppCategories.map((catInfo) => (
-                            <SelectItem key={catInfo.slug} value={catInfo.slug}>
-                              {catInfo.translatedName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex flex-wrap gap-1">
+                        {store.categories && store.categories.length > 0 ? (
+                          store.categories.map(catSlug => (
+                            <Badge key={catSlug} variant="secondary" className="text-xs">
+                              {AppCategories.find(c => c.slug === catSlug)?.translatedName || catSlug}
+                            </Badge>
+                          ))
+                        ) : (
+                          <Badge variant="outline" className="text-xs">Καμία</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" asChild title="Προβολή">
@@ -209,7 +187,7 @@ export default function AdminStoresPage() {
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
-                      <Button variant="ghost" size="icon" asChild title="Επεξεργασία Λοιπών Στοιχείων">
+                      <Button variant="ghost" size="icon" asChild title="Επεξεργασία Στοιχείων">
                         <Link href={`/admin/stores/edit/${store.id}`}>
                           <Edit3 className="h-4 w-4" />
                         </Link>

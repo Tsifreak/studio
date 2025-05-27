@@ -7,7 +7,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import type { Store, Feature, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
+import type { Store, Feature, SerializedStore, SerializedFeature, StoreCategory } from '@/lib/types';
 
 interface EditStorePageProps {
   params: { storeId: string };
@@ -31,6 +31,11 @@ export default async function EditStorePage({ params }: EditStorePageProps) {
     notFound(); 
   }
   
+  // Ensure categories is an array, even if it's undefined or null in Firestore
+  const categoriesForForm: StoreCategory[] = storeData.categories && Array.isArray(storeData.categories) 
+    ? storeData.categories 
+    : [];
+
   const storeForForm: SerializedStore = {
     ...storeData,
     features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => {
@@ -42,8 +47,9 @@ export default async function EditStorePage({ params }: EditStorePageProps) {
         icon: iconName,
       };
     }),
-    services: storeData.services || [], // Ensure services are passed
-    availability: storeData.availability || [], // Ensure availability is passed
+    categories: categoriesForForm, // Pass the processed categories array
+    services: storeData.services || [],
+    availability: storeData.availability || [],
   };
 
   const updateStoreActionWithId = updateStoreAction.bind(null, params.storeId);

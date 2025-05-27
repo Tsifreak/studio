@@ -86,11 +86,12 @@ export const AppCategories: AppCategoryInfo[] = [
   }
 ];
 
-export const StoreCategories = AppCategories.map(cat => cat.slug) as readonly string[];
+// StoreCategories is now just an array of slugs, not for enum-like direct usage in single-selects as much.
+export const StoreCategoriesSlugs = AppCategories.map(cat => cat.slug) as readonly string[];
 export const TranslatedStoreCategories = AppCategories.map(cat => cat.translatedName) as readonly string[];
 
 
-export type StoreCategory = typeof StoreCategories[number];
+export type StoreCategory = typeof StoreCategoriesSlugs[number];
 
 // New types for Booking System
 export interface Service {
@@ -158,7 +159,7 @@ export interface Store {
   description: string;
   longDescription?: string;
   rating: number; 
-  category: StoreCategory;
+  categories: StoreCategory[]; // Changed from category: StoreCategory
   tags?: string[];
   pricingPlans: PricingPlan[];
   features: Feature[];
@@ -176,11 +177,13 @@ export interface SerializedFeature extends Omit<Feature, 'icon'> {
   icon?: string; 
 }
 
-export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability'> {
+// SerializedStore needs to reflect the change from single category to multiple categories
+export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability' | 'categories'> {
   features: SerializedFeature[];
   reviews: Review[]; 
   services: Service[]; 
   availability: AvailabilitySlot[]; 
+  categories: StoreCategory[]; // Changed from category: StoreCategory
 }
 
 export interface UserPreferences {
@@ -224,27 +227,24 @@ export interface QueryFormData {
   userAvatarUrl?: string; 
 }
 
-// This FormData type is for the client-side StoreForm and what it sends.
-// The server-side action will then process file uploads from this data.
 export interface StoreFormData {
   name: string;
-  // logoUrl and bannerUrl are now primarily handled by server after upload
-  logoUrl?: string; // Can hold existing URL for display or be undefined if new file
-  bannerUrl?: string; // Can hold existing URL for display or be undefined if new file
+  logoUrl?: string; 
+  bannerUrl?: string; 
   description: string;
   longDescription?: string;
   tagsInput?: string; 
+  categoriesInput?: string; // New field for multiple categories
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
   ownerId?: string; 
   servicesJson?: string; 
   availabilityJson?: string;
-  // These fields will be present in FormData if files are selected
   logoFile?: File | null;
   bannerFile?: File | null;
-  existingLogoUrl?: string | null; // To track current URL during edit
-  existingBannerUrl?: string | null; // To track current URL during edit
+  existingLogoUrl?: string | null; 
+  existingBannerUrl?: string | null; 
 }
 
 export interface ReviewFormData {
@@ -287,14 +287,11 @@ export interface ChatMessageFormData {
 
 export type BookingStatus = Booking['status'];
 
-// Add admin import for Firestore Timestamp if not already present
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
       NEXT_PUBLIC_FIREBASE_PROJECT_ID: string;
+      FIREBASE_STORAGE_BUCKET?: string;
     }
   }
-  // This is to allow File type to be recognized from 'buffer' if needed on server
-  // For FormData handling, native File type in newer Node is preferred.
-  // interface File extends Blob {} 
 }
