@@ -20,6 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { deleteStoreAction } from '../actions'; 
@@ -75,7 +76,7 @@ export default function AdminStoresPage() {
     });
   };
 
-  const getCategoryNames = (categorySlugs: StoreCategory[]): string => {
+  const getCategoryNames = (categorySlugs: StoreCategory[] | undefined): string => {
     if (!categorySlugs || categorySlugs.length === 0) return 'Καμία';
     return categorySlugs.map(slug => AppCategories.find(cat => cat.slug === slug)?.translatedName || slug).join(', ');
   };
@@ -240,3 +241,4 @@ export default function AdminStoresPage() {
     </div>
   );
 }
+
