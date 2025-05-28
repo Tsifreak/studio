@@ -13,6 +13,10 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 async function uploadFileToStorage(file: File, destinationFolder: string): Promise<string> {
+  if (!adminStorage) {
+    console.error("[uploadFileToStorage] Firebase Admin Storage is not initialized.");
+    throw new Error("Η υπηρεσία αποθήκευσης αρχείων δεν είναι διαθέσιμη.");
+  }
   if (!ALLOWED_FILE_TYPES.includes(file.type)) {
     throw new Error(`Μη υποστηριζόμενος τύπος αρχείου: ${file.type}. Επιτρέπονται: JPEG, PNG, WebP.`);
   }
@@ -20,10 +24,6 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
     throw new Error(`Το αρχείο είναι πολύ μεγάλο (${(file.size / 1024 / 1024).toFixed(2)}MB). Μέγιστο επιτρεπτό μέγεθος: ${MAX_FILE_SIZE_MB}MB.`);
   }
 
-  if (!adminStorage) {
-    console.error("[uploadFileToStorage] Firebase Admin Storage is not initialized.");
-    throw new Error("Η υπηρεσία αποθήκευσης αρχείων δεν είναι διαθέσιμη.");
-  }
   const bucket = adminStorage.bucket();
   if (!bucket) {
       console.error("[uploadFileToStorage] Default bucket not available in Admin Storage.");
@@ -67,7 +67,7 @@ function serializeStoreForClient(store: Store): SerializedStore {
         description: feature.description,
         icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
     })),
-    categories: store.categories || [], // Ensure categories is an array
+    categories: store.categories || [], 
     services: store.services || [],
     availability: store.availability || [],
   };
@@ -94,30 +94,35 @@ const availabilityArraySchema = z.array(availabilitySlotSchema);
 
 const storeDbSchema = z.object({
   name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
-  logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }),
+  logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }).optional().or(z.literal('')),
   bannerUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το banner." }).optional().or(z.literal('')),
   description: z.string().min(10, { message: "Η περιγραφή πρέπει να έχει τουλάχιστον 10 χαρακτήρες." }),
   longDescription: z.string().optional(),
   tagsInput: z.string().optional(),
   categoriesInput: z.string().optional().refine((val) => {
-    if (!val || val.trim() === "") return true; // Allow empty or undefined
-    const slugs = val.split(',').map(s => s.trim()).filter(Boolean);
+    if (!val || val.trim() === "") return true; 
+    const slugs = val.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
   }, { message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}` }),
   contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
   websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
-  latitude: z.string().refine(val => !isNaN(parseFloat(val)), {
-    message: "Μη έγκυρο γεωγραφικό πλάτος",
-  }),
-  longitude: z.string().refine(val => !isNaN(parseFloat(val)), {
-    message: "Μη έγκυρο γεωγραφικό μήκος",
-  }),
+  latitude: z.string()
+    .min(1, { message: "Το Γεωγραφικό Πλάτος είναι υποχρεωτικό." })
+    .refine(val => {
+        const num = parseFloat(val);
+        return !isNaN(num) && num >= -90 && num <= 90;
+    }, { message: "Εισάγετε ένα έγκυρο γεωγραφικό πλάτος (-90 έως 90)." }),
+  longitude: z.string()
+    .min(1, { message: "Το Γεωγραφικό Μήκος είναι υποχρεωτικό." })
+    .refine(val => {
+        const num = parseFloat(val);
+        return !isNaN(num) && num >= -180 && num <= 180;
+    }, { message: "Εισάγετε ένα έγκυρο γεωγραφικό μήκος (-180 έως 180)." }),
   address: z.string().optional(),
   ownerId: z.string().optional().or(z.literal('')), 
   servicesJson: z.string().optional().refine((val) => {
     if (!val || val.trim() === "") return true; 
     try {
-      JSON.parse(val); // Check if valid JSON first
       const parsed = JSON.parse(val);
       servicesArraySchema.parse(parsed);
       return true;
@@ -128,7 +133,6 @@ const storeDbSchema = z.object({
   availabilityJson: z.string().optional().refine((val) => {
     if (!val || val.trim() === "") return true;
     try {
-      JSON.parse(val); // Check if valid JSON first
       const parsed = JSON.parse(val);
       availabilityArraySchema.parse(parsed);
       return true;
@@ -140,12 +144,12 @@ const storeDbSchema = z.object({
 
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
-  console.log("[addStoreAction] Received FormData entries:");
   if (!adminDb || !adminStorage) {
     const errorMsg = "Σφάλμα: Το Firebase Admin SDK δεν έχει αρχικοποιηθεί σωστά. Ελέγξτε τα διαπιστευτήρια του service account και τις μεταβλητές περιβάλλοντος.";
     console.error(`[addStoreAction] ${errorMsg}`);
     return { success: false, message: errorMsg };
   }
+  console.log("[addStoreAction] Received FormData entries:");
   const formEntries: { [key: string]: any } = {};
   for (const [key, value] of formData.entries()) {
     formEntries[key] = value;
@@ -176,21 +180,23 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     console.error("[addStoreAction] File upload error:", uploadError);
     return { success: false, message: uploadError.message || "Σφάλμα κατά το ανέβασμα αρχείου." };
   }
-  
+
   const validatedFields = storeDbSchema.safeParse({
-    name: formData.get('name') || '',
-    logoUrl: logoUrlToSave, 
-    bannerUrl: bannerUrlToSave || '', 
-    description: formData.get('description') || '',
-    longDescription: formData.get('longDescription') ?? undefined, 
-    tagsInput: formData.get('tagsInput') ?? undefined,
-    categoriesInput: formData.get('categoriesInput') ?? undefined,
-    contactEmail: formData.get('contactEmail') || '',
-    websiteUrl: formData.get('websiteUrl') || '',
-    address: formData.get('address') ?? undefined,
-    ownerId: formData.get('ownerId') || '',
-    servicesJson: formData.get('servicesJson') || '',
-    availabilityJson: formData.get('availabilityJson') || '',
+    name: formData.get('name') as string,
+    logoUrl: logoUrlToSave,
+    bannerUrl: bannerUrlToSave,
+    description: formData.get('description') as string,
+    longDescription: formData.get('longDescription') as string || undefined,
+    tagsInput: formData.get('tagsInput') as string || undefined,
+    categoriesInput: formData.get('categoriesInput') as string || undefined,
+    contactEmail: formData.get('contactEmail') as string || '',
+    websiteUrl: formData.get('websiteUrl') as string || '',
+    latitude: formData.get('latitude') as string, 
+    longitude: formData.get('longitude') as string, 
+    address: formData.get('address') as string || undefined,
+    ownerId: formData.get('ownerId') as string || '',
+    servicesJson: formData.get('servicesJson') as string || '[]',
+    availabilityJson: formData.get('availabilityJson') as string || '[]',
   });
 
   if (!validatedFields.success) {
@@ -201,18 +207,14 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  
+
   try {
-    const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput, ...storeCoreData } = validatedFields.data;
-    
+    const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput, latitude, longitude, ...storeCoreData } = validatedFields.data;
+
     let categories: StoreCategory[] = [];
     if (categoriesInput) {
-        categories = categoriesInput.split(',').map(s => s.trim()).filter(Boolean) as StoreCategory[];
+        categories = categoriesInput.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) as StoreCategory[];
     }
-    if (categories.length === 0 && AppCategories.length > 0) {
-        categories.push(AppCategories[0].slug as StoreCategory); // Default to first category if none provided
-    }
-
 
     let services: Service[] = [];
     if (servicesJson) {
@@ -225,29 +227,28 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
     const storeDataForDB: Omit<Store, 'id'> = {
       ...storeCoreData,
-      rating: 0,
       location: {
-        latitude: parseFloat(validatedFields.data.latitude),
-        longitude: parseFloat(validatedFields.data.longitude),
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
       },
       categories: categories,
       tags: tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
       features: [], 
       pricingPlans: [],
-      reviews: [],
-      products: [],
+      reviews: [], 
+      products: [], 
       ownerId: ownerId || null,
+      rating: 0,
       services: services,
       availability: availability,
     };
-    
+
     const docRef = await adminDb.collection(STORE_COLLECTION).add(storeDataForDB);
     const newRawStore: Store = { ...storeDataForDB, id: docRef.id };
     const newSerializedStore = serializeStoreForClient(newRawStore);
-    
+
     revalidatePath('/admin/stores');
     revalidatePath('/');
-    // Revalidate all category pages (can be broad, consider more targeted revalidation if performance becomes an issue)
     AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
     revalidatePath(`/stores/${newSerializedStore.id}`);
 
@@ -257,6 +258,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     return { success: false, message: `Αποτυχία προσθήκης κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message}` };
   }
 }
+
 
 export async function updateStoreAction(storeId: string, prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
   if (!adminDb || !adminStorage) {
@@ -282,7 +284,6 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   let logoUrlToSave: string | undefined = formData.get('existingLogoUrl') as string || existingStoreData?.logoUrl || undefined;
   let bannerUrlToSave: string | undefined = formData.get('existingBannerUrl') as string || existingStoreData?.bannerUrl || undefined;
 
-
   const logoFile = formData.get('logoFile') as File | null;
   const bannerFile = formData.get('bannerFile') as File | null;
 
@@ -303,25 +304,30 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
       const storeNameForPlaceholder = formData.get('name') as string || "store";
       logoUrlToSave = `https://placehold.co/100x100.png?text=${encodeURIComponent(storeNameForPlaceholder.substring(0,3))}`;
   }
-  if (!bannerUrlToSave && !(bannerFile && bannerFile.size > 0)) {
-      const storeNameForPlaceholder = formData.get('name') as string || "store";
-      bannerUrlToSave = formData.get('bannerUrl') === '' ? '' : `https://placehold.co/800x300.png?text=${encodeURIComponent(storeNameForPlaceholder)}`;
+  if (!bannerUrlToSave && !(bannerFile && bannerFile.size > 0) && formData.get('bannerUrl') !== '') {
+    const storeNameForPlaceholder = formData.get('name') as string || "store";
+    bannerUrlToSave = `https://placehold.co/800x300.png?text=${encodeURIComponent(storeNameForPlaceholder)}`;
+  } else if (formData.get('bannerUrl') === '') {
+    bannerUrlToSave = ''; // Explicitly clear banner if form field is empty
   }
 
+
   const validatedFields = storeDbSchema.safeParse({
-    name: formData.get('name') || '',
+    name: formData.get('name') as string,
     logoUrl: logoUrlToSave,
-    bannerUrl: bannerUrlToSave || '', 
-    description: formData.get('description') || '',
-    longDescription: formData.get('longDescription') ?? undefined,
-    tagsInput: formData.get('tagsInput') ?? undefined,
-    categoriesInput: formData.get('categoriesInput') ?? undefined,
-    contactEmail: formData.get('contactEmail') || '',
-    websiteUrl: formData.get('websiteUrl') || '',
-    address: formData.get('address') ?? undefined,
-    ownerId: formData.get('ownerId') || '',
-    servicesJson: formData.get('servicesJson') || '',
-    availabilityJson: formData.get('availabilityJson') || '',
+    bannerUrl: bannerUrlToSave, 
+    description: formData.get('description') as string,
+    longDescription: formData.get('longDescription') as string || undefined,
+    tagsInput: formData.get('tagsInput') as string || undefined,
+    categoriesInput: formData.get('categoriesInput') as string || undefined,
+    contactEmail: formData.get('contactEmail') as string || '',
+    websiteUrl: formData.get('websiteUrl') as string || '',
+    latitude: formData.get('latitude') as string, 
+    longitude: formData.get('longitude') as string,
+    address: formData.get('address') as string || undefined,
+    ownerId: formData.get('ownerId') as string || '',
+    servicesJson: formData.get('servicesJson') as string || '[]',
+    availabilityJson: formData.get('availabilityJson') as string || '[]',
   });
 
   if (!validatedFields.success) {
@@ -334,25 +340,23 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   }
   
   try {
-    const { servicesJson, availabilityJson, tagsInput, categoriesInput, ...dataToUpdate } = validatedFields.data;
+    const { servicesJson, availabilityJson, tagsInput, categoriesInput, latitude, longitude, ...dataToUpdate } = validatedFields.data;
     const firestoreUpdatePayload: { [key: string]: any } = { ...dataToUpdate };
+    
     firestoreUpdatePayload.location = {
-      latitude: parseFloat(validatedFields.data.latitude),
-      longitude: parseFloat(validatedFields.data.longitude),
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
     };
 
     if (tagsInput !== undefined) {
       firestoreUpdatePayload.tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
     }
     if (categoriesInput !== undefined) {
-        const parsedCategories = categoriesInput.split(',').map(s => s.trim()).filter(Boolean) as StoreCategory[];
-        firestoreUpdatePayload.categories = parsedCategories.length > 0 ? parsedCategories : (AppCategories.length > 0 ? [AppCategories[0].slug as StoreCategory] : []);
+        const parsedCategories = categoriesInput.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) as StoreCategory[];
+        firestoreUpdatePayload.categories = parsedCategories; // Save empty array if no categories selected
     } else {
-        // If categoriesInput is not provided at all, retain existing or set default if it becomes empty
-        const currentCategories = existingStoreData?.categories || [];
-        firestoreUpdatePayload.categories = currentCategories.length > 0 ? currentCategories : (AppCategories.length > 0 ? [AppCategories[0].slug as StoreCategory] : []);
+        firestoreUpdatePayload.categories = existingStoreData?.categories || [];
     }
-
 
     if (dataToUpdate.ownerId === '') {
       firestoreUpdatePayload.ownerId = null;
@@ -369,6 +373,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
       catch (e: any) { throw new Error(`Invalid JSON for availability: ${e.message}`); }
     }
     
+    console.log("[updateStoreAction] Payload for Firestore update:", firestoreUpdatePayload);
     await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload);
     
     const updatedDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();

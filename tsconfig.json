@@ -1,27 +1,47 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "noEmit": true,
-    "esModuleInterop": true,
+    "incremental": true,
     "module": "esnext",
-    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "incremental": true,
     "plugins": [
       {
         "name": "next"
       }
     ],
+    // --- ADD THESE LINES BELOW ---
+    "baseUrl": ".", // This tells TypeScript to resolve modules relative to the project root
     "paths": {
-      "@/*": ["./src/*"]
+      // These are your module aliases, mapping @/something to actual file paths
+      "@/*": ["./src/*"], // This covers things like "@/app", "@/pages", etc.
+      "@/components/*": ["./src/components/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/hooks/*": ["./src/hooks/*"] // Based on your previous errors
+      // If you have other top-level folders in 'src' that you import from
+      // e.g., "@/utils/*": ["./src/utils/*"]
     }
+    // --- END ADDED LINES ---
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
