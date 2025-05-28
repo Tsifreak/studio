@@ -273,6 +273,9 @@ export function StoreForm({ store, action }: StoreFormProps) {
       </CardHeader>
 
       <Form {...form}>
+      <pre className="text-xs bg-muted p-2 rounded">
+    {JSON.stringify(form.watch("categoriesInput"), null, 2)}
+  </pre>
          <form action={formAction} className="space-y-6">
            <input type="hidden" {...form.register("existingLogoUrl")} />
            <input type="hidden" {...form.register("existingBannerUrl")} />
