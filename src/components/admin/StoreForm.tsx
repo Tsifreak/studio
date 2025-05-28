@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Map as LeafletMap } from 'leaflet';
@@ -44,104 +45,88 @@ const clientStoreFormSchema = z.object({
   longDescription: z.string().optional(),
   tagsInput: z.string().optional(),
   categoriesInput: z.string().refine(val => {
-    const slugs = val.split(',').map(s => s.trim()).filter(Boolean);
-    return slugs.length > 0; // Requires at least one category
-  }, {
-    message: "Επιλέξτε τουλάχιστον μία κατηγορία."
-  }),
+    if (!val || val.trim() === "") return true; // Allow empty for no categories selected
+    const slugs = val.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
+  }, { message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}` }).optional(),
   contactEmail: z.string().email("Εισάγετε ένα έγκυρο email.").optional().or(z.literal('')),
   websiteUrl: z.string().url("Εισάγετε μια έγκυρη διεύθυνση URL.").optional().or(z.literal('')),
   address: z.string().optional(),
-// Inside your clientStoreFormSchema = z.object({ ... });
-
-latitude: z.string().superRefine((val, ctx) => {
-  // 1. Check if the string is empty or just whitespace.
-  // If it's empty, add the required error message.
-  if (!val || val.trim() === '') {
+  latitude: z.string().superRefine((val, ctx) => {
+    if (!val || val.trim() === '') {
       ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Το Γεωγραφικό Πλάτος είναι υποχρεωτικό.", // Custom "Required" message
-          path: ctx.path, // Ensure the error is tied to the correct field path
+        code: z.ZodIssueCode.custom,
+        message: "Το Γεωγραφικό Πλάτος είναι υποχρεωτικό.",
+        path: ctx.path,
       });
-      return; // Stop further validation if it's empty
-  }
-
-  // 2. If not empty, try to parse it to a number and check range.
-  const num = parseFloat(val);
-  if (isNaN(num) || num < -90 || num > 90) {
+      return;
+    }
+    const num = parseFloat(val);
+    if (isNaN(num) || num < -90 || num > 90) {
       ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Εισάγετε ένα έγκυρο γεωγραφικό πλάτος (-90 έως 90).", // Custom "Invalid format/range" message
-          path: ctx.path, // Ensure the error is tied to the correct field path
+        code: z.ZodIssueCode.custom,
+        message: "Εισάγετε ένα έγκυρο γεωγραφικό πλάτος (-90 έως 90).",
+        path: ctx.path,
       });
-  }
-}),
-
-longitude: z.string().superRefine((val, ctx) => {
-  // 1. Check if the string is empty or just whitespace.
-  if (!val || val.trim() === '') {
+    }
+  }),
+  longitude: z.string().superRefine((val, ctx) => {
+    if (!val || val.trim() === '') {
       ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Το Γεωγραφικό Μήκος είναι υποχρεωτικό.", // Custom "Required" message
-          path: ctx.path,
+        code: z.ZodIssueCode.custom,
+        message: "Το Γεωγραφικό Μήκος είναι υποχρεωτικό.",
+        path: ctx.path,
       });
-      return; // Stop further validation if it's empty
-  }
-
-  // 2. If not empty, try to parse it to a number and check range.
-  const num = parseFloat(val);
-  if (isNaN(num) || num < -180 || num > 180) {
+      return;
+    }
+    const num = parseFloat(val);
+    if (isNaN(num) || num < -180 || num > 180) {
       ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Εισάγετε ένα έγκυρο γεωγραφικό μήκος (-180 έως 180).",
-          path: ctx.path,
+        code: z.ZodIssueCode.custom,
+        message: "Εισάγετε ένα έγκυρο γεωγραφικό μήκος (-180 έως 180).",
+        path: ctx.path,
       });
-  }
-}),
+    }
+  }),
   ownerId: z.string().optional(),
   servicesJson: z.string().refine((val) => {
+    if (!val || val.trim() === "") return true; // Allow empty string for no services
     try {
-      // console.log("Parsing servicesJson:", val); // Debugging log
       const parsed = JSON.parse(val);
-      // console.log("Parsed servicesJson:", parsed); // Debugging log
       const isValid = Array.isArray(parsed) && parsed.every(item =>
         typeof item.id === 'string' &&
         typeof item.name === 'string' &&
         typeof item.description === 'string' &&
         typeof item.durationMinutes === 'number' &&
         typeof item.price === 'number' &&
-        Array.isArray(item.availableDaysOfWeek) && item.availableDaysOfWeek.every((day: number) => typeof day === 'number' && day >= 0 && day <= 6)
+        Array.isArray(item.availableDaysOfWeek) && item.availableDaysOfWeek.every((day: any) => typeof day === 'number' && day >= 0 && day <= 6)
       );
-      // console.log("ServicesJson isValid:", isValid); // Debugging log
       return isValid;
     } catch (e) {
-      // console.error("servicesJson parsing error:", e); // Debugging log
       return false;
     }
   }, {
     message: "Το JSON των υπηρεσιών δεν είναι έγκυρο ή δεν έχει τη σωστή μορφή."
-  }),
+  }).optional(),
   availabilityJson: z.string().refine((val) => {
+    if (!val || val.trim() === "") return true; // Allow empty string for no availability
     try {
-      // console.log("Parsing availabilityJson:", val); // Debugging log
       const parsed = JSON.parse(val);
-      // console.log("Parsed availabilityJson:", parsed); // Debugging log
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
       const isValid = Array.isArray(parsed) && parsed.every(item =>
         typeof item.dayOfWeek === 'number' && item.dayOfWeek >= 0 && item.dayOfWeek <= 6 &&
-        (typeof item.startTime === 'string' || item.startTime === '') &&
-        (typeof item.endTime === 'string' || item.endTime === '') &&
-        (typeof item.lunchBreakStartTime === 'string' || item.lunchBreakStartTime === '') &&
-        (typeof item.lunchBreakEndTime === 'string' || item.lunchBreakEndTime === '')
+        (typeof item.startTime === 'string' && (item.startTime === '' || timeRegex.test(item.startTime))) &&
+        (typeof item.endTime === 'string' && (item.endTime === '' || timeRegex.test(item.endTime))) &&
+        (item.lunchBreakStartTime === undefined || item.lunchBreakStartTime === '' || (typeof item.lunchBreakStartTime === 'string' && timeRegex.test(item.lunchBreakStartTime))) &&
+        (item.lunchBreakEndTime === undefined || item.lunchBreakEndTime === '' || (typeof item.lunchBreakEndTime === 'string' && timeRegex.test(item.lunchBreakEndTime)))
       );
-      // console.log("AvailabilityJson isValid:", isValid); // Debugging log
       return isValid;
     } catch (e) {
-      // console.error("availabilityJson parsing error:", e); // Debugging log
       return false;
     }
   }, {
     message: "Το JSON διαθεσιμότητας δεν είναι έγκυρο ή δεν έχει τη σωστή μορφή."
-  }),
+  }).optional(),
   logoFile: z.instanceof(File).optional(),
   bannerFile: z.instanceof(File).optional(),
   existingLogoUrl: z.string().optional(),
@@ -154,6 +139,7 @@ interface ActionFormState {
   success: boolean;
   message: string;
   errors?: Partial<Record<keyof ClientStoreFormValues, string[]>>;
+  store?: SerializedStore; // Added store to state for add action
 }
 
 interface StoreFormProps {
@@ -168,6 +154,7 @@ const initialFormState: ActionFormState = {
   success: false,
   message: '',
   errors: undefined,
+  store: undefined,
 };
 
 // ===========================================
@@ -185,11 +172,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
   const logoFileRef = useRef<HTMLInputElement>(null);
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
-  // Debugging logs for initial store prop and default values
-  console.log("Store prop for form:", store);
-  console.log("Default latitude:", store?.location?.latitude?.toString() ?? 'DEFAULT_LAT_EMPTY');
-  console.log("Default longitude:", store?.location?.longitude?.toString() ?? 'DEFAULT_LNG_EMPTY');
-
   const form = useForm<ClientStoreFormValues>({
     resolver: zodResolver(clientStoreFormSchema),
     defaultValues: store ? {
@@ -201,8 +183,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
       contactEmail: store.contactEmail ?? '',
       websiteUrl: store.websiteUrl ?? '',
       address: store.address ?? '',
-      latitude: store.location?.latitude?.toString() ?? '', // Must be string
-      longitude: store.location?.longitude?.toString() ?? '', // Must be string
+      latitude: store.location?.latitude?.toString() ?? '37.9838', 
+      longitude: store.location?.longitude?.toString() ?? '23.7275',
       ownerId: store.ownerId ?? '',
       servicesJson: store.services && store.services.length > 0 ? JSON.stringify(store.services, null, 2) : '[]',
       availabilityJson: store.availability && store.availability.length > 0 ? JSON.stringify(store.availability, null, 2) : '[]',
@@ -217,8 +199,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
       contactEmail: '',
       websiteUrl: '',
       address: '',
-      latitude: '37.9838', // Default to Athens as string
-      longitude: '23.7275', // Default to Athens as string
+      latitude: '37.9838', 
+      longitude: '23.7275',
       ownerId: '',
       servicesJson: '[]',
       availabilityJson: JSON.stringify([
@@ -227,8 +209,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
         { "dayOfWeek": 3, "startTime": "09:00", "endTime": "17:00", "lunchBreakStartTime": "13:00", "lunchBreakEndTime": "14:00" },
         { "dayOfWeek": 4, "startTime": "09:00", "endTime": "17:00", "lunchBreakStartTime": "13:00", "lunchBreakEndTime": "14:00" },
         { "dayOfWeek": 5, "startTime": "09:00", "endTime": "17:00", "lunchBreakStartTime": "13:00", "lunchBreakEndTime": "14:00" },
-        { "dayOfWeek": 6, "startTime": "10:00", "endTime": "14:00" },
-        { "dayOfWeek": 0, "startTime": "", "endTime": "" }
+        { "dayOfWeek": 6, "startTime": "10:00", "endTime": "14:00" , "lunchBreakStartTime": "", "lunchBreakEndTime": ""},
+        { "dayOfWeek": 0, "startTime": "", "endTime": "" , "lunchBreakStartTime": "", "lunchBreakEndTime": ""}
       ], null, 2),
       existingLogoUrl: '',
       existingBannerUrl: '',
@@ -249,16 +231,20 @@ export function StoreForm({ store, action }: StoreFormProps) {
           description: formState.message,
           variant: "destructive",
         });
-        if (formState.errors) {
-          // Debugging logs for client-side validation errors
-          console.error("Client-side validation errors:", formState.errors);
-          console.error("Latitude error:", formState.errors.latitude);
-          console.error("Longitude error:", formState.errors.longitude);
+        // Ensure errors object exists and has keys before processing
+        if (formState.errors && Object.keys(formState.errors).length > 0) {
+          console.error("Client-side validation errors from server:", formState.errors);
+          if (formState.errors.latitude) console.error("Latitude server error:", formState.errors.latitude);
+          if (formState.errors.longitude) console.error("Longitude server error:", formState.errors.longitude);
 
           Object.entries(formState.errors).forEach(([key, value]) => {
             const fieldKey = key as keyof ClientStoreFormValues;
             const message = Array.isArray(value) ? value.join(", ") : String(value);
-            form.setError(fieldKey, { type: "server", message });
+            if (form.getFieldState(fieldKey)) { // Check if field exists in form
+                 form.setError(fieldKey, { type: "server", message });
+            } else {
+                console.warn(`StoreForm: Attempted to set error on non-existent field '${fieldKey}'`);
+            }
           });
         }
       }
@@ -288,7 +274,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
 
       <Form {...form}>
          <form action={formAction} className="space-y-6">
-           {/* All your form fields and content go here */}
            <input type="hidden" {...form.register("existingLogoUrl")} />
            <input type="hidden" {...form.register("existingBannerUrl")} />
            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
@@ -339,9 +324,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <Input
                     type="file"
                     accept="image/png, image/jpeg, image/webp"
-                    name="logoFile"
-                    ref={logoFileRef}
-                    onChange={(e) => handleFileChange(e, 'logo')}
+                    {...form.register("logoFile")} // Use react-hook-form register for file inputs
                 />
                 <FormDescription className="text-xs">PNG, JPG, WebP. Μέγιστο 2MB.</FormDescription>
               </FormItem>
@@ -352,9 +335,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <Input
                     type="file"
                     accept="image/png, image/jpeg, image/webp"
-                    name="bannerFile"
-                    ref={bannerFileRef}
-                    onChange={(e) => handleFileChange(e, 'banner')}
+                     {...form.register("bannerFile")} // Use react-hook-form register for file inputs
                 />
                 <FormDescription className="text-xs">PNG, JPG, WebP. Μέγιστο 2MB.</FormDescription>
               </FormItem>
@@ -374,46 +355,46 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="categoriesInput"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Κατηγορίες</FormLabel>
-                    <div className="space-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
-                      {AppCategories.map((category) => {
-                        const currentSelectedSlugs = field.value?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) || [];
-                        const isChecked = currentSelectedSlugs.includes(category.slug); // Fixed typo here
-                        return (
-                          <FormItem key={category.slug} className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={isChecked}
-                                onCheckedChange={(checked) => {
-                                  let updatedSlugs = [...currentSelectedSlugs];
-                                  if (checked) {
-                                    if (!updatedSlugs.includes(category.slug)) {
-                                      updatedSlugs.push(category.slug);
-                                    }
-                                  } else {
-                                    updatedSlugs = updatedSlugs.filter(s => s !== category.slug);
+            <FormField
+              control={form.control}
+              name="categoriesInput"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Κατηγορίες</FormLabel>
+                  <div className="space-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                    {AppCategories.map((category) => {
+                      const currentSelectedSlugs = field.value?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) || [];
+                      const isChecked = currentSelectedSlugs.includes(category.slug);
+                      return (
+                        <FormItem key={category.slug} className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                let updatedSlugs = [...currentSelectedSlugs];
+                                if (checked) {
+                                  if (!updatedSlugs.includes(category.slug)) {
+                                    updatedSlugs.push(category.slug);
                                   }
-                                  field.onChange(updatedSlugs.join(','));
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              {category.translatedName}
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      })}
-                    </div>
-                    <FormDescription>Επιλέξτε μία ή περισσότερες κατηγορίες.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                                } else {
+                                  updatedSlugs = updatedSlugs.filter(s => s !== category.slug);
+                                }
+                                field.onChange(updatedSlugs.join(','));
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            {category.translatedName}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    })}
+                  </div>
+                  <FormDescription>Επιλέξτε μία ή περισσότερες κατηγορίες.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             </div>
 
             <div className="space-y-6">
@@ -593,3 +574,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
     </Card>
   );
 }
+
+
+    
