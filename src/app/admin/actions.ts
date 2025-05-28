@@ -226,21 +226,28 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     }
 
     const storeDataForDB: Omit<Store, 'id'> = {
-      ...storeCoreData,
+      name: validatedFields.data.name,
+      logoUrl: validatedFields.data.logoUrl || '',
+      bannerUrl: validatedFields.data.bannerUrl,
+      description: validatedFields.data.description,
+      longDescription: validatedFields.data.longDescription,
+      contactEmail: validatedFields.data.contactEmail,
+      websiteUrl: validatedFields.data.websiteUrl,
+      address: validatedFields.data.address,
       location: {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
       },
-      categories: categories,
+      categories,
       tags: tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
-      features: [], 
+      features: [],
       pricingPlans: [],
-      reviews: [], 
-      products: [], 
+      reviews: [],
+      products: [],
       ownerId: ownerId || null,
       rating: 0,
-      services: services,
-      availability: availability,
+      services,
+      availability,
     };
 
     const docRef = await adminDb.collection(STORE_COLLECTION).add(storeDataForDB);
@@ -341,11 +348,31 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
   
   try {
     const { servicesJson, availabilityJson, tagsInput, categoriesInput, latitude, longitude, ...dataToUpdate } = validatedFields.data;
-    const firestoreUpdatePayload: { [key: string]: any } = { ...dataToUpdate };
-    
-    firestoreUpdatePayload.location = {
-      latitude: parseFloat(latitude),
-      longitude: parseFloat(longitude),
+    const firestoreUpdatePayload: Omit<Store, 'id'> = {
+      name: dataToUpdate.name,
+      logoUrl: dataToUpdate.logoUrl || '',
+      bannerUrl: dataToUpdate.bannerUrl,
+      description: dataToUpdate.description,
+      longDescription: dataToUpdate.longDescription,
+      contactEmail: dataToUpdate.contactEmail,
+      websiteUrl: dataToUpdate.websiteUrl,
+      address: dataToUpdate.address,
+      location: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+      },
+      categories: categoriesInput
+        ? categoriesInput.split(',').map(s => s.trim().toLowerCase()) as StoreCategory[]
+        : existingStoreData?.categories || [],
+      tags: tagsInput?.split(',').map(tag => tag.trim()).filter(Boolean) || [],
+      features: existingStoreData?.features || [],
+      pricingPlans: existingStoreData?.pricingPlans || [],
+      reviews: existingStoreData?.reviews || [],
+      products: existingStoreData?.products || [],
+      ownerId: dataToUpdate.ownerId === '' ? null : dataToUpdate.ownerId,
+      rating: existingStoreData?.rating ?? 0,
+      services: servicesJson ? JSON.parse(servicesJson) : [],
+      availability: availabilityJson ? JSON.parse(availabilityJson) : [],
     };
 
     if (tagsInput !== undefined) {
