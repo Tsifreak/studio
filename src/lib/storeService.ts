@@ -14,7 +14,8 @@ import {
 } from 'firebase/firestore';
 import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories } from './types'; 
-import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore'; // Admin SDK Timestamp for type checking
+// AdminTimestamp is only used for type checking/comparison if necessary, not for client-side operations directly here.
+// import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore'; 
 
 const STORE_COLLECTION = 'StoreInfo'; 
 
@@ -26,39 +27,47 @@ const convertTimestampsInReviews = (reviews: any[]): Review[] => {
     const dateVal = review.date;
     let isoDateString: string;
 
+    // Check for Firebase Timestamp objects (both client and admin SDK have toDate)
     if (dateVal && typeof dateVal.toDate === 'function') {
-      // Handles client and admin SDK Timestamp instances if they retain their class methods
       isoDateString = dateVal.toDate().toISOString();
-    } else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
+    } 
+    // Check for plain objects with _seconds and _nanoseconds (often from Admin SDK or serialization)
+    else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
                Object.prototype.hasOwnProperty.call(dateVal, '_seconds') && typeof dateVal._seconds === 'number' &&
                Object.prototype.hasOwnProperty.call(dateVal, '_nanoseconds') && typeof dateVal._nanoseconds === 'number') {
-      // Specifically handle plain objects like { _seconds: ..., _nanoseconds: ... } from Admin SDK or serialization
       isoDateString = new Date(dateVal._seconds * 1000 + dateVal._nanoseconds / 1000000).toISOString();
-    } else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
+    } 
+    // Check for plain objects with seconds and nanoseconds (often from client SDK after JSON.stringify/parse)
+    else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
                Object.prototype.hasOwnProperty.call(dateVal, 'seconds') && typeof dateVal.seconds === 'number' &&
                Object.prototype.hasOwnProperty.call(dateVal, 'nanoseconds') && typeof dateVal.nanoseconds === 'number') {
-      // Specifically handle plain objects like { seconds: ..., nanoseconds: ... } from client SDK after JSON.stringify/parse
       isoDateString = new Date(dateVal.seconds * 1000 + dateVal.nanoseconds / 1000000).toISOString();
-    } else if (typeof dateVal === 'string') {
-      // Assume it's already an ISO string or parseable by Date constructor
+    } 
+    // Check if it's already a string (could be an ISO string or other parsable date string)
+    else if (typeof dateVal === 'string') {
       try {
         const d = new Date(dateVal);
         if (isNaN(d.getTime())) {
+          // If string is invalid, fallback
           console.warn(`[convertTimestampsInReviews] Date string "${dateVal}" is invalid, using current date as fallback.`);
           isoDateString = new Date().toISOString();
         } else {
           isoDateString = d.toISOString();
         }
       } catch (e) {
+        // Catch any errors from new Date(dateVal)
         console.warn(`[convertTimestampsInReviews] Error parsing date string "${dateVal}", using current date as fallback:`, e);
         isoDateString = new Date().toISOString();
       }
-    } else if (dateVal instanceof Date) {
-      // Is a JS Date object
+    } 
+    // Check if it's a JavaScript Date object
+    else if (dateVal instanceof Date) {
       isoDateString = dateVal.toISOString();
-    } else {
+    } 
+    // Fallback for any other unexpected type or null/undefined
+    else {
       console.warn("[convertTimestampsInReviews] Review date is of an unexpected type or null/undefined, using current date as fallback. Date value:", dateVal);
-      isoDateString = new Date().toISOString(); // Fallback
+      isoDateString = new Date().toISOString(); 
     }
 
     return {
@@ -78,7 +87,6 @@ const mapDocToStore = (docSnapshot: any): Store => {
     description: data.description || '',
     longDescription: data.longDescription,
     rating: data.rating || 0,
-    // Ensure categories default to an empty array if not present or not an array
     categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
     tags: data.tags || [],
     features: data.features || [], 
@@ -88,8 +96,8 @@ const mapDocToStore = (docSnapshot: any): Store => {
     contactEmail: data.contactEmail,
     websiteUrl: data.websiteUrl,
     address: data.address,
-    location: data.location || { latitude: 0, longitude: 0 }, // Ensure location exists
-    ownerId: data.ownerId || null, // Default to null if not present
+    location: data.location || { latitude: 0, longitude: 0 }, 
+    ownerId: data.ownerId || null, 
     services: data.services || [],
     availability: data.availability || [],
   };
@@ -121,9 +129,8 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
   }
 };
 
-// Note: addStoreToDB and updateStoreInDB are simplified here as the primary logic
-// for data preparation (parsing JSON, handling categories) is in the server actions
-// which then call these with a more structured payload.
+// These functions are primarily for client-side operations if needed,
+// but admin writes should use the Admin SDK via server actions.
 export async function addStoreToDB(data: Omit<Store, 'id'>): Promise<Store> {
   try {
     const docRef = await addDoc(collection(db, STORE_COLLECTION), data);
@@ -137,10 +144,11 @@ export async function addStoreToDB(data: Omit<Store, 'id'>): Promise<Store> {
 export const updateStoreInDB = async (storeId: string, updatedData: Partial<Omit<Store, 'id'>>): Promise<Store | undefined> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   try {
-    const firestoreUpdatePayload = { ...updatedData };
+    const firestoreUpdatePayload: { [key: string]: any } = { ...updatedData };
     if (firestoreUpdatePayload.reviews) {
       firestoreUpdatePayload.reviews = firestoreUpdatePayload.reviews.map(r => ({
         ...r,
+        // Ensure date is a Firestore Timestamp if it's a string before client-side update
         date: typeof r.date === 'string' ? ClientTimestamp.fromDate(new Date(r.date)) : r.date 
       }));
     }
@@ -154,7 +162,6 @@ export const updateStoreInDB = async (storeId: string, updatedData: Partial<Omit
     throw error;
   }
 };
-
 
 export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
