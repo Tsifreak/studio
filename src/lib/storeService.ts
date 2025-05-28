@@ -10,11 +10,11 @@ import {
   deleteDoc,
   query,
   where,
-  Timestamp, // Client SDK Timestamp
-  arrayUnion,
+  Timestamp as ClientTimestamp, // Client SDK Timestamp
 } from 'firebase/firestore';
 import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories } from './types'; 
+import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore'; // Admin SDK Timestamp for type checking
 
 const STORE_COLLECTION = 'StoreInfo'; 
 
@@ -23,44 +23,47 @@ const convertTimestampsInReviews = (reviews: any[]): Review[] => {
     return [];
   }
   return reviews.map(review => {
-    let dateString = review.date; // Default to original if no conversion happens
+    const dateVal = review.date;
+    let isoDateString: string;
 
-    if (review.date && typeof review.date.toDate === 'function') {
-      // Handles client and admin SDK Timestamp instances
-      dateString = review.date.toDate().toISOString();
-    } else if (review.date && (typeof review.date.seconds === 'number' || typeof review.date._seconds === 'number')) {
-      // Handles plain objects that look like Timestamps (e.g., from JSON stringification/parsing or Admin SDK direct data)
-      const seconds = review.date.seconds ?? review.date._seconds;
-      const nanoseconds = review.date.nanoseconds ?? review.date._nanoseconds ?? 0;
-      
-      if (typeof seconds === 'number') { // Ensure seconds is a number before constructing Timestamp
-        // Use the client SDK Timestamp constructor as this service is primarily for client-side fetching
-        dateString = new Timestamp(seconds, nanoseconds).toDate().toISOString();
-      } else {
-        // If seconds isn't a number after trying both, it's an unexpected format
-        console.warn(`[convertTimestampsInReviews] Review date has seconds/nanoseconds but 'seconds' is not a number:`, review.date);
-        dateString = new Date().toISOString(); // Fallback to current date
-      }
-    } else if (typeof review.date === 'string') {
-      // It's already a string, assume it's correct (e.g., an ISO string)
-      // Optionally, add validation or re-parsing here if strings can be in various formats
-      dateString = review.date;
-    } else if (review.date) { // review.date exists but is not a Timestamp, plain object, or string
-      console.warn("[convertTimestampsInReviews] Review date is of unexpected type, attempting direct conversion:", review.date, "Type:", typeof review.date);
+    if (dateVal && typeof dateVal.toDate === 'function') {
+      // Handles client and admin SDK Timestamp instances if they retain their class methods
+      isoDateString = dateVal.toDate().toISOString();
+    } else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
+               Object.prototype.hasOwnProperty.call(dateVal, '_seconds') && typeof dateVal._seconds === 'number' &&
+               Object.prototype.hasOwnProperty.call(dateVal, '_nanoseconds') && typeof dateVal._nanoseconds === 'number') {
+      // Specifically handle plain objects like { _seconds: ..., _nanoseconds: ... } from Admin SDK or serialization
+      isoDateString = new Date(dateVal._seconds * 1000 + dateVal._nanoseconds / 1000000).toISOString();
+    } else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
+               Object.prototype.hasOwnProperty.call(dateVal, 'seconds') && typeof dateVal.seconds === 'number' &&
+               Object.prototype.hasOwnProperty.call(dateVal, 'nanoseconds') && typeof dateVal.nanoseconds === 'number') {
+      // Specifically handle plain objects like { seconds: ..., nanoseconds: ... } from client SDK after JSON.stringify/parse
+      isoDateString = new Date(dateVal.seconds * 1000 + dateVal.nanoseconds / 1000000).toISOString();
+    } else if (typeof dateVal === 'string') {
+      // Assume it's already an ISO string or parseable by Date constructor
       try {
-        dateString = new Date(review.date).toISOString(); // Try to parse it directly
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) {
+          console.warn(`[convertTimestampsInReviews] Date string "${dateVal}" is invalid, using current date as fallback.`);
+          isoDateString = new Date().toISOString();
+        } else {
+          isoDateString = d.toISOString();
+        }
       } catch (e) {
-        console.error("[convertTimestampsInReviews] Failed to convert date, using current date as fallback:", review.date, e);
-        dateString = new Date().toISOString(); // Last resort fallback
+        console.warn(`[convertTimestampsInReviews] Error parsing date string "${dateVal}", using current date as fallback:`, e);
+        isoDateString = new Date().toISOString();
       }
-    } else { // review.date is null or undefined
-      console.warn("[convertTimestampsInReviews] Review date is null or undefined, using current date as fallback.");
-      dateString = new Date().toISOString(); // Default if date is missing
+    } else if (dateVal instanceof Date) {
+      // Is a JS Date object
+      isoDateString = dateVal.toISOString();
+    } else {
+      console.warn("[convertTimestampsInReviews] Review date is of an unexpected type or null/undefined, using current date as fallback. Date value:", dateVal);
+      isoDateString = new Date().toISOString(); // Fallback
     }
 
     return {
       ...review,
-      date: dateString,
+      date: isoDateString,
     };
   });
 };
@@ -75,7 +78,8 @@ const mapDocToStore = (docSnapshot: any): Store => {
     description: data.description || '',
     longDescription: data.longDescription,
     rating: data.rating || 0,
-    categories: data.categories && Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : [],
+    // Ensure categories default to an empty array if not present or not an array
+    categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
     tags: data.tags || [],
     features: data.features || [], 
     reviews: data.reviews ? convertTimestampsInReviews(data.reviews) : [],
@@ -84,7 +88,8 @@ const mapDocToStore = (docSnapshot: any): Store => {
     contactEmail: data.contactEmail,
     websiteUrl: data.websiteUrl,
     address: data.address,
-    ownerId: data.ownerId,
+    location: data.location || { latitude: 0, longitude: 0 }, // Ensure location exists
+    ownerId: data.ownerId || null, // Default to null if not present
     services: data.services || [],
     availability: data.availability || [],
   };
@@ -132,27 +137,20 @@ export async function addStoreToDB(data: Omit<Store, 'id'>): Promise<Store> {
 export const updateStoreInDB = async (storeId: string, updatedData: Partial<Omit<Store, 'id'>>): Promise<Store | undefined> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   try {
-    // Construct the payload for Firestore, ensuring Timestamps for date fields if they are part of updatedData
-    // For example, if updatedData.reviews exists, ensure its date fields are Timestamps.
-    // However, server actions are now responsible for converting to Admin SDK Timestamps before calling this.
-    // This function assumes `updatedData` is already Firestore-compatible.
     const firestoreUpdatePayload = { ...updatedData };
     if (firestoreUpdatePayload.reviews) {
       firestoreUpdatePayload.reviews = firestoreUpdatePayload.reviews.map(r => ({
         ...r,
-        // If date is an ISO string, convert to client SDK Timestamp for client-side SDK update
-        // If Admin SDK is used to call this, it would handle its own Timestamp type.
-        // For now, assuming date might come as ISO string if modified via a form.
-        date: typeof r.date === 'string' ? Timestamp.fromDate(new Date(r.date)) : r.date 
+        date: typeof r.date === 'string' ? ClientTimestamp.fromDate(new Date(r.date)) : r.date 
       }));
     }
-
+    console.log(`[storeService] Attempting to update store ${storeId} in DB with payload:`, firestoreUpdatePayload);
     await updateDoc(storeRef, firestoreUpdatePayload);
-    console.log(`[storeService] Store ${storeId} updated in DB with payload:`, firestoreUpdatePayload);
+    console.log(`[storeService] Store ${storeId} updated successfully in DB.`);
     const updatedDoc = await getDoc(storeRef);
     return updatedDoc.exists() ? mapDocToStore(updatedDoc) : undefined;
   } catch (error: any) {
-    console.error(`[storeService] Error updating store ${storeId} in DB: Code: ${error.code}, Message: ${error.message}`, error);
+    console.error(`[storeService] Error updating store ${storeId} in DB: Code: ${error.code || 'N/A'}, Message: ${error.message || 'Unknown error'}`, error);
     throw error;
   }
 };
@@ -165,58 +163,6 @@ export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error(`Error deleting store ${storeId} from DB:`, error);
-    return false;
-  }
-};
-
-// This function is designed to be called by server actions that use the ADMIN SDK.
-// It expects `newReview.date` to be an Admin SDK Timestamp or a JS Date.
-export const addReviewToStoreInDBWithAdmin = async (
-  adminDbInstance: FirebaseFirestore.Firestore, // Expecting Admin SDK Firestore instance
-  storeId: string, 
-  newReviewData: Omit<Review, 'id' | 'date'> & { date: Date | FirebaseFirestore.Timestamp } // Date can be JS Date or Admin Timestamp
-): Promise<boolean> => {
-  const storeRef = adminDbInstance.collection(STORE_COLLECTION).doc(storeId);
-  try {
-    const reviewForFirestore = {
-      ...newReviewData,
-      id: adminDbInstance.collection('_').doc().id, // Generate ID using admin instance
-      date: newReviewData.date instanceof Date 
-            ? FirebaseFirestore.Timestamp.fromDate(newReviewData.date) 
-            : newReviewData.date, // Assume it's already an Admin Timestamp
-    };
-
-    const storeDoc = await storeRef.get();
-    if (!storeDoc.exists) {
-      console.error(`[addReviewToStoreInDBWithAdmin] Store ${storeId} not found.`);
-      return false;
-    }
-    const storeData = storeDoc.data() as Store;
-    
-    const existingReviews = storeData.reviews ? convertTimestampsInReviews(storeData.reviews as any[]) : [];
-    
-    // Convert the new review's date to ISO string for calculation consistency if it's a Timestamp
-    const newReviewForCalc = {
-      ...reviewForFirestore,
-      date: reviewForFirestore.date instanceof FirebaseFirestore.Timestamp 
-            ? reviewForFirestore.date.toDate().toISOString() 
-            : new Date(reviewForFirestore.date as any).toISOString(), // Fallback if it was a JS Date initially
-    };
-
-    const updatedReviewsForCalc = [...existingReviews, newReviewForCalc];
-    
-    const totalRating = updatedReviewsForCalc.reduce((acc, review) => acc + review.rating, 0);
-    const newAverageRating = updatedReviewsForCalc.length > 0 
-      ? parseFloat((totalRating / updatedReviewsForCalc.length).toFixed(2)) 
-      : 0;
-
-    await storeRef.update({
-      reviews: FirebaseFirestore.FieldValue.arrayUnion(reviewForFirestore),
-      rating: newAverageRating,
-    });
-    return true;
-  } catch (error) {
-    console.error(`Error adding review to store ${storeId} with Admin SDK:`, error);
     return false;
   }
 };
