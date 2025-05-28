@@ -233,9 +233,9 @@ export function StoreForm({ store, action }: StoreFormProps) {
         });
         // Ensure errors object exists and has keys before processing
         if (formState.errors && Object.keys(formState.errors).length > 0) {
-          console.error("Client-side validation errors from server:", formState.errors);
-          if (formState.errors.latitude) console.error("Latitude server error:", formState.errors.latitude);
-          if (formState.errors.longitude) console.error("Longitude server error:", formState.errors.longitude);
+          console.error("[StoreForm] Server-side validation errors received:", JSON.stringify(formState.errors, null, 2));
+          if (formState.errors.latitude) console.error("[StoreForm] Latitude server error:", formState.errors.latitude);
+          if (formState.errors.longitude) console.error("[StoreForm] Longitude server error:", formState.errors.longitude);
 
           Object.entries(formState.errors).forEach(([key, value]) => {
             const fieldKey = key as keyof ClientStoreFormValues;
@@ -243,7 +243,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
             if (form.getFieldState(fieldKey)) { // Check if field exists in form
                  form.setError(fieldKey, { type: "server", message });
             } else {
-                console.warn(`StoreForm: Attempted to set error on non-existent field '${fieldKey}'`);
+                console.warn(`[StoreForm] Attempted to set error on non-existent field '${fieldKey}'`);
             }
           });
         }
@@ -263,7 +263,9 @@ export function StoreForm({ store, action }: StoreFormProps) {
     }
   };
 
-  const watchedCategories = form.watch('categoriesInput');
+  const watchedCategoriesInput = form.watch('categoriesInput');
+  console.log("[StoreForm] Current categoriesInput value (watched):", watchedCategoriesInput);
+
 
   return (
     <Card className="w-full max-w-4xl mx-auto shadow-xl">
@@ -273,9 +275,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
       </CardHeader>
 
       <Form {...form}>
-      <pre className="text-xs bg-muted p-2 rounded">
-    {JSON.stringify(form.watch("categoriesInput"), null, 2)}
-  </pre>
          <form action={formAction} className="space-y-6">
            <input type="hidden" {...form.register("existingLogoUrl")} />
            <input type="hidden" {...form.register("existingBannerUrl")} />
@@ -327,7 +326,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <Input
                     type="file"
                     accept="image/png, image/jpeg, image/webp"
-                    {...form.register("logoFile")} // Use react-hook-form register for file inputs
+                    {...form.register("logoFile")} 
                 />
                 <FormDescription className="text-xs">PNG, JPG, WebP. Μέγιστο 2MB.</FormDescription>
               </FormItem>
@@ -338,7 +337,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <Input
                     type="file"
                     accept="image/png, image/jpeg, image/webp"
-                     {...form.register("bannerFile")} // Use react-hook-form register for file inputs
+                     {...form.register("bannerFile")} 
                 />
                 <FormDescription className="text-xs">PNG, JPG, WebP. Μέγιστο 2MB.</FormDescription>
               </FormItem>
@@ -383,6 +382,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                                   updatedSlugs = updatedSlugs.filter(s => s !== category.slug);
                                 }
                                 field.onChange(updatedSlugs.join(','));
+                                console.log("[StoreForm] categoriesInput changed to:", updatedSlugs.join(','));
                               }}
                             />
                           </FormControl>
@@ -577,6 +577,3 @@ export function StoreForm({ store, action }: StoreFormProps) {
     </Card>
   );
 }
-
-
-    

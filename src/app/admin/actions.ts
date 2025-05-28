@@ -51,8 +51,6 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
             reject(new Error(`Σφάλμα κατά το ανέβασμα του αρχείου: ${err.message}`));
         });
         blobStream.on('finish', async () => {
-            // The public URL can be constructed like this for GCS.
-            // Ensure your bucket has public read access configured for these objects.
             const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
             console.log(`[uploadFileToStorage] File uploaded to ${publicUrl}`);
             resolve(publicUrl);
@@ -61,7 +59,6 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
     });
 }
 
-// Ensure this serialization handles all potentially non-plain objects that Firebase Admin SDK might return
 function serializeStoreForClient(store: Store): SerializedStore {
     return {
         id: store.id,
@@ -84,22 +81,21 @@ function serializeStoreForClient(store: Store): SerializedStore {
             description: feature.description,
             icon: typeof feature.icon === 'string' ? feature.icon : undefined,
         })),
-        // Handle reviews dates as they caused issues before
         reviews: (store.reviews || []).map(review => {
           const date = review.date as any;
           let isoDateString: string;
-          if (date && typeof date.toDate === 'function') { // Firestore Timestamp (client or admin)
+          if (date && typeof date.toDate === 'function') { 
             isoDateString = date.toDate().toISOString();
-          } else if (date && typeof date._seconds === 'number' && typeof date._nanoseconds === 'number') { // Admin SDK Timestamp plain object
+          } else if (date && typeof date._seconds === 'number' && typeof date._nanoseconds === 'number') { 
             isoDateString = new Date(date._seconds * 1000 + date._nanoseconds / 1000000).toISOString();
-          } else if (date && typeof date.seconds === 'number' && typeof date.nanoseconds === 'number') { // Client SDK Timestamp plain object (after JSON.stringify/parse)
+          } else if (date && typeof date.seconds === 'number' && typeof date.nanoseconds === 'number') { 
             isoDateString = new Date(date.seconds * 1000 + date.nanoseconds / 1000000).toISOString();
           } else if (typeof date === 'string') {
-            isoDateString = new Date(date).toISOString(); // Assume it's a parsable date string
+            isoDateString = new Date(date).toISOString(); 
           } else if (date instanceof Date) {
             isoDateString = date.toISOString();
           } else {
-            isoDateString = new Date().toISOString(); // Fallback
+            isoDateString = new Date().toISOString(); 
           }
           return { ...review, date: isoDateString };
         }),
@@ -138,7 +134,7 @@ const storeDbSchema = z.object({
     longDescription: z.string().optional(),
     tagsInput: z.string().optional(),
     categoriesInput: z.string().refine((val) => {
-      if (!val || val.trim() === "") return true; // Allow empty string
+      if (!val || val.trim() === "") return true; 
       const slugs = val.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
     }, {
@@ -221,6 +217,9 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         return { success: false, message: uploadError.message || "Σφάλμα κατά το ανέβασμα αρχείου." };
     }
 
+    const categoriesFromForm = formData.get('categoriesInput') as string | undefined;
+    console.log("[addStoreAction] categoriesInput from FormData:", categoriesFromForm);
+
     const validatedFields = storeDbSchema.safeParse({
         name: formData.get('name') as string,
         logoUrl: logoUrlToSave,
@@ -228,7 +227,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         description: formData.get('description') as string,
         longDescription: formData.get('longDescription') as string || undefined,
         tagsInput: formData.get('tagsInput') as string || undefined,
-        categoriesInput: formData.get('categoriesInput') as string || "",
+        categoriesInput: categoriesFromForm ?? "",
         contactEmail: formData.get('contactEmail') as string || '',
         websiteUrl: formData.get('websiteUrl') as string || '',
         latitude: formData.get('latitude') as string,
@@ -247,12 +246,13 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             errors: validatedFields.error.flatten().fieldErrors,
         };
     }
+    console.log("[addStoreAction] Zod Validation Successful. Validated Data:", validatedFields.data);
+
 
     try {
-        const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput, latitude, longitude, ...storeCoreData } = validatedFields.data;
+        const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInput, latitude, longitude, ...storeCoreData } = validatedFields.data;
 
-        const categoriesRaw = categoriesInput ?? ''; 
-        const categories: StoreCategory[] = categoriesRaw
+        const categories: StoreCategory[] = (validatedCategoriesInput ?? '')
             .split(',')
             .map((s) => s.trim().toLowerCase())
             .filter(Boolean) as StoreCategory[];
@@ -261,11 +261,11 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
         let services: Service[] = [];
         if (servicesJson) {
-            try { services = JSON.parse(servicesJson); } catch (e) { console.warn("Could not parse servicesJson:", e); }
+            try { services = JSON.parse(servicesJson); } catch (e) { console.warn("[addStoreAction] Could not parse servicesJson:", e); }
         }
         let availability: AvailabilitySlot[] = [];
         if (availabilityJson) {
-            try { availability = JSON.parse(availabilityJson); } catch (e) { console.warn("Could not parse availabilityJson:", e); }
+            try { availability = JSON.parse(availabilityJson); } catch (e) { console.warn("[addStoreAction] Could not parse availabilityJson:", e); }
         }
 
         const storeDataForDB: Omit<Store, 'id'> = {
@@ -277,10 +277,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             contactEmail: validatedFields.data.contactEmail,
             websiteUrl: validatedFields.data.websiteUrl,
             address: validatedFields.data.address ?? null,
-            location: {
-                latitude: parseFloat(latitude),
-                longitude: parseFloat(longitude),
-            },
+            location: new FirestoreGeoPoint(parseFloat(latitude), parseFloat(longitude)),
             categories, 
             tags: tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
             features: [],
@@ -322,6 +319,9 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         formEntries[key] = value;
     }
     console.log("[updateStoreAction] Raw FormData entries:", formEntries);
+
+    const rawCategoriesInputFromForm = formData.get('categoriesInput') as string | null;
+    console.log("[updateStoreAction] Raw categoriesInput from FormData:", rawCategoriesInputFromForm);
 
 
     const existingStoreDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
@@ -369,7 +369,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         description: formData.get('description') as string,
         longDescription: formData.get('longDescription') as string || undefined,
         tagsInput: formData.get('tagsInput') as string || undefined,
-        categoriesInput: formData.get('categoriesInput') as string || "", // Default to empty string if not present
+        categoriesInput: rawCategoriesInputFromForm ?? "", 
         contactEmail: formData.get('contactEmail') as string || '',
         websiteUrl: formData.get('websiteUrl') as string || '',
         latitude: formData.get('latitude') as string,
@@ -388,64 +388,56 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             errors: validatedFields.error.flatten().fieldErrors,
         };
     }
+    console.log("[updateStoreAction] Zod validation successful. Validated Data:", validatedFields.data);
 
     try {
-        const { servicesJson, availabilityJson, tagsInput, categoriesInput, latitude, longitude, ...dataToUpdate } = validatedFields.data;
+        const { servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInput, latitude, longitude, ...dataToUpdate } = validatedFields.data;
         
-        const categoriesRaw = categoriesInput ?? ''; // Default to empty string if undefined or null
-        const parsedCategories: StoreCategory[] = categoriesRaw
+        const parsedCategories: StoreCategory[] = (validatedCategoriesInput ?? '') // Use the validated one
             .split(',')
             .map((s) => s.trim().toLowerCase())
-            .filter(Boolean) as StoreCategory[]; // filter(Boolean) removes empty strings after split if input was just commas
+            .filter(Boolean) as StoreCategory[];
 
-        console.log("[updateStoreAction] Categories from form input (categoriesInput):", categoriesInput);
-        console.log("[updateStoreAction] Parsed categories to be saved:", parsedCategories);
+        console.log("[updateStoreAction] categoriesInput after Zod validation (validatedCategoriesInput):", validatedCategoriesInput);
+        console.log("[updateStoreAction] Parsed categories to be saved to Firestore:", parsedCategories);
 
-        // Construct the object with fields to update in Firestore.
-        // Only include fields that are managed by this form.
-        const firestoreUpdateData: Partial<Store> = {
+
+        const firestoreUpdatePayload: Partial<Store> = {
             name: dataToUpdate.name,
-            logoUrl: validatedFields.data.logoUrl || '', // Use validatedFields.data for consistency
+            logoUrl: validatedFields.data.logoUrl || '',
             bannerUrl: validatedFields.data.bannerUrl,
             description: dataToUpdate.description,
             longDescription: dataToUpdate.longDescription,
             contactEmail: dataToUpdate.contactEmail,
             websiteUrl: dataToUpdate.websiteUrl,
             address: dataToUpdate.address ?? null,
-            location: {
-                latitude: parseFloat(latitude),
-                longitude: parseFloat(longitude),
-            },
-            categories: parsedCategories, // This is the crucial part
+            location: new FirestoreGeoPoint(parseFloat(latitude), parseFloat(longitude)),
+            categories: parsedCategories, 
             tags: tagsInput !== undefined ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : existingStoreData.tags || [],
             ownerId: dataToUpdate.ownerId === '' ? null : (dataToUpdate.ownerId || existingStoreData.ownerId || null),
             services: servicesJson ? JSON.parse(servicesJson) : (existingStoreData.services || []),
             availability: availabilityJson ? JSON.parse(availabilityJson) : (existingStoreData.availability || []),
-            // Note: features, pricingPlans, reviews, rating are not directly editable in this form
-            // and should be preserved from existingStoreData or managed by other dedicated actions.
-            // If you want to allow clearing them, the logic would need to explicitly handle empty JSON strings for those.
+            features: existingStoreData.features || [],
+            pricingPlans: existingStoreData.pricingPlans || [],
+            products: existingStoreData.products || [],
+            reviews: (existingStoreData.reviews || []).map(review => {
+              const date = review.date as any;
+               let isoDateString: string;
+                if (date && typeof date.toDate === 'function') { isoDateString = date.toDate().toISOString(); }
+                else if (date && typeof date._seconds === 'number') { isoDateString = new Date(date._seconds * 1000 + (date._nanoseconds || 0) / 1000000).toISOString(); }
+                else if (date && typeof date.seconds === 'number') { isoDateString = new Date(date.seconds * 1000 + (date.nanoseconds || 0) / 1000000).toISOString(); }
+                else if (typeof date === 'string') { isoDateString = new Date(date).toISOString(); }
+                else if (date instanceof Date) { isoDateString = date.toISOString(); }
+                else { isoDateString = new Date().toISOString(); }
+              return { ...review, date: FirestoreTimestamp.fromDate(new Date(isoDateString)) };
+            }),
+            rating: existingStoreData.rating || 0,
         };
         
-        // Fields not in storeDbSchema but part of Store, preserve them
-        firestoreUpdateData.features = existingStoreData.features || [];
-        firestoreUpdateData.pricingPlans = existingStoreData.pricingPlans || [];
-        firestoreUpdateData.products = existingStoreData.products || [];
-        firestoreUpdateData.reviews = (existingStoreData.reviews || []).map(review => {
-          const date = review.date as any;
-           let isoDateString: string;
-            if (date && typeof date.toDate === 'function') { isoDateString = date.toDate().toISOString(); }
-            else if (date && typeof date._seconds === 'number') { isoDateString = new Date(date._seconds * 1000 + (date._nanoseconds || 0) / 1000000).toISOString(); }
-            else if (date && typeof date.seconds === 'number') { isoDateString = new Date(date.seconds * 1000 + (date.nanoseconds || 0) / 1000000).toISOString(); }
-            else if (typeof date === 'string') { isoDateString = new Date(date).toISOString(); }
-            else if (date instanceof Date) { isoDateString = date.toISOString(); }
-            else { isoDateString = new Date().toISOString(); }
-          return { ...review, date: FirestoreTimestamp.fromDate(new Date(isoDateString)) }; // Convert back to Admin Timestamp for saving if needed, or keep as string
-        });
-        firestoreUpdateData.rating = existingStoreData.rating || 0;
+        console.log("[updateStoreAction] FINAL PAYLOAD for Firestore update:", JSON.stringify(firestoreUpdatePayload, null, 2));
+        console.log("[updateStoreAction] FINAL PAYLOAD categories field specifically:", firestoreUpdatePayload.categories);
 
-
-        console.log("[updateStoreAction] FINAL PAYLOAD for Firestore update:", JSON.stringify(firestoreUpdateData, null, 2));
-        await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdateData);
+        await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload);
 
         const updatedDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
         if (!updatedDocSnap.exists) {
@@ -487,4 +479,3 @@ export async function deleteStoreAction(storeId: string): Promise<{ success: boo
         return { success: false, message: `Αποτυχία διαγραφής κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message}` };
     }
 }
-
