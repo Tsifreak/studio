@@ -6,7 +6,9 @@ import { z } from 'zod';
 import type { Store, StoreCategory, StoreFormData, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories, StoreCategoriesSlugs } from '@/lib/types';
 import { adminDb, adminStorage, admin } from '@/lib/firebase-admin'; // Ensure 'admin' is imported here
-import { Timestamp as FirestoreTimestamp, GeoPoint as FirestoreGeoPoint } from '@google-cloud/firestore'; // Import Admin SDK Timestamp/GeoPoint
+// GeoPoint will now be accessed via admin.firestore.GeoPoint
+// Timestamp is still useful for other Admin SDK operations if needed, or can be admin.firestore.Timestamp
+import { Timestamp as FirestoreTimestamp } from '@google-cloud/firestore';
 
 const STORE_COLLECTION = 'StoreInfo';
 const MAX_FILE_SIZE_MB = 2;
@@ -48,7 +50,7 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
     return new Promise((resolve, reject) => {
         blobStream.on('error', (err) => {
             console.error(`[uploadFileToStorage] Error uploading to GCS (Bucket: ${bucket.name}, File: ${fileName}):`, err);
-            reject(new Error(`Σφάλμα κατά το ανέβασμα του αρχείου: ${err.message}`));
+            reject(new Error(`Σφάλμα κατά το ανέβασμα του αρχείου: ${JSON.stringify(err)}`));
         });
         blobStream.on('finish', async () => {
             const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
@@ -102,8 +104,8 @@ function serializeStoreForClient(store: Store): SerializedStore {
         categories: store.categories || [],
         services: store.services || [],
         availability: store.availability || [],
-        location: (store.location instanceof FirestoreGeoPoint) ? { latitude: store.location.latitude, longitude: store.location.longitude } :
-                  (store.location ? { latitude: store.location.latitude, longitude: store.location.longitude } : undefined),
+        location: (store.location instanceof admin.firestore.GeoPoint) ? { latitude: store.location.latitude, longitude: store.location.longitude } : // Check for Admin SDK GeoPoint
+                  (store.location && typeof store.location.latitude === 'number' && typeof store.location.longitude === 'number') ? { latitude: store.location.latitude, longitude: store.location.longitude } : undefined,
     };
 }
 
@@ -189,8 +191,9 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
     const formEntries: { [key: string]: any } = {};
     for (const [key, value] of formData.entries()) {
         formEntries[key] = value;
-        console.log(`  ${key}: ${value instanceof File ? `File: ${value.name}, Size: ${value.size}, Type: ${value.type}` : value}`);
     }
+    console.log("[addStoreAction] Raw FormData entries:", formEntries);
+
 
     let logoUrlToSave: string | undefined = undefined;
     let bannerUrlToSave: string | undefined = undefined;
@@ -268,7 +271,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             try { availability = JSON.parse(availabilityJson); } catch (e) { console.warn("[addStoreAction] Could not parse availabilityJson:", e); }
         }
 
-        const storeDataForDB: Omit<Store, 'id'> = {
+        const storeDataForDB: Omit<Store, 'id' | 'location'> & { location: admin.firestore.GeoPoint } = {
             name: validatedFields.data.name,
             logoUrl: validatedFields.data.logoUrl || '',
             bannerUrl: validatedFields.data.bannerUrl,
@@ -277,7 +280,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             contactEmail: validatedFields.data.contactEmail,
             websiteUrl: validatedFields.data.websiteUrl,
             address: validatedFields.data.address ?? null,
-            location: new FirestoreGeoPoint(parseFloat(latitude), parseFloat(longitude)),
+            location: new admin.firestore.GeoPoint(parseFloat(latitude), parseFloat(longitude)),
             categories, 
             tags: tagsInput?.split(',').map(t => t.trim()).filter(Boolean) || [],
             features: [],
@@ -291,7 +294,11 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         };
 
         const docRef = await adminDb.collection(STORE_COLLECTION).add(storeDataForDB);
-        const newRawStore: Store = { ...storeDataForDB, id: docRef.id };
+        const newRawStore: Store = { 
+            ...storeDataForDB, 
+            id: docRef.id, 
+            location: { latitude: storeDataForDB.location.latitude, longitude: storeDataForDB.location.longitude } // Convert back for client type
+        };
         const newSerializedStore = serializeStoreForClient(newRawStore);
 
         revalidatePath('/admin/stores');
@@ -329,7 +336,8 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         console.error(`[updateStoreAction] Store not found with Admin SDK for ID: ${storeId}`);
         return { success: false, message: "Το κέντρο δεν βρέθηκε." };
     }
-    const existingStoreData = existingStoreDocSnap.data() as Store;
+    const existingStoreData = existingStoreDocSnap.data() as Omit<Store, 'id' | 'location'> & { location: admin.firestore.GeoPoint | {latitude: number, longitude: number} };
+
 
     let logoUrlToSave: string | undefined = formData.get('existingLogoUrl') as string || existingStoreData?.logoUrl || undefined;
     let bannerUrlToSave: string | undefined = formData.get('existingBannerUrl') as string || existingStoreData?.bannerUrl || undefined;
@@ -393,7 +401,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     try {
         const { servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInput, latitude, longitude, ...dataToUpdate } = validatedFields.data;
         
-        const parsedCategories: StoreCategory[] = (validatedCategoriesInput ?? '') // Use the validated one
+        const parsedCategories: StoreCategory[] = (validatedCategoriesInput ?? '') 
             .split(',')
             .map((s) => s.trim().toLowerCase())
             .filter(Boolean) as StoreCategory[];
@@ -401,8 +409,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         console.log("[updateStoreAction] categoriesInput after Zod validation (validatedCategoriesInput):", validatedCategoriesInput);
         console.log("[updateStoreAction] Parsed categories to be saved to Firestore:", parsedCategories);
 
-
-        const firestoreUpdatePayload: Partial<Store> = {
+        const firestoreUpdatePayload: Omit<Partial<Store>, 'location' | 'reviews'> & { location?: admin.firestore.GeoPoint; reviews?: any[] } = {
             name: dataToUpdate.name,
             logoUrl: validatedFields.data.logoUrl || '',
             bannerUrl: validatedFields.data.bannerUrl,
@@ -411,7 +418,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             contactEmail: dataToUpdate.contactEmail,
             websiteUrl: dataToUpdate.websiteUrl,
             address: dataToUpdate.address ?? null,
-            location: new FirestoreGeoPoint(parseFloat(latitude), parseFloat(longitude)),
+            location: new admin.firestore.GeoPoint(parseFloat(latitude), parseFloat(longitude)),
             categories: parsedCategories, 
             tags: tagsInput !== undefined ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : existingStoreData.tags || [],
             ownerId: dataToUpdate.ownerId === '' ? null : (dataToUpdate.ownerId || existingStoreData.ownerId || null),
@@ -420,7 +427,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             features: existingStoreData.features || [],
             pricingPlans: existingStoreData.pricingPlans || [],
             products: existingStoreData.products || [],
-            reviews: (existingStoreData.reviews || []).map(review => {
+            reviews: (existingStoreData.reviews || []).map((review: any) => {
               const date = review.date as any;
                let isoDateString: string;
                 if (date && typeof date.toDate === 'function') { isoDateString = date.toDate().toISOString(); }
@@ -444,7 +451,13 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             console.error(`[updateStoreAction] Store ${storeId} not found after update with Admin SDK.`);
             return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Το κέντρο δεν βρέθηκε μετά την ενημέρωση." };
         }
-        const updatedRawStore = { id: updatedDocSnap.id, ...updatedDocSnap.data() } as Store;
+        
+        const updatedAdminData = updatedDocSnap.data() as Omit<Store, 'id' | 'location'> & { location: admin.firestore.GeoPoint };
+        const updatedRawStore: Store = { 
+            id: updatedDocSnap.id, 
+            ...updatedAdminData,
+            location: { latitude: updatedAdminData.location.latitude, longitude: updatedAdminData.location.longitude} // Convert for client
+        };
         const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
 
         revalidatePath('/admin/stores');
