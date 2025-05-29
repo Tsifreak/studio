@@ -5,8 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { Store, StoreCategory, StoreFormData, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories, StoreCategoriesSlugs } from '@/lib/types';
-import { adminDb, adminStorage, admin } from '@/lib/firebase-admin'; // Ensure 'admin' is imported here
-// GeoPoint will now be accessed via admin.firestore.GeoPoint
+import { adminDb, adminStorage, admin } from '@/lib/firebase-admin';
+import type { GeoPoint as AdminGeoPoint } from 'firebase-admin/firestore';
 // Timestamp is still useful for other Admin SDK operations if needed, or can be admin.firestore.Timestamp
 import { Timestamp as FirestoreTimestamp } from '@google-cloud/firestore';
 
@@ -26,13 +26,18 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
     if (file.size > MAX_FILE_SIZE_BYTES) {
         throw new Error(`Το αρχείο είναι πολύ μεγάλο (${(file.size / 1024 / 1024).toFixed(2)}MB). Μέγιστο επιτρεπτό μέγεθος: ${MAX_FILE_SIZE_MB}MB.`);
     }
-
-    const bucket = adminStorage.bucket();
-    if (!bucket) {
-        console.error("[uploadFileToStorage] Default bucket not available in Admin Storage.");
-        throw new Error("Ο προεπιλεγμένος χώρος αποθήκευσης δεν είναι διαθέσιμος.");
+    let bucket;
+    try {
+        bucket = adminStorage.bucket();
+        if (!bucket) {
+            console.error("[uploadFileToStorage] Default bucket not available in Admin Storage.");
+            throw new Error("Ο προεπιλεγμένος χώρος αποθήκευσης δεν είναι διαθέσιμος.");
+        }
+        console.log(`[uploadFileToStorage] Attempting to use bucket: '${bucket.name}'`);
+    } catch (error) {
+        console.error("[uploadFileToStorage] Error accessing adminStorage.bucket():", error);
+        throw new Error("Σφάλμα πρόσβασης στον χώρο αποθήκευσης.");
     }
-    console.log(`[uploadFileToStorage] Attempting to use bucket: '${bucket.name}'`);
 
 
     const fileName = `${destinationFolder}/${Date.now()}-${Math.random().toString(36).substring(2, 10)}-${file.name.replace(/\s+/g, '_')}`;
@@ -104,7 +109,7 @@ function serializeStoreForClient(store: Store): SerializedStore {
         categories: store.categories || [],
         services: store.services || [],
         availability: store.availability || [],
-        location: (store.location instanceof admin.firestore.GeoPoint) ? { latitude: store.location.latitude, longitude: store.location.longitude } : // Check for Admin SDK GeoPoint
+        location: (store.location instanceof admin.firestore.GeoPoint) ? { latitude: store.location.latitude, longitude: store.location.longitude } :
                   (store.location && typeof store.location.latitude === 'number' && typeof store.location.longitude === 'number') ? { latitude: store.location.latitude, longitude: store.location.longitude } : undefined,
     };
 }
@@ -220,8 +225,8 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         return { success: false, message: uploadError.message || "Σφάλμα κατά το ανέβασμα αρχείου." };
     }
 
-    const categoriesFromForm = formData.get('categoriesInput') as string | undefined;
-    console.log("[addStoreAction] categoriesInput from FormData:", categoriesFromForm);
+    const rawCategoriesInputFromForm = formData.get('categoriesInput') as string | null;
+    console.log("[addStoreAction] categoriesInput from FormData:", rawCategoriesInputFromForm);
 
     const validatedFields = storeDbSchema.safeParse({
         name: formData.get('name') as string,
@@ -230,7 +235,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         description: formData.get('description') as string,
         longDescription: formData.get('longDescription') as string || undefined,
         tagsInput: formData.get('tagsInput') as string || undefined,
-        categoriesInput: categoriesFromForm ?? "",
+        categoriesInput: rawCategoriesInputFromForm === null ? undefined : rawCategoriesInputFromForm,
         contactEmail: formData.get('contactEmail') as string || '',
         websiteUrl: formData.get('websiteUrl') as string || '',
         latitude: formData.get('latitude') as string,
@@ -253,12 +258,15 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
 
     try {
-        const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInput, latitude, longitude, ...storeCoreData } = validatedFields.data;
+        const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInputFromZod, latitude, longitude, ...storeCoreData } = validatedFields.data;
 
-        const categories: StoreCategory[] = (validatedCategoriesInput ?? '')
-            .split(',')
-            .map((s) => s.trim().toLowerCase())
-            .filter(Boolean) as StoreCategory[];
+        let categories: StoreCategory[] = [];
+        if (validatedCategoriesInputFromZod !== undefined) {
+            categories = (validatedCategoriesInputFromZod ?? '')
+                .split(',')
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean) as StoreCategory[];
+        }
         console.log("[addStoreAction] Parsed categories for new store:", categories);
 
 
@@ -271,7 +279,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             try { availability = JSON.parse(availabilityJson); } catch (e) { console.warn("[addStoreAction] Could not parse availabilityJson:", e); }
         }
 
-        const storeDataForDB: Omit<Store, 'id' | 'location'> & { location: admin.firestore.GeoPoint } = {
+        const storeDataForDB: Omit<Store, 'id' | 'location'> & { location: AdminGeoPoint } = {
             name: validatedFields.data.name,
             logoUrl: validatedFields.data.logoUrl || '',
             bannerUrl: validatedFields.data.bannerUrl,
@@ -297,7 +305,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         const newRawStore: Store = { 
             ...storeDataForDB, 
             id: docRef.id, 
-            location: { latitude: storeDataForDB.location.latitude, longitude: storeDataForDB.location.longitude } // Convert back for client type
+            location: { latitude: storeDataForDB.location.latitude, longitude: storeDataForDB.location.longitude }
         };
         const newSerializedStore = serializeStoreForClient(newRawStore);
 
@@ -309,6 +317,9 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         return { success: true, message: `Το κέντρο "${newSerializedStore.name}" προστέθηκε επιτυχώς.`, store: newSerializedStore };
     } catch (error: any) {
         console.error("Error adding store in addStoreAction:", error);
+        if (error.message && error.message.includes("GeoPoint")) {
+          return { success: false, message: `Σφάλμα με το GeoPoint: ${error.message}. Βεβαιωθείτε ότι οι συντεταγμένες είναι έγκυρες.` };
+        }
         return { success: false, message: `Αποτυχία προσθήκης κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message}` };
     }
 }
@@ -336,7 +347,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         console.error(`[updateStoreAction] Store not found with Admin SDK for ID: ${storeId}`);
         return { success: false, message: "Το κέντρο δεν βρέθηκε." };
     }
-    const existingStoreData = existingStoreDocSnap.data() as Omit<Store, 'id' | 'location'> & { location: admin.firestore.GeoPoint | {latitude: number, longitude: number} };
+    const existingStoreData = existingStoreDocSnap.data() as Omit<Store, 'id' | 'location'> & { location: AdminGeoPoint | {latitude: number, longitude: number}, categories?: StoreCategory[] };
 
 
     let logoUrlToSave: string | undefined = formData.get('existingLogoUrl') as string || existingStoreData?.logoUrl || undefined;
@@ -377,7 +388,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         description: formData.get('description') as string,
         longDescription: formData.get('longDescription') as string || undefined,
         tagsInput: formData.get('tagsInput') as string || undefined,
-        categoriesInput: rawCategoriesInputFromForm ?? "", 
+        categoriesInput: rawCategoriesInputFromForm === null ? undefined : rawCategoriesInputFromForm, 
         contactEmail: formData.get('contactEmail') as string || '',
         websiteUrl: formData.get('websiteUrl') as string || '',
         latitude: formData.get('latitude') as string,
@@ -399,17 +410,9 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     console.log("[updateStoreAction] Zod validation successful. Validated Data:", validatedFields.data);
 
     try {
-        const { servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInput, latitude, longitude, ...dataToUpdate } = validatedFields.data;
+        const { servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInputFromZod, latitude, longitude, ...dataToUpdate } = validatedFields.data;
         
-        const parsedCategories: StoreCategory[] = (validatedCategoriesInput ?? '') 
-            .split(',')
-            .map((s) => s.trim().toLowerCase())
-            .filter(Boolean) as StoreCategory[];
-
-        console.log("[updateStoreAction] categoriesInput after Zod validation (validatedCategoriesInput):", validatedCategoriesInput);
-        console.log("[updateStoreAction] Parsed categories to be saved to Firestore:", parsedCategories);
-
-        const firestoreUpdatePayload: Omit<Partial<Store>, 'location' | 'reviews'> & { location?: admin.firestore.GeoPoint; reviews?: any[] } = {
+        const firestoreUpdatePayload: Omit<Partial<Store>, 'location' | 'reviews'> & { location?: AdminGeoPoint; reviews?: any[] } = {
             name: dataToUpdate.name,
             logoUrl: validatedFields.data.logoUrl || '',
             bannerUrl: validatedFields.data.bannerUrl,
@@ -419,7 +422,6 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             websiteUrl: dataToUpdate.websiteUrl,
             address: dataToUpdate.address ?? null,
             location: new admin.firestore.GeoPoint(parseFloat(latitude), parseFloat(longitude)),
-            categories: parsedCategories, 
             tags: tagsInput !== undefined ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : existingStoreData.tags || [],
             ownerId: dataToUpdate.ownerId === '' ? null : (dataToUpdate.ownerId || existingStoreData.ownerId || null),
             services: servicesJson ? JSON.parse(servicesJson) : (existingStoreData.services || []),
@@ -440,9 +442,31 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             }),
             rating: existingStoreData.rating || 0,
         };
+
+        console.log("[updateStoreAction] Validated categoriesInput from Zod:", validatedCategoriesInputFromZod);
+        if (validatedCategoriesInputFromZod !== undefined) {
+            // This means categoriesInput was present in the form data (could be an empty string if all unchecked)
+            const parsedCategories: StoreCategory[] = (validatedCategoriesInputFromZod ?? '')
+                .split(',')
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean) as StoreCategory[];
+            firestoreUpdatePayload.categories = parsedCategories;
+            console.log("[updateStoreAction] Setting categories based on validated form input:", parsedCategories);
+        } else if (existingStoreData.categories) {
+            // This case implies categoriesInput was not submitted by the form (e.g., field not dirty)
+            // AND Zod schema's .optional() resulted in validatedCategoriesInputFromZod being undefined.
+            // So, we retain existing categories from the database.
+            firestoreUpdatePayload.categories = existingStoreData.categories;
+            console.log("[updateStoreAction] Retaining existing categories from DB as categoriesInput was not in form data (validatedCategoriesInputFromZod was undefined):", existingStoreData.categories);
+        } else {
+            // Fallback: Not in form data, and no existing categories in DB
+            firestoreUpdatePayload.categories = [];
+            console.log("[updateStoreAction] No categories from form or DB (validatedCategoriesInputFromZod was undefined and no existing categories), defaulting to empty array.");
+        }
         
         console.log("[updateStoreAction] FINAL PAYLOAD for Firestore update:", JSON.stringify(firestoreUpdatePayload, null, 2));
         console.log("[updateStoreAction] FINAL PAYLOAD categories field specifically:", firestoreUpdatePayload.categories);
+
 
         await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload);
 
@@ -452,11 +476,11 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             return { success: false, message: "Αποτυχία ενημέρωσης κέντρου. Το κέντρο δεν βρέθηκε μετά την ενημέρωση." };
         }
         
-        const updatedAdminData = updatedDocSnap.data() as Omit<Store, 'id' | 'location'> & { location: admin.firestore.GeoPoint };
+        const updatedAdminData = updatedDocSnap.data() as Omit<Store, 'id' | 'location'> & { location: AdminGeoPoint };
         const updatedRawStore: Store = { 
             id: updatedDocSnap.id, 
             ...updatedAdminData,
-            location: { latitude: updatedAdminData.location.latitude, longitude: updatedAdminData.location.longitude} // Convert for client
+            location: { latitude: updatedAdminData.location.latitude, longitude: updatedAdminData.location.longitude}
         };
         const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
 
@@ -470,6 +494,9 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         console.error("[updateStoreAction] Error during store update process with Admin SDK:", error);
         let message = `Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message || 'Unknown error'}`;
         if (error.code) message += ` (Code: ${error.code})`;
+         if (error.message && error.message.includes("GeoPoint")) {
+          message = `Σφάλμα με το GeoPoint: ${error.message}. Βεβαιωθείτε ότι οι συντεταγμένες είναι έγκυρες.`;
+        }
         return { success: false, message: message };
     }
 }
