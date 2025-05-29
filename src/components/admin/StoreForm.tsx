@@ -5,7 +5,7 @@ import type { Map as LeafletMap } from 'leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Control, UseFormWatch } from "react-hook-form"; // Added Control, UseFormWatch
+import { useForm, Control, UseFormWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ import type { SerializedStore, StoreCategory } from '@/lib/types';
 import { AppCategories, StoreCategoriesSlugs } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useActionState, useState, useRef } from "react";
+import React, { useEffect, useActionState, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 
@@ -35,28 +35,24 @@ const DynamicStoreMap = dynamic(() =>
   loading: () => <div className="h-80 w-full flex items-center justify-center bg-muted rounded-md"><p>Φόρτωση χάρτη...</p></div>,
 });
 
-// ===========================================
-// *** START: Zod Schema and Types ***
-// ===========================================
-
 const clientStoreFormSchema = z.object({
   name: z.string().min(3, "Το όνομα είναι υποχρεωτικό και πρέπει να έχει τουλάχιστον 3 χαρακτήρες."),
   description: z.string().min(10, "Η περιγραφή είναι υποχρεωτική και πρέπει να έχει τουλάχιστον 10 χαρακτήρες."),
   longDescription: z.string().optional(),
   tagsInput: z.string().optional(),
   categoriesInput: z.string().refine(val => {
-    if (!val || val.trim() === "") return true; // Allow empty for no categories selected
+    if (!val || val.trim() === "") return true; 
     const slugs = val.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
   }, { message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}` }).optional(),
   contactEmail: z.string().email("Εισάγετε ένα έγκυρο email.").optional().or(z.literal('')),
   websiteUrl: z.string().url("Εισάγετε μια έγκυρη διεύθυνση URL.").optional().or(z.literal('')),
-  address: z.string().optional(),
+  address: z.string().min(1, "Η διεύθυνση είναι υποχρεωτική.").optional(), // Optional because it will be filled by autocomplete but we still want it
   latitude: z.string().superRefine((val, ctx) => {
     if (!val || val.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Το Γεωγραφικό Πλάτος είναι υποχρεωτικό.",
+        message: "Το Γεωγραφικό Πλάτος είναι υποχρεωτικό (επιλέξτε μια διεύθυνση).",
         path: ctx.path,
       });
       return;
@@ -74,7 +70,7 @@ const clientStoreFormSchema = z.object({
     if (!val || val.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Το Γεωγραφικό Μήκος είναι υποχρεωτικό.",
+        message: "Το Γεωγραφικό Μήκος είναι υποχρεωτικό (επιλέξτε μια διεύθυνση).",
         path: ctx.path,
       });
       return;
@@ -90,7 +86,7 @@ const clientStoreFormSchema = z.object({
   }),
   ownerId: z.string().optional(),
   servicesJson: z.string().refine((val) => {
-    if (!val || val.trim() === "") return true; // Allow empty string for no services
+    if (!val || val.trim() === "") return true; 
     try {
       const parsed = JSON.parse(val);
       const isValid = Array.isArray(parsed) && parsed.every(item =>
@@ -109,7 +105,7 @@ const clientStoreFormSchema = z.object({
     message: "Το JSON των υπηρεσιών δεν είναι έγκυρο ή δεν έχει τη σωστή μορφή."
   }).optional(),
   availabilityJson: z.string().refine((val) => {
-    if (!val || val.trim() === "") return true; // Allow empty string for no availability
+    if (!val || val.trim() === "") return true; 
     try {
       const parsed = JSON.parse(val);
       const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -139,7 +135,7 @@ interface ActionFormState {
   success: boolean;
   message: string;
   errors?: Partial<Record<keyof ClientStoreFormValues, string[]>>;
-  store?: SerializedStore; // Added store to state for add action
+  store?: SerializedStore;
 }
 
 interface StoreFormProps {
@@ -157,10 +153,13 @@ const initialFormState: ActionFormState = {
   store: undefined,
 };
 
-// ===========================================
-// *** END: Zod Schema and Types ***
-// ===========================================
-
+// Declare google maps script loaded callback on window
+declare global {
+  interface Window {
+    googleMapsScriptLoadedForStoreForm?: () => void;
+    google?: typeof google;
+  }
+}
 
 export function StoreForm({ store, action }: StoreFormProps) {
   const { toast } = useToast();
@@ -169,8 +168,12 @@ export function StoreForm({ store, action }: StoreFormProps) {
 
   const [currentLogoUrl, setCurrentLogoUrl] = useState(store?.logoUrl || null);
   const [currentBannerUrl, setCurrentBannerUrl] = useState(store?.bannerUrl || null);
-  const logoFileRef = useRef<HTMLInputElement>(null);
-  const bannerFileRef = useRef<HTMLInputElement>(null);
+  
+  const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const leafletMapRef = useRef<LeafletMap | null>(null); // Ref for the Leaflet map instance
+
 
   const form = useForm<ClientStoreFormValues>({
     resolver: zodResolver(clientStoreFormSchema),
@@ -217,6 +220,82 @@ export function StoreForm({ store, action }: StoreFormProps) {
     },
   });
 
+  // Load Google Maps Script
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error("Google Maps API Key is not configured. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable.");
+      toast({ title: "Σφάλμα Διαμόρφωσης Χάρτη", description: "Το κλειδί API για τους Χάρτες Google λείπει. Η αυτόματη συμπλήρωση διεύθυνσης δεν θα λειτουργεί.", variant: "destructive" });
+      return;
+    }
+
+    if (window.google && window.google.maps && window.google.maps.places) {
+      setGoogleScriptLoaded(true);
+      return;
+    }
+
+    const scriptId = "google-maps-places-script-storeform";
+    if (!document.getElementById(scriptId)) {
+      window.googleMapsScriptLoadedForStoreForm = () => {
+        setGoogleScriptLoaded(true);
+      };
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=googleMapsScriptLoadedForStoreForm`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    } else if (window.google && window.google.maps && window.google.maps.places) {
+      setGoogleScriptLoaded(true); // Script tag exists, and google object is ready
+    }
+     return () => { // Cleanup
+        // delete window.googleMapsScriptLoadedForStoreForm; // Not strictly needed to remove script but good for callback
+    };
+  }, [toast]);
+
+
+  // Initialize Google Places Autocomplete
+  useEffect(() => {
+    if (!googleScriptLoaded || !addressInputRef.current || autocompleteRef.current) {
+      return;
+    }
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
+        console.warn("Google Places Autocomplete not ready yet.");
+        return;
+    }
+
+    const autocomplete = new window.google.maps.places.Autocomplete(
+      addressInputRef.current,
+      {
+        types: ['address'],
+        componentRestrictions: { country: 'gr' }, // Restrict to Greece
+        fields: ['formatted_address', 'geometry.location', 'name'], // name might be useful
+      }
+    );
+    autocompleteRef.current = autocomplete;
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      if (place.geometry && place.geometry.location && place.formatted_address) {
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        
+        form.setValue('address', place.formatted_address, { shouldValidate: true, shouldDirty: true });
+        form.setValue('latitude', lat.toString(), { shouldValidate: true, shouldDirty: true });
+        form.setValue('longitude', lng.toString(), { shouldValidate: true, shouldDirty: true });
+
+        if (leafletMapRef.current) {
+          leafletMapRef.current.setView([lat, lng], 17); // Zoom to a closer level
+        }
+
+      } else {
+        console.warn("Autocomplete place has no geometry or formatted_address", place);
+        toast({ title: "Τοποθεσία μη Ολοκληρωμένη", description: "Παρακαλώ επιλέξτε μια πλήρη διεύθυνση από τις προτάσεις.", variant: "destructive" });
+      }
+    });
+  }, [googleScriptLoaded, form, toast]);
+
+
   useEffect(() => {
     if (!isPending && formState.message) {
       if (formState.success) {
@@ -231,16 +310,12 @@ export function StoreForm({ store, action }: StoreFormProps) {
           description: formState.message,
           variant: "destructive",
         });
-        // Ensure errors object exists and has keys before processing
         if (formState.errors && Object.keys(formState.errors).length > 0) {
-          console.error("[StoreForm] Server-side validation errors received:", JSON.stringify(formState.errors, null, 2));
-          if (formState.errors.latitude) console.error("[StoreForm] Latitude server error:", formState.errors.latitude);
-          if (formState.errors.longitude) console.error("[StoreForm] Longitude server error:", formState.errors.longitude);
-
+          console.error("Client-side validation errors:", formState.errors);
           Object.entries(formState.errors).forEach(([key, value]) => {
             const fieldKey = key as keyof ClientStoreFormValues;
             const message = Array.isArray(value) ? value.join(", ") : String(value);
-            if (form.getFieldState(fieldKey)) { // Check if field exists in form
+            if (form.getFieldState(fieldKey)) {
                  form.setError(fieldKey, { type: "server", message });
             } else {
                 console.warn(`[StoreForm] Attempted to set error on non-existent field '${fieldKey}'`);
@@ -251,21 +326,17 @@ export function StoreForm({ store, action }: StoreFormProps) {
     }
   }, [formState, isPending, store, router, toast, form]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'banner') => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === 'logo') setCurrentLogoUrl(reader.result as string);
-        if (type === 'banner') setCurrentBannerUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const watchedCategoriesInput = form.watch('categoriesInput');
-  console.log("[StoreForm] Current categoriesInput value (watched):", watchedCategoriesInput);
+  const watchedLatitude = form.watch('latitude');
+  const watchedLongitude = form.watch('longitude');
 
+  // Callback for Leaflet map clicks
+  const handleMapCoordinatesChange = useCallback((lat: number, lng: number) => {
+    form.setValue("latitude", lat.toFixed(7));
+    form.setValue("longitude", lng.toFixed(7));
+    // Optionally, perform reverse geocoding here to update address if map is main input
+    // For now, autocomplete drives the address.
+  }, [form]);
 
   return (
     <Card className="w-full max-w-4xl mx-auto shadow-xl">
@@ -327,6 +398,11 @@ export function StoreForm({ store, action }: StoreFormProps) {
                     type="file"
                     accept="image/png, image/jpeg, image/webp"
                     {...form.register("logoFile")} 
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setCurrentLogoUrl(URL.createObjectURL(file));
+                        form.register("logoFile").onChange(e); // Ensure react-hook-form also gets the change
+                    }}
                 />
                 <FormDescription className="text-xs">PNG, JPG, WebP. Μέγιστο 2MB.</FormDescription>
               </FormItem>
@@ -337,7 +413,12 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 <Input
                     type="file"
                     accept="image/png, image/jpeg, image/webp"
-                     {...form.register("bannerFile")} 
+                     {...form.register("bannerFile")}
+                     onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setCurrentBannerUrl(URL.createObjectURL(file));
+                        form.register("bannerFile").onChange(e);
+                    }}
                 />
                 <FormDescription className="text-xs">PNG, JPG, WebP. Μέγιστο 2MB.</FormDescription>
               </FormItem>
@@ -382,7 +463,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
                                   updatedSlugs = updatedSlugs.filter(s => s !== category.slug);
                                 }
                                 field.onChange(updatedSlugs.join(','));
-                                console.log("[StoreForm] categoriesInput changed to:", updatedSlugs.join(','));
                               }}
                             />
                           </FormControl>
@@ -432,10 +512,15 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Διεύθυνση (Προαιρετικό)</FormLabel>
+                    <FormLabel>Διεύθυνση</FormLabel>
                     <FormControl>
-                      <Input placeholder="Οδός Παραδείγματος 123, Πόλη" {...field} />
+                      <Input 
+                        placeholder="π.χ. Οδός Παραδείγματος 123, Πόλη" 
+                        {...field} 
+                        ref={addressInputRef} // Assign ref for Autocomplete
+                      />
                     </FormControl>
+                    <FormDescription>Ξεκινήστε να πληκτρολογείτε για αυτόματη συμπλήρωση.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -447,8 +532,9 @@ export function StoreForm({ store, action }: StoreFormProps) {
                   <FormItem>
                     <FormLabel>Γεωγραφικό Πλάτος (Latitude)</FormLabel>
                     <FormControl>
-                      <Input placeholder="π.χ. 37.9838" {...field} />
+                      <Input placeholder="π.χ. 37.9838" {...field} readOnly className="bg-muted/50" />
                     </FormControl>
+                    <FormDescription>Ενημερώνεται αυτόματα από την επιλογή διεύθυνσης.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -460,21 +546,20 @@ export function StoreForm({ store, action }: StoreFormProps) {
                   <FormItem>
                     <FormLabel>Γεωγραφικό Μήκος (Longitude)</FormLabel>
                     <FormControl>
-                      <Input placeholder="π.χ. 23.7275" {...field} />
+                      <Input placeholder="π.χ. 23.7275" {...field} readOnly className="bg-muted/50" />
                     </FormControl>
+                     <FormDescription>Ενημερώνεται αυτόματα από την επιλογή διεύθυνσης.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <div className="h-80 w-full rounded-md overflow-hidden border">
                 <DynamicStoreMap
-                  key={store?.id ? `edit-map-${store.id}` : "new-store-map"}
-                  latitude={parseFloat(form.watch("latitude") || '0')}
-                  longitude={parseFloat(form.watch("longitude") || '0')}
-                  onCoordinatesChange={(lat, lng) => {
-                    form.setValue("latitude", lat.toFixed(6));
-                    form.setValue("longitude", lng.toFixed(6));
-                  }}
+                  key={store?.id ? `edit-map-${store.id}-${watchedLatitude}-${watchedLongitude}` : `new-store-map-${watchedLatitude}-${watchedLongitude}`}
+                  latitude={parseFloat(watchedLatitude || '37.9838')}
+                  longitude={parseFloat(watchedLongitude || '23.7275')}
+                  onCoordinatesChange={handleMapCoordinatesChange}
+                  mapRef={leafletMapRef} // Pass the ref to DynamicStoreMap
                 />
               </div>
                <FormField
@@ -524,7 +609,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                             placeholder={JSON.stringify([
                                 { "dayOfWeek": 1, "startTime": "09:00", "endTime": "17:00", "lunchBreakStartTime": "13:00", "lunchBreakEndTime": "14:00" },
                                 { "dayOfWeek": 2, "startTime": "09:00", "endTime": "17:00" },
-                                { "dayOfWeek": 0, "startTime": "", "endTime": "" } // Κυριακή - Κλειστά
+                                { "dayOfWeek": 0, "startTime": "", "endTime": "" } 
                               ], null, 2)}
                             {...field}
                             rows={8}
@@ -541,7 +626,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
   { "dayOfWeek": 4, "startTime": "09:00", "endTime": "17:00" },
   { "dayOfWeek": 5, "startTime": "09:00", "endTime": "17:00" },
   { "dayOfWeek": 6, "startTime": "10:00", "endTime": "14:00" },
-  { "dayOfWeek": 0, "startTime": "", "endTime": "" } // Κυριακή - Κλειστά
+  { "dayOfWeek": 0, "startTime": "", "endTime": "" }
 ]`}
                             </pre>
                         </FormDescription>
