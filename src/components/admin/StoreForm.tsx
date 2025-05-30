@@ -5,7 +5,7 @@ import type { Map as LeafletMap } from 'leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Control, UseFormWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +47,7 @@ const clientStoreFormSchema = z.object({
   }, { message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}` }).optional(),
   contactEmail: z.string().email("Εισάγετε ένα έγκυρο email.").optional().or(z.literal('')),
   websiteUrl: z.string().url("Εισάγετε μια έγκυρη διεύθυνση URL.").optional().or(z.literal('')),
-  address: z.string().min(1, "Η διεύθυνση είναι υποχρεωτική.").optional(), // Optional because it will be filled by autocomplete but we still want it
+  address: z.string().min(1, "Η διεύθυνση είναι υποχρεωτική.").optional(),
   latitude: z.string().superRefine((val, ctx) => {
     if (!val || val.trim() === '') {
       ctx.addIssue({
@@ -153,7 +153,6 @@ const initialFormState: ActionFormState = {
   store: undefined,
 };
 
-// Declare google maps script loaded callback on window
 declare global {
   interface Window {
     googleMapsScriptLoadedForStoreForm?: () => void;
@@ -172,7 +171,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const leafletMapRef = useRef<LeafletMap | null>(null); // Ref for the Leaflet map instance
+  const leafletMapRef = useRef<LeafletMap | null>(null); 
 
 
   const form = useForm<ClientStoreFormValues>({
@@ -220,7 +219,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
     },
   });
 
-  // Load Google Maps Script
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
@@ -246,15 +244,10 @@ export function StoreForm({ store, action }: StoreFormProps) {
       script.defer = true;
       document.head.appendChild(script);
     } else if (window.google && window.google.maps && window.google.maps.places) {
-      setGoogleScriptLoaded(true); // Script tag exists, and google object is ready
+      setGoogleScriptLoaded(true); 
     }
-     return () => { // Cleanup
-        // delete window.googleMapsScriptLoadedForStoreForm; // Not strictly needed to remove script but good for callback
-    };
   }, [toast]);
 
-
-  // Initialize Google Places Autocomplete
   useEffect(() => {
     if (!googleScriptLoaded || !addressInputRef.current || autocompleteRef.current) {
       return;
@@ -268,8 +261,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
       addressInputRef.current,
       {
         types: ['address'],
-        componentRestrictions: { country: 'gr' }, // Restrict to Greece
-        fields: ['formatted_address', 'geometry.location', 'name'], // name might be useful
+        componentRestrictions: { country: 'gr' }, 
+        fields: ['formatted_address', 'geometry.location', 'name'], 
       }
     );
     autocompleteRef.current = autocomplete;
@@ -285,16 +278,14 @@ export function StoreForm({ store, action }: StoreFormProps) {
         form.setValue('longitude', lng.toString(), { shouldValidate: true, shouldDirty: true });
 
         if (leafletMapRef.current) {
-          leafletMapRef.current.setView([lat, lng], 17); // Zoom to a closer level
+          leafletMapRef.current.setView([lat, lng], 17); 
         }
-
       } else {
         console.warn("Autocomplete place has no geometry or formatted_address", place);
         toast({ title: "Τοποθεσία μη Ολοκληρωμένη", description: "Παρακαλώ επιλέξτε μια πλήρη διεύθυνση από τις προτάσεις.", variant: "destructive" });
       }
     });
   }, [googleScriptLoaded, form, toast]);
-
 
   useEffect(() => {
     if (!isPending && formState.message) {
@@ -311,14 +302,14 @@ export function StoreForm({ store, action }: StoreFormProps) {
           variant: "destructive",
         });
         if (formState.errors && Object.keys(formState.errors).length > 0) {
-          console.error("Client-side validation errors:", formState.errors);
+          console.error("Client-side form errors received from server:", formState.errors);
           Object.entries(formState.errors).forEach(([key, value]) => {
             const fieldKey = key as keyof ClientStoreFormValues;
             const message = Array.isArray(value) ? value.join(", ") : String(value);
             if (form.getFieldState(fieldKey)) {
                  form.setError(fieldKey, { type: "server", message });
             } else {
-                console.warn(`[StoreForm] Attempted to set error on non-existent field '${fieldKey}'`);
+                console.warn(`[StoreForm] Attempted to set error on non-existent/unregistered field '${fieldKey}'`);
             }
           });
         }
@@ -326,16 +317,12 @@ export function StoreForm({ store, action }: StoreFormProps) {
     }
   }, [formState, isPending, store, router, toast, form]);
 
-  const watchedCategoriesInput = form.watch('categoriesInput');
   const watchedLatitude = form.watch('latitude');
   const watchedLongitude = form.watch('longitude');
 
-  // Callback for Leaflet map clicks
   const handleMapCoordinatesChange = useCallback((lat: number, lng: number) => {
     form.setValue("latitude", lat.toFixed(7));
     form.setValue("longitude", lng.toFixed(7));
-    // Optionally, perform reverse geocoding here to update address if map is main input
-    // For now, autocomplete drives the address.
   }, [form]);
 
   return (
@@ -349,6 +336,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
          <form action={formAction} className="space-y-6">
            <input type="hidden" {...form.register("existingLogoUrl")} />
            <input type="hidden" {...form.register("existingBannerUrl")} />
+           
            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
             <div className="space-y-6">
               <FormField
@@ -401,7 +389,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                     onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) setCurrentLogoUrl(URL.createObjectURL(file));
-                        form.register("logoFile").onChange(e); // Ensure react-hook-form also gets the change
+                        form.register("logoFile").onChange(e); 
                     }}
                 />
                 <FormDescription className="text-xs">PNG, JPG, WebP. Μέγιστο 2MB.</FormDescription>
@@ -438,46 +426,58 @@ export function StoreForm({ store, action }: StoreFormProps) {
                 )}
               />
 
-            <FormField
-              control={form.control}
-              name="categoriesInput"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Κατηγορίες</FormLabel>
-                  <div className="space-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
-                    {AppCategories.map((category) => {
-                      const currentSelectedSlugs = field.value?.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) || [];
-                      const isChecked = currentSelectedSlugs.includes(category.slug);
-                      return (
-                        <FormItem key={category.slug} className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                let updatedSlugs = [...currentSelectedSlugs];
-                                if (checked) {
-                                  if (!updatedSlugs.includes(category.slug)) {
-                                    updatedSlugs.push(category.slug);
+              <FormField
+                control={form.control}
+                name="categoriesInput"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Κατηγορίες</FormLabel>
+                    <div className="space-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                      {AppCategories.map((category) => {
+                        const currentSlugsString = form.getValues('categoriesInput') || '';
+                        const currentSelectedSlugs = currentSlugsString
+                          .split(',')
+                          .map(s => s.trim().toLowerCase())
+                          .filter(Boolean);
+                        const isChecked = currentSelectedSlugs.includes(category.slug);
+
+                        return (
+                          <FormItem key={category.slug} className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(checkedStatus) => {
+                                  const latestSlugsString = form.getValues('categoriesInput') || '';
+                                  let updatedSlugsArray = latestSlugsString
+                                    .split(',')
+                                    .map(s => s.trim().toLowerCase())
+                                    .filter(Boolean);
+
+                                  if (checkedStatus) {
+                                    if (!updatedSlugsArray.includes(category.slug)) {
+                                      updatedSlugsArray.push(category.slug);
+                                    }
+                                  } else {
+                                    updatedSlugsArray = updatedSlugsArray.filter(s => s !== category.slug);
                                   }
-                                } else {
-                                  updatedSlugs = updatedSlugs.filter(s => s !== category.slug);
-                                }
-                                field.onChange(updatedSlugs.join(','));
-                              }}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer">
-                            {category.translatedName}
-                          </FormLabel>
-                        </FormItem>
-                      );
-                    })}
-                  </div>
-                  <FormDescription>Επιλέξτε μία ή περισσότερες κατηγορίες.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                                  const newCategoriesString = updatedSlugsArray.join(',');
+                                  console.log('[StoreForm] Checkbox for', category.slug, 'changed to', checkedStatus, '. New categoriesInput string:', newCategoriesString);
+                                  field.onChange(newCategoriesString);
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal cursor-pointer">
+                              {category.translatedName}
+                            </FormLabel>
+                          </FormItem>
+                        );
+                      })}
+                    </div>
+                    <FormDescription>Επιλέξτε μία ή περισσότερες κατηγορίες.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <div className="space-y-6">
@@ -517,7 +517,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                       <Input 
                         placeholder="π.χ. Οδός Παραδείγματος 123, Πόλη" 
                         {...field} 
-                        ref={addressInputRef} // Assign ref for Autocomplete
+                        ref={addressInputRef} 
                       />
                     </FormControl>
                     <FormDescription>Ξεκινήστε να πληκτρολογείτε για αυτόματη συμπλήρωση.</FormDescription>
@@ -559,7 +559,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                   latitude={parseFloat(watchedLatitude || '37.9838')}
                   longitude={parseFloat(watchedLongitude || '23.7275')}
                   onCoordinatesChange={handleMapCoordinatesChange}
-                  mapRef={leafletMapRef} // Pass the ref to DynamicStoreMap
+                  mapRef={leafletMapRef} 
                 />
               </div>
                <FormField
@@ -662,3 +662,4 @@ export function StoreForm({ store, action }: StoreFormProps) {
     </Card>
   );
 }
+    
