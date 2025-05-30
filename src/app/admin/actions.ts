@@ -1,4 +1,3 @@
-
 "use server";
 
 import { revalidatePath } from 'next/cache';
@@ -141,7 +140,7 @@ const storeDbSchema = z.object({
     longDescription: z.string().optional(),
     tagsInput: z.string().optional(),
     categoriesInput: z.string().refine((val) => {
-      if (!val || val.trim() === "") return true; 
+      if (!val || val.trim() === "" || val.split(',').every(s => s.trim() === "")) return true; 
       const slugs = val.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
     }, {
@@ -261,8 +260,8 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         const { ownerId, servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInputFromZod, latitude, longitude, ...storeCoreData } = validatedFields.data;
 
         let categories: StoreCategory[] = [];
-        if (validatedCategoriesInputFromZod !== undefined) {
-            categories = (validatedCategoriesInputFromZod ?? '')
+        if (validatedCategoriesInputFromZod !== undefined) { // Only process if it was part of form data & validated
+            categories = (validatedCategoriesInputFromZod ?? '') // Default to empty string if undefined (though Zod should handle this)
                 .split(',')
                 .map((s) => s.trim().toLowerCase())
                 .filter(Boolean) as StoreCategory[];
@@ -412,7 +411,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
     try {
         const { servicesJson, availabilityJson, tagsInput, categoriesInput: validatedCategoriesInputFromZod, latitude, longitude, ...dataToUpdate } = validatedFields.data;
         
-        const firestoreUpdatePayload: Omit<Partial<Store>, 'location' | 'reviews'> & { location?: AdminGeoPoint; reviews?: any[] } = {
+        const firestoreUpdatePayload: Partial<Omit<Store, 'id' | 'location' | 'reviews'>> & { location?: AdminGeoPoint; reviews?: any[] } = {
             name: dataToUpdate.name,
             logoUrl: validatedFields.data.logoUrl || '',
             bannerUrl: validatedFields.data.bannerUrl,
@@ -445,23 +444,17 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
 
         console.log("[updateStoreAction] Validated categoriesInput from Zod:", validatedCategoriesInputFromZod);
         if (validatedCategoriesInputFromZod !== undefined) {
-            // This means categoriesInput was present in the form data (could be an empty string if all unchecked)
             const parsedCategories: StoreCategory[] = (validatedCategoriesInputFromZod ?? '')
                 .split(',')
                 .map((s) => s.trim().toLowerCase())
                 .filter(Boolean) as StoreCategory[];
             firestoreUpdatePayload.categories = parsedCategories;
             console.log("[updateStoreAction] Setting categories based on validated form input:", parsedCategories);
-        } else if (existingStoreData.categories) {
-            // This case implies categoriesInput was not submitted by the form (e.g., field not dirty)
-            // AND Zod schema's .optional() resulted in validatedCategoriesInputFromZod being undefined.
-            // So, we retain existing categories from the database.
-            firestoreUpdatePayload.categories = existingStoreData.categories;
-            console.log("[updateStoreAction] Retaining existing categories from DB as categoriesInput was not in form data (validatedCategoriesInputFromZod was undefined):", existingStoreData.categories);
         } else {
-            // Fallback: Not in form data, and no existing categories in DB
-            firestoreUpdatePayload.categories = [];
-            console.log("[updateStoreAction] No categories from form or DB (validatedCategoriesInputFromZod was undefined and no existing categories), defaulting to empty array.");
+            // categoriesInput was NOT submitted from the form. Retain existing categories.
+            // Ensure existingStoreData.categories is an array before assigning it.
+            firestoreUpdatePayload.categories = (existingStoreData.categories && Array.isArray(existingStoreData.categories)) ? existingStoreData.categories : [];
+            console.log("[updateStoreAction] Retaining existing categories from DB as categoriesInput was not in form data (validatedCategoriesInputFromZod was undefined):", firestoreUpdatePayload.categories);
         }
         
         console.log("[updateStoreAction] FINAL PAYLOAD for Firestore update:", JSON.stringify(firestoreUpdatePayload, null, 2));
@@ -485,6 +478,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
 
         revalidatePath('/admin/stores');
+        revalidatePath(`/admin/stores/edit/${storeId}`); // Revalidate the edit page itself
         revalidatePath('/');
         AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
         revalidatePath(`/stores/${storeId}`);
@@ -512,10 +506,12 @@ export async function deleteStoreAction(storeId: string): Promise<{ success: boo
         revalidatePath('/admin/stores');
         revalidatePath('/');
         AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
-        revalidatePath(`/stores/${storeId}`);
+        revalidatePath(`/stores/${storeId}`); // Revalidate the specific store page
         return { success: true, message: "Το κέντρο διαγράφηκε επιτυχώς." };
     } catch (error: any) {
         console.error("Error deleting store with Admin SDK:", error);
         return { success: false, message: `Αποτυχία διαγραφής κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message}` };
     }
 }
+
+// Note: updateStoreCategoryAction is removed as category management is now part of updateStoreAction
