@@ -336,7 +336,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
          <form action={formAction} className="space-y-6">
            <input type="hidden" {...form.register("existingLogoUrl")} />
            <input type="hidden" {...form.register("existingBannerUrl")} />
-           
+           <input type="hidden" {...form.register("categoriesInput")} />
            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
             <div className="space-y-6">
               <FormField

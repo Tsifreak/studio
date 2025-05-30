@@ -1,5 +1,5 @@
 import { StoreForm } from '@/components/admin/StoreForm';
-import { updateStoreAction } from '../../../actions';
+import { updateStoreAction } from '@/app/admin/actions'; // Adjust path if necessary
 import { getStoreByIdFromDB } from '@/lib/storeService';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -9,8 +9,9 @@ import { ArrowLeft } from 'lucide-react';
 import type { Store, Feature, SerializedStore, SerializedFeature, StoreCategory } from '@/lib/types';
 import { Timestamp, GeoPoint } from 'firebase/firestore';
 
+// IMPORTANT CHANGE: Allow params to be a Promise, as Next.js might pass it this way
 interface EditStorePageProps {
-    params: { storeId: string };
+    params: Promise<{ storeId: string }> | { storeId: string };
 }
 
 // Helper function to deeply serialize Firebase data to plain JavaScript objects
@@ -41,7 +42,9 @@ function serializeFirestoreData(obj: any): any {
 }
 
 export async function generateMetadata({ params }: EditStorePageProps): Promise<Metadata> {
-    const store = await getStoreByIdFromDB(params.storeId);
+    // Await params to ensure it's resolved before accessing properties
+    const resolvedParams = await params;
+    const store = await getStoreByIdFromDB(resolvedParams.storeId);
     if (!store) {
         return { title: 'Κέντρο Δεν Βρέθηκε | Amaxakis Admin' };
     }
@@ -52,7 +55,9 @@ export async function generateMetadata({ params }: EditStorePageProps): Promise<
 }
 
 export default async function EditStorePage({ params }: EditStorePageProps) {
-    const storeData = await getStoreByIdFromDB(params.storeId);
+    // Await params to ensure it's resolved before accessing properties
+    const resolvedParams = await params;
+    const storeData = await getStoreByIdFromDB(resolvedParams.storeId);
 
     if (!storeData) {
         notFound();
@@ -78,15 +83,16 @@ export default async function EditStorePage({ params }: EditStorePageProps) {
         location: serializedStoreData.location, // Keep the location as is, assuming it's already plain data
     };
 
-    const updateStoreActionWithId = updateStoreAction.bind(null, params.storeId);
+    // Use resolvedParams.storeId for binding, ensuring it's always a string
+    const updateStoreActionWithId = updateStoreAction.bind(null, resolvedParams.storeId);
 
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                  <Button variant="outline" size="icon" asChild>
+                    <Button variant="outline" size="icon" asChild>
                     <Link href="/admin/stores">
                         <ArrowLeft className="h-4 w-4" />
-                          <span className="sr-only">Πίσω στα Κέντρα</span>
+                            <span className="sr-only">Πίσω στα Κέντρα</span>
                     </Link>
                 </Button>
                 <h1 className="text-2xl font-semibold">Επεξεργασία Κέντρου</h1>
