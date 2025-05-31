@@ -302,14 +302,14 @@ export function StoreForm({ store, action }: StoreFormProps) {
           variant: "destructive",
         });
         if (formState.errors && Object.keys(formState.errors).length > 0) {
-          console.error("Client-side form errors received from server:", formState.errors);
+          console.error("Client-side validation errors from server:", formState.errors);
           Object.entries(formState.errors).forEach(([key, value]) => {
             const fieldKey = key as keyof ClientStoreFormValues;
             const message = Array.isArray(value) ? value.join(", ") : String(value);
-            if (form.getFieldState(fieldKey)) {
+            if (form.getFieldState(fieldKey)) { // Check if field exists
                  form.setError(fieldKey, { type: "server", message });
             } else {
-                console.warn(`[StoreForm] Attempted to set error on non-existent/unregistered field '${fieldKey}'`);
+                console.warn(`[StoreForm] Attempted to set error on non-existent/unregistered field '${fieldKey}' from server. Message: ${message}`);
             }
           });
         }
@@ -334,9 +334,10 @@ export function StoreForm({ store, action }: StoreFormProps) {
 
       <Form {...form}>
          <form action={formAction} className="space-y-6">
+           {/* Hidden inputs for existing image URLs, crucial for update logic */}
            <input type="hidden" {...form.register("existingLogoUrl")} />
            <input type="hidden" {...form.register("existingBannerUrl")} />
-           <input type="hidden" {...form.register("categoriesInput")} />
+
            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
             <div className="space-y-6">
               <FormField
@@ -429,11 +430,14 @@ export function StoreForm({ store, action }: StoreFormProps) {
               <FormField
                 control={form.control}
                 name="categoriesInput"
-                render={({ field }) => (
+                render={({ field }) => ( // field.value is the comma-separated string
                   <FormItem>
                     <FormLabel>Κατηγορίες</FormLabel>
+                    {/* This hidden input ensures FormData picks up the categoriesInput value */}
+                    <input type="hidden" name={field.name} value={field.value || ''} />
                     <div className="space-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
                       {AppCategories.map((category) => {
+                        // Get the current value directly from the form state for reliability
                         const currentSlugsString = form.getValues('categoriesInput') || '';
                         const currentSelectedSlugs = currentSlugsString
                           .split(',')
@@ -447,6 +451,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                               <Checkbox
                                 checked={isChecked}
                                 onCheckedChange={(checkedStatus) => {
+                                  // Use form.getValues for the most up-to-date string
                                   const latestSlugsString = form.getValues('categoriesInput') || '';
                                   let updatedSlugsArray = latestSlugsString
                                     .split(',')
@@ -462,7 +467,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                                   }
                                   const newCategoriesString = updatedSlugsArray.join(',');
                                   console.log('[StoreForm] Checkbox for', category.slug, 'changed to', checkedStatus, '. New categoriesInput string:', newCategoriesString);
-                                  field.onChange(newCategoriesString);
+                                  field.onChange(newCategoriesString); // This updates react-hook-form's internal state for categoriesInput
                                 }}
                               />
                             </FormControl>
