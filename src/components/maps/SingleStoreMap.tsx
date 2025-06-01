@@ -1,14 +1,26 @@
 
 "use client";
 
-import { cn } from '@/lib/utils';
 import React, { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import type { Map as LeafletMapType } from 'leaflet'; // Leaflet type import
+import dynamic from 'next/dynamic'; // Import next/dynamic
 
-// Direct imports, rendering will be conditional
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-// Leaflet type import
-import type { Map as LeafletMapType } from 'leaflet';
+// Dynamically import react-leaflet components with ssr: false
+const DynamicMapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full rounded-md" />,
+});
+const DynamicTileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), {
+  ssr: false,
+});
+const DynamicMarker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), {
+  ssr: false,
+});
+const DynamicPopup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), {
+  ssr: false,
+});
 
 
 interface SingleStoreMapProps {
@@ -21,13 +33,13 @@ interface SingleStoreMapProps {
 
 export function SingleStoreMap({ latitude, longitude, storeName, zoom = 15, className }: SingleStoreMapProps) {
   const [isClient, setIsClient] = useState(false);
-  const [LModule, setLModule] = useState<typeof import('leaflet') | null>(null); // Store the leaflet module
-  const mapInstanceRef = useRef<LeafletMapType | null>(null); // Ref for the Leaflet map instance
+  const [LModule, setLModule] = useState<typeof import('leaflet') | null>(null);
+  const mapInstanceRef = useRef<LeafletMapType | null>(null);
 
   useEffect(() => {
     setIsClient(true);
     if (typeof window !== 'undefined') {
-      import('leaflet/dist/leaflet.css');
+      import('leaflet/dist/leaflet.css'); // Import CSS here, only on client
       import('leaflet').then(leaflet => {
         setLModule(leaflet);
         // Fix for default icon path issue with webpack
@@ -46,45 +58,44 @@ export function SingleStoreMap({ latitude, longitude, storeName, zoom = 15, clas
   }, []);
 
   useEffect(() => {
-    // This effect is to update the map view if props change *after* initial render
-    if (mapInstanceRef.current && LModule) {
+    if (mapInstanceRef.current && LModule && isClient) {
       const currentCenter = mapInstanceRef.current.getCenter();
       const currentZoom = mapInstanceRef.current.getZoom();
       if (currentCenter.lat !== latitude || currentCenter.lng !== longitude || currentZoom !== zoom) {
         mapInstanceRef.current.setView([latitude, longitude], zoom);
       }
     }
-  }, [latitude, longitude, zoom, LModule]);
+  }, [latitude, longitude, zoom, LModule, isClient]);
 
   if (!isClient || !LModule) {
     return <Skeleton className={cn("h-full w-full rounded-md", className)} />;
   }
 
-  const markerIcon = LModule ? new LModule.Icon.Default() : undefined;
+  // Define markerIcon only when LModule is available
+  const markerIcon = new LModule.Icon.Default();
 
-  // Using a highly unique key including Math.random() to force remount of MapContainer.
-  // This is a more aggressive approach for stubborn initialization issues.
+  // Using a highly unique key including Math.random() to force remount of DynamicMapContainer.
   const mapKey = `${storeName}-${latitude}-${longitude}-${zoom}-${Date.now()}-${Math.random()}`;
 
   return (
-    <MapContainer
+    <DynamicMapContainer
       key={mapKey}
       center={[latitude, longitude]}
       zoom={zoom}
       scrollWheelZoom={true}
       style={{ height: '100%', width: '100%' }}
       className={cn("rounded-md", className)}
-      whenCreated={map => { mapInstanceRef.current = map; }} // Use whenCreated to get the map instance
+      whenCreated={map => { mapInstanceRef.current = map; }}
     >
-      <TileLayer
+      <DynamicTileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {markerIcon && (
-        <Marker position={[latitude, longitude]} icon={markerIcon}>
-          <Popup>{storeName}</Popup>
-        </Marker>
+      {markerIcon && ( // Ensure markerIcon is defined
+        <DynamicMarker position={[latitude, longitude]} icon={markerIcon}>
+          <DynamicPopup>{storeName}</DynamicPopup>
+        </DynamicMarker>
       )}
-    </MapContainer>
+    </DynamicMapContainer>
   );
 }
