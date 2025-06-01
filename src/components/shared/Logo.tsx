@@ -1,19 +1,24 @@
-
+// src/components/shared/Logo.tsx
 import Link from 'next/link';
-import { Wrench } from 'lucide-react'; // Changed to Wrench for car repair theme
+import { AmaxakisCustomLogo } from '@/components/icons/AmaxakisCustomLogo'; // Import the new custom logo
 
 interface LogoProps {
   className?: string;
   iconSize?: number;
-  textSize?: string;
+  // textSize prop is no longer needed as text is removed
 }
 
-export function Logo({ className, iconSize = 28, textSize = "text-2xl" }: LogoProps) {
+export function Logo({ className, iconSize = 32 }: LogoProps) {
   return (
-    <Link href="/" className={`flex items-center gap-2 ${className}`}>
-      <Wrench className="text-primary" size={iconSize} aria-hidden="true" />
-      <span className={`font-bold ${textSize} text-primary`}>Amaxakis</span>
+    <Link href="/" className={`flex items-center ${className}`}>
+      <AmaxakisCustomLogo
+        // The className is passed for potential CSS styling, but fill is determined by SVG's internal styles
+        className="text-primary" // This class primarily helps if any SVG part uses 'currentColor'
+        width={iconSize * 2} // Adjusted width based on typical logo aspect ratios; tweak as needed
+        height={iconSize}   // Height remains based on iconSize
+        aria-label="Amaxakis Logo" // Added aria-label for accessibility since text is removed
+      />
+      {/* The <span> element for the text "Amaxakis" has been removed */}
     </Link>
   );
 }
-
