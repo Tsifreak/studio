@@ -5,7 +5,7 @@ import { getStoreByIdFromDB } from '@/lib/storeService';
 import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot, StoreCategory } from '@/lib/types'; 
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags } from 'lucide-react'; 
+import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags, Eye } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
@@ -21,7 +21,8 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { BookingForm } from '@/components/booking/BookingForm';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
+import { SingleStoreMap } from '@/components/maps/SingleStoreMap'; // Import the map component
 
 export default function StoreDetailPage() {
   const params = useParams<{ storeId: string }>(); 
@@ -33,6 +34,7 @@ export default function StoreDetailPage() {
 
   const [selectedServiceForBooking, setSelectedServiceForBooking] = useState<Service | null>(null);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+  const [isMapDialogOpen, setIsMapDialogOpen] = useState(false); // State for dialog map
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -85,6 +87,10 @@ export default function StoreDetailPage() {
                 <CardHeader><Skeleton className="h-8 w-1/2 bg-muted" /></CardHeader>
                 <CardContent><Skeleton className="h-20 w-full bg-muted" /></CardContent>
             </Card>
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-1/3 bg-muted" /></CardHeader>
+                <CardContent><Skeleton className="h-80 w-full bg-muted rounded-md" /></CardContent>
+            </Card>
         </div>
     );
   }
@@ -126,7 +132,7 @@ export default function StoreDetailPage() {
     reviews: storeData.reviews || [],
     services: storeData.services || [], 
     availability: storeData.availability || [], 
-    categories: storeData.categories || [], // Ensure categories array is present
+    categories: storeData.categories || [], 
   };
 
 
@@ -136,7 +142,7 @@ export default function StoreDetailPage() {
 
   const categoryDisplay = serializableStore.categories
     .map(slug => AppCategories.find(cat => cat.slug === slug)?.translatedName)
-    .filter(Boolean) // Remove undefined if a slug doesn't match
+    .filter(Boolean) 
     .join(', ');
 
   const hasAvailability = serializableStore.availability && serializableStore.availability.length > 0;
@@ -195,6 +201,28 @@ export default function StoreDetailPage() {
                   <Globe className="w-4 h-4 mr-1" /> Επισκεφθείτε την Ιστοσελίδα
                 </a>
               )}
+               <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                        <Eye className="mr-2 h-4 w-4" /> Προβολή στον Χάρτη (Popup)
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl h-[70vh] p-2"> {/* Increased height and reduced padding for map */}
+                    <DialogHeader className="p-4">
+                        <DialogTitle>Τοποθεσία: {serializableStore.name}</DialogTitle>
+                    </DialogHeader>
+                    {serializableStore.location && (
+                        <div className="h-[calc(100%-4rem)] w-full"> {/* Adjust height for header */}
+                             <SingleStoreMap
+                                latitude={serializableStore.location.latitude}
+                                longitude={serializableStore.location.longitude}
+                                storeName={serializableStore.name}
+                                zoom={15}
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
             </div>
           </div>
         </CardHeader>
@@ -203,6 +231,7 @@ export default function StoreDetailPage() {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-7 mb-6">
           <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
+          <TabsTrigger value="location">Τοποθεσία</TabsTrigger> {/* New Tab for Map */}
           <TabsTrigger value="services_booking">Υπηρεσίες & Κράτηση ({serializableStore.services?.length || 0})</TabsTrigger>
           <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
           <TabsTrigger value="pricing">Πακέτα</TabsTrigger>
@@ -268,6 +297,34 @@ export default function StoreDetailPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="location">
+          <Card>
+            <CardHeader>
+              <CardTitle>Τοποθεσία του {serializableStore.name}</CardTitle>
+              {serializableStore.address && (
+                <CardDescription>
+                  <MapPin className="inline-block w-4 h-4 mr-1 text-muted-foreground" />
+                  {serializableStore.address}
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent>
+              {serializableStore.location ? (
+                <div className="h-96 w-full rounded-md overflow-hidden border shadow-inner">
+                  <SingleStoreMap
+                    latitude={serializableStore.location.latitude}
+                    longitude={serializableStore.location.longitude}
+                    storeName={serializableStore.name}
+                    zoom={15} 
+                  />
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Η τοποθεσία δεν είναι διαθέσιμη.</p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="services_booking">
@@ -435,3 +492,4 @@ export default function StoreDetailPage() {
     </div>
   );
 }
+
