@@ -1,3 +1,4 @@
+
 import type * as admin from 'firebase-admin';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -291,11 +292,15 @@ export interface ChatMessageFormData {
 
 export type BookingStatus = Booking['status'];
 
+export type SortByType = 'default' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
+
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
       NEXT_PUBLIC_FIREBASE_PROJECT_ID: string;
       FIREBASE_STORAGE_BUCKET?: string;
+      // Add other environment variables your app uses here
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?: string;
     }
   }
 }

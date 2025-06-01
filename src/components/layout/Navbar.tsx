@@ -41,7 +41,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Logo iconSize={40} className="ml-2" />
+        <Logo iconSize={130} className="ml-2" />
         <nav className="flex items-center gap-2 sm:gap-4">
           {!isClient || isLoading ? ( 
             <div className="h-10 w-24 animate-pulse rounded-md bg-muted"></div>
