@@ -1,14 +1,15 @@
 
 "use client";
+
 import { cn } from '@/lib/utils';
-import React, { useEffect, useRef, useState, Suspense } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Lazy load react-leaflet components
-const MapContainer = React.lazy(() => import('react-leaflet').then(module => ({ default: module.MapContainer })));
-const TileLayer = React.lazy(() => import('react-leaflet').then(module => ({ default: module.TileLayer })));
-const Marker = React.lazy(() => import('react-leaflet').then(module => ({ default: module.Marker })));
-const Popup = React.lazy(() => import('react-leaflet').then(module => ({ default: module.Popup })));
+// Direct imports, rendering will be conditional
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+// Leaflet type import
+import type { Map as LeafletMapType } from 'leaflet';
+
 
 interface SingleStoreMapProps {
   latitude: number;
@@ -20,17 +21,16 @@ interface SingleStoreMapProps {
 
 export function SingleStoreMap({ latitude, longitude, storeName, zoom = 15, className }: SingleStoreMapProps) {
   const [isClient, setIsClient] = useState(false);
-  const [L, setL] = useState<typeof import('leaflet') | null>(null);
-  const mapRef = useRef<import('leaflet').Map | null>(null);
+  const [LModule, setLModule] = useState<typeof import('leaflet') | null>(null); // Store the leaflet module
+  const mapInstanceRef = useRef<LeafletMapType | null>(null); // Ref for the Leaflet map instance
 
   useEffect(() => {
     setIsClient(true);
     if (typeof window !== 'undefined') {
-      import('leaflet/dist/leaflet.css'); // Import CSS first
+      import('leaflet/dist/leaflet.css');
       import('leaflet').then(leaflet => {
-        setL(leaflet);
+        setLModule(leaflet);
         // Fix for default icon path issue with webpack
-        // This check ensures we don't try to modify a non-existent prototype property
         if (leaflet.Icon?.Default?.prototype && (leaflet.Icon.Default.prototype as any)._getIconUrl) {
           delete (leaflet.Icon.Default.prototype as any)._getIconUrl;
         }
@@ -39,43 +39,52 @@ export function SingleStoreMap({ latitude, longitude, storeName, zoom = 15, clas
           iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
           shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
         });
+      }).catch(error => {
+        console.error("Failed to load Leaflet module:", error);
       });
     }
   }, []);
 
   useEffect(() => {
-    if (mapRef.current && L && (mapRef.current.getCenter().lat !== latitude || mapRef.current.getCenter().lng !== longitude || mapRef.current.getZoom() !== zoom )) {
-      mapRef.current.setView([latitude, longitude], zoom);
+    // This effect is to update the map view if props change *after* initial render
+    if (mapInstanceRef.current && LModule) {
+      const currentCenter = mapInstanceRef.current.getCenter();
+      const currentZoom = mapInstanceRef.current.getZoom();
+      if (currentCenter.lat !== latitude || currentCenter.lng !== longitude || currentZoom !== zoom) {
+        mapInstanceRef.current.setView([latitude, longitude], zoom);
+      }
     }
-  }, [latitude, longitude, zoom, L]);
+  }, [latitude, longitude, zoom, LModule]);
 
-  if (!isClient || !L) {
+  if (!isClient || !LModule) {
     return <Skeleton className={cn("h-full w-full rounded-md", className)} />;
   }
 
-  const markerIcon = L ? new L.Icon.Default() : undefined;
+  const markerIcon = LModule ? new LModule.Icon.Default() : undefined;
+
+  // Using a highly unique key including Math.random() to force remount of MapContainer.
+  // This is a more aggressive approach for stubborn initialization issues.
+  const mapKey = `${storeName}-${latitude}-${longitude}-${zoom}-${Date.now()}-${Math.random()}`;
 
   return (
-    <Suspense fallback={<Skeleton className={cn("h-full w-full rounded-md", className)} />}>
-      <MapContainer
-        key={`${storeName}-${latitude}-${longitude}-${zoom}`} // Unique key to force re-render
-        center={[latitude, longitude]}
-        zoom={zoom}
-        scrollWheelZoom={true}
-        style={{ height: '100%', width: '100%' }}
-        className={cn("rounded-md", className)}
-        ref={mapRef} // Use direct ref prop here
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {markerIcon && (
-          <Marker position={[latitude, longitude]} icon={markerIcon}>
-            <Popup>{storeName}</Popup>
-          </Marker>
-        )}
-      </MapContainer>
-    </Suspense>
+    <MapContainer
+      key={mapKey}
+      center={[latitude, longitude]}
+      zoom={zoom}
+      scrollWheelZoom={true}
+      style={{ height: '100%', width: '100%' }}
+      className={cn("rounded-md", className)}
+      whenCreated={map => { mapInstanceRef.current = map; }} // Use whenCreated to get the map instance
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {markerIcon && (
+        <Marker position={[latitude, longitude]} icon={markerIcon}>
+          <Popup>{storeName}</Popup>
+        </Marker>
+      )}
+    </MapContainer>
   );
 }
