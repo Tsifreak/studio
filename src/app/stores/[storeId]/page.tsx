@@ -207,7 +207,7 @@ export default function StoreDetailPage() {
       </Card>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 mb-6"> {/* Adjusted grid cols */}
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 mb-6">
           <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
           <TabsTrigger value="services_booking">Υπηρεσίες & Κράτηση ({serializableStore.services?.length || 0})</TabsTrigger>
           <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
@@ -271,10 +271,11 @@ export default function StoreDetailPage() {
                 <CardContent>
                     <div className="h-80 w-full rounded-md overflow-hidden border shadow-inner">
                         <SingleStoreMap
+                            key={serializableStore.id} 
                             latitude={serializableStore.location.latitude}
                             longitude={serializableStore.location.longitude}
                             storeName={serializableStore.name}
-                            zoom={15}
+                            zoom={15} 
                         />
                     </div>
                 </CardContent>
