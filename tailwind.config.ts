@@ -1,5 +1,6 @@
 
 import type { Config } from "tailwindcss";
+import defaultTheme from 'tailwindcss/defaultTheme'; // Import defaultTheme
 
 export default {
     darkMode: ["class"],
@@ -10,6 +11,10 @@ export default {
   ],
   theme: {
   	extend: {
+      fontFamily: {
+        // Set Comfortaa as the default sans-serif font
+        sans: ['var(--font-comfortaa)', 'Comfortaa', ...defaultTheme.fontFamily.sans],
+      },
   		colors: {
 			'vivid-blue': '#004FE3',
   			background: 'hsl(var(--background))',
@@ -65,6 +70,7 @@ export default {
         'icon-highlight-orange': 'hsl(var(--icon-highlight-orange))',
         contentTitle: 'hsl(var(--content-title-color))',
         contentText: 'hsl(var(--content-text-color))',
+        heroTextLight: 'hsl(var(--hero-text-light))', // Added for the light hero text
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

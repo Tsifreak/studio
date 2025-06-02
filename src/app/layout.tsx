@@ -1,18 +1,14 @@
 
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google'; // Assuming Geist is a placeholder for a chosen font.
+import { Comfortaa } from 'next/font/google'; // Changed from Fredoka
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AppWrapper } from '@/components/layout/AppWrapper';
 
-const geistSans = Geist({ // If Geist is specific, ensure it's correctly configured or replace.
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({ // Same as above for Geist_Mono.
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+const comfortaa = Comfortaa({ // Changed from Fredoka
+  subsets: ['latin', 'greek'], // Ensure Greek subset is included
+  variable: '--font-comfortaa', // New CSS variable
+  weight: ['400', '500', '700'] // Common weights, adjust as needed
 });
 
 export const metadata: Metadata = {
@@ -27,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="el" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${comfortaa.variable} font-sans antialiased`}>
         <AuthProvider>
           <AppWrapper>
             {children}
@@ -37,4 +33,3 @@ export default function RootLayout({
     </html>
   );
 }
-
