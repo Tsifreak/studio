@@ -30,19 +30,19 @@ export default function HomePage() {
       step: "Βήμα 1",
       title: "Επιλέξτε τον ειδικό σας",
       description: "Περιηγηθείτε στις κατηγορίες και βρείτε τον κατάλληλο επαγγελματία για τις ανάγκες του αυτοκινήτου σας.",
-      icon: <ListChecks className="h-10 w-10 text-primary mb-4" />
+      icon: <ListChecks className="h-10 w-10 text-vivid-blue mb-4" />
     },
     {
       step: "Βήμα 2",
       title: "Στείλτε το ερώτημά σας",
       description: "Επικοινωνήστε εύκολα με το κέντρο εξυπηρέτησης μέσω της φόρμας επικοινωνίας για να περιγράψετε το πρόβλημα ή την υπηρεσία που χρειάζεστε.",
-      icon: <Mail className="h-10 w-10 text-primary mb-4" />
+      icon: <Mail className="h-10 w-10 text-vivid-blue mb-4" />
     },
     {
       step: "Βήμα 3",
       title: "Επιλέξτε ημερομηνία και ώρα",
       description: "Συνεννοηθείτε με το κέντρο για να κλείσετε ραντεβού την ημέρα και ώρα που σας εξυπηρετεί καλύτερα.",
-      icon: <CalendarCheck className="h-10 w-10 text-primary mb-4" />
+      icon: <CalendarCheck className="h-10 w-10 text-vivid-blue mb-4" />
     }
   ];
 
