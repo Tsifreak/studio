@@ -55,10 +55,10 @@ export default function HomePage() {
     return (
       <section id="hero-section" className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-          <h1 className="text-4xl font-bold tracking-tight text-[hsl(217,54%,18%)] md:text-5xl">
+          <h1 className="text-3xl font-bold tracking-tight text-[hsl(217,54%,18%)] md:text-5xl">
             Καλώς ήρθατε στην
           </h1>
-          <Logo iconSize={60} className="h-12 md:h-16" /> {/* Adjusted iconSize and added height for responsiveness */}
+          <Logo iconSize={130} className="h-12 md:h-16" /> {/* Adjusted iconSize and added height for responsiveness */}
         </div>
         <p className="mt-3 text-lg text-foreground/80 md:text-xl">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
         <form onSubmit={handleHeroSearch} className="mt-6 max-w-md mx-auto flex gap-2 p-2 bg-white rounded-lg shadow-md">
@@ -113,8 +113,8 @@ export default function HomePage() {
               </div>
               {index < howItWorksSteps.length - 1 && (
                 <div className="flex items-center justify-center shrink-0">
-                  <ChevronDown className="h-8 w-8 text-primary/70 md:hidden my-1" />
-                  <ChevronRight className="h-10 w-10 text-primary/70 hidden md:block mx-1" />
+                  <ChevronDown className="h-8 w-8 text-icon-highlight-orange md:hidden my-1" />
+                  <ChevronRight className="h-10 w-10 text-icon-highlight-orange hidden md:block mx-1" />
                 </div>
               )}
             </React.Fragment>
@@ -131,4 +131,3 @@ export default function HomePage() {
     </div>
   );
 }
-

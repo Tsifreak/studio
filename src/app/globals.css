@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -48,6 +49,8 @@
     --sidebar-accent-foreground: 0 0% 100%; /* White text on sidebar accent */
     --sidebar-border: 210 20% 88%; /* Light grey-blue border for sidebar */
     --sidebar-ring: 200 100% 50%; /* Light blue for sidebar ring */
+
+    --icon-highlight-orange: 29 100% 50%; /* HSL for #ff7c00 */
   }
 
   .dark {
@@ -94,6 +97,8 @@
     --sidebar-accent-foreground: 220 25% 10%; /* Dark text on sidebar accent */
     --sidebar-border: 220 20% 20%; /* Darker grey-blue border for sidebar */
     --sidebar-ring: 200 100% 60%; /* Brighter light blue for sidebar ring */
+
+    --icon-highlight-orange: 29 100% 50%; /* HSL for #ff7c00 - can be same or different for dark mode */
   }
 }
 
