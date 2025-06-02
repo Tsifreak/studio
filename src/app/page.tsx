@@ -1,3 +1,4 @@
+
 // src/app/page.tsx (or src/pages/index.tsx)
 "use client";
 
@@ -11,6 +12,7 @@ import { ListChecks, Mail, CalendarCheck, ChevronRight, ChevronDown } from 'luci
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
+import { Logo } from '@/components/shared/Logo'; // Import the Logo component
 
 export default function HomePage() {
   const [selectedService, setSelectedService] = useState('');
@@ -52,7 +54,12 @@ export default function HomePage() {
     const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
     return (
       <section id="hero-section" className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
-        <h1 className="text-4xl font-bold tracking-tight text-[hsl(217,54%,18%)] md:text-5xl">Καλώς ήρθατε στην Amaxakis</h1>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+          <h1 className="text-4xl font-bold tracking-tight text-[hsl(217,54%,18%)] md:text-5xl">
+            Καλώς ήρθατε στην
+          </h1>
+          <Logo iconSize={60} className="h-12 md:h-16" /> {/* Adjusted iconSize and added height for responsiveness */}
+        </div>
         <p className="mt-3 text-lg text-foreground/80 md:text-xl">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
         <form onSubmit={handleHeroSearch} className="mt-6 max-w-md mx-auto flex gap-2 p-2 bg-white rounded-lg shadow-md">
           <input type="text" value={heroSearchInput} onChange={(e) => setHeroSearchInput(e.target.value)} placeholder="π.χ., Αλλαγή λαδιών..." className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-slate-800" />
@@ -124,3 +131,4 @@ export default function HomePage() {
     </div>
   );
 }
+
