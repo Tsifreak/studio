@@ -1,8 +1,8 @@
+
 // next.config.js
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -33,15 +33,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'storage.googleapis.com',
         port: '',
-        // THIS IS THE LINE THAT NEEDS THE FIX!
-        // It must match your actual bucket name as seen in Google Cloud Storage.
-        pathname: '/cariera-9ba32.firebasestorage.app/**', // Corrected pathname
+        // Corrected pathname to match the standard Firebase bucket name
+        pathname: '/cariera-9ba32.appspot.com/**', 
       },
-      { // Added this as Firebase Storage often uses this hostname
+      { 
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
         port: '',
-        pathname: '/v0/b/cariera-9ba32.appspot.com/o/**',
+        pathname: '/v0/b/cariera-9ba32.appspot.com/o/**', // This one is standard and correct
       }
     ],
   },
