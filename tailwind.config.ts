@@ -63,6 +63,8 @@ export default {
   				ring: 'hsl(var(--sidebar-ring))'
   			},
         'icon-highlight-orange': 'hsl(var(--icon-highlight-orange))',
+        contentTitle: 'hsl(var(--content-title-color))',
+        contentText: 'hsl(var(--content-text-color))',
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

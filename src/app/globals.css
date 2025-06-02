@@ -51,6 +51,9 @@
     --sidebar-ring: 200 100% 50%; /* Light blue for sidebar ring */
 
     --icon-highlight-orange: 29 100% 50%; /* HSL for #ff7c00 */
+
+    --content-title-color: 217 33% 17%; /* #1e293b */
+    --content-text-color: 215 20% 27%;  /* #374151 */
   }
 
   .dark {
@@ -99,6 +102,9 @@
     --sidebar-ring: 200 100% 60%; /* Brighter light blue for sidebar ring */
 
     --icon-highlight-orange: 29 100% 50%; /* HSL for #ff7c00 - can be same or different for dark mode */
+    
+    --content-title-color: 0 0% 95%; /* Light title for dark mode */
+    --content-text-color: 210 30% 80%;  /* Lighter text for dark mode */
   }
 }
 

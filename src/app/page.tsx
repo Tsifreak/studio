@@ -55,12 +55,12 @@ export default function HomePage() {
     return (
       <section id="hero-section" className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-          <h1 className="text-3xl font-bold tracking-tight text-[hsl(217,54%,18%)] md:text-5xl">
+          <h1 className="text-3xl font-bold tracking-tight text-contentTitle md:text-5xl">
             Καλώς ήρθατε στην
           </h1>
           <Logo iconSize={130} className="h-12 md:h-16" /> {/* Adjusted iconSize and added height for responsiveness */}
         </div>
-        <p className="mt-3 text-lg text-foreground/80 md:text-xl">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
+        <p className="mt-3 text-lg text-contentText md:text-xl">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
         <form onSubmit={handleHeroSearch} className="mt-6 max-w-md mx-auto flex gap-2 p-2 bg-white rounded-lg shadow-md">
           <input type="text" value={heroSearchInput} onChange={(e) => setHeroSearchInput(e.target.value)} placeholder="π.χ., Αλλαγή λαδιών..." className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-slate-800" />
           <button type="submit" className="bg-vivid-blue text-primary-foreground px-4 py-2 rounded-md hover:bg-vivid-blue/90">Αναζήτηση</button>
@@ -75,7 +75,7 @@ export default function HomePage() {
   const YourCategoriesSectionComponent = ({ onCategorySelect }: { onCategorySelect: (serviceName: string) => void }) => {
     return (
       <div className="mb-4 p-4 bg-card rounded-lg shadow">
-        <h2 className="text-2xl font-semibold text-center mb-4 text-[hsl(217,54%,18%)]">Εξερεύνηση Κατηγοριών</h2>
+        <h2 className="text-2xl font-semibold text-center mb-4 text-contentTitle">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
             {AppCategories.map((category) => (
@@ -96,7 +96,7 @@ export default function HomePage() {
 
       {/* === HOW IT WORKS SECTION (Your existing structure) === */}
       <section className="py-6"> {/* This is your "How It Works" from previous snippet */}
-        <h2 className="text-3xl font-bold text-center mb-6 text-[hsl(217,54%,18%)]">Πώς Λειτουργεί;</h2>
+        <h2 className="text-3xl font-bold text-center mb-6 text-contentTitle">Πώς Λειτουργεί;</h2>
         <div className="flex flex-col md:flex-row items-stretch justify-center gap-y-3 md:gap-y-0 md:gap-x-1">
           {howItWorksSteps.map((item, index) => (
             <React.Fragment key={item.step}>
@@ -104,10 +104,10 @@ export default function HomePage() {
                 <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col items-center p-5 h-full">
                   {item.icon}
                   <CardHeader className="p-0 mb-1">
-                    <CardTitle className="text-xl font-semibold text-[hsl(217,54%,18%)]">{item.step}: {item.title}</CardTitle>
+                    <CardTitle className="text-xl font-semibold text-contentTitle">{item.step}: {item.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0 flex-grow">
-                    <p className="text-xs text-foreground">{item.description}</p>
+                    <p className="text-xs text-contentText">{item.description}</p>
                   </CardContent>
                 </Card>
               </div>

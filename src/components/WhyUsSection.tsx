@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const valuePropsData = [
@@ -25,13 +26,13 @@ const valuePropsData = [
 
 const WhyUsSection: React.FC = () => {
   return (
-    <section id="why-us" className="py-12 md:py-16 bg-white rounded-lg shadow"> {/* Adjusted padding and added bg/shadow for consistency */}
+    <section id="why-us" className="py-12 md:py-16 bg-card rounded-lg shadow"> {/* Adjusted padding and added bg/shadow for consistency */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 md:mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-[hsl(217,54%,18%)]">
+          <h2 className="text-3xl md:text-4xl font-bold text-contentTitle">
             Γιατί να επιλέξετε την Amaxakis;
           </h2>
-          <p className="text-lg text-foreground/80 mt-3">
+          <p className="text-lg text-contentText mt-3">
             Η εμπιστοσύνη και η ποιότητα είναι τα θεμέλια της πλατφόρμας μας.
           </p>
         </div>
@@ -40,8 +41,8 @@ const WhyUsSection: React.FC = () => {
             <div key={index} className="flex items-start space-x-3 p-1"> {/* Adjusted padding and spacing */}
               <span className="text-2xl md:text-3xl text-green-500 mt-1">{prop.icon}</span>
               <div>
-                <h3 className="text-lg md:text-xl font-semibold mb-1 text-slate-800">{prop.title}</h3>
-                <p className="text-sm md:text-base text-foreground/70">{prop.description}</p>
+                <h3 className="text-lg md:text-xl font-semibold mb-1 text-contentTitle">{prop.title}</h3>
+                <p className="text-sm md:text-base text-contentText">{prop.description}</p>
               </div>
             </div>
           ))}

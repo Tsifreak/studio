@@ -1,3 +1,4 @@
+
 "use client"; 
 
 import React from 'react';
@@ -21,12 +22,12 @@ const SecondaryCTASection: React.FC = () => {
   };
 
   return (
-    <section id="secondary-cta" className="py-12 md:py-16 bg-white rounded-lg shadow"> {/* Added bg, rounded, shadow */}
+    <section id="secondary-cta" className="py-12 md:py-16 bg-card rounded-lg shadow"> {/* Changed bg-white to bg-card */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-[hsl(217,54%,18%)]">
+        <h2 className="text-3xl md:text-4xl font-bold text-contentTitle">
           Έτοιμοι να ζήσετε την εμπειρία της εύκολης επισκευής;
         </h2>
-        <p className="text-lg text-foreground/80 mt-4 mb-8 max-w-xl mx-auto">
+        <p className="text-lg text-contentText mt-4 mb-8 max-w-xl mx-auto">
           Σταματήστε να ανησυχείτε για το αυτοκίνητό σας. Αφήστε το δίκτυο των αξιόπιστων επαγγελματιών μας να το φροντίσει.
         </p>
         <button
