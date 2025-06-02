@@ -56,7 +56,7 @@ export default function HomePage() {
         <p className="mt-3 text-lg text-foreground/80 md:text-xl">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
         <form onSubmit={handleHeroSearch} className="mt-6 max-w-md mx-auto flex gap-2 p-2 bg-white rounded-lg shadow-md">
           <input type="text" value={heroSearchInput} onChange={(e) => setHeroSearchInput(e.target.value)} placeholder="π.χ., Αλλαγή λαδιών..." className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-slate-800" />
-          <button type="submit" className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">Αναζήτηση</button>
+          <button type="submit" className="bg-vivid-blue text-primary-foreground px-4 py-2 rounded-md hover:bg-vivid-blue/90">Αναζήτηση</button>
         </form>
       </section>
     );

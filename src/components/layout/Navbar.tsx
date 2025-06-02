@@ -154,11 +154,14 @@ export function Navbar() {
                     <LogIn className="mr-2 h-4 w-4" /> Σύνδεση
                   </Link>
                 </Button>
-                <Button asChild>
-                  <Link href="/signup">
-                    <UserPlus className="mr-2 h-4 w-4" /> Εγγραφή
-                  </Link>
-                </Button>
+                <Button
+  asChild
+  className="bg-vivid-blue text-white hover:bg-opacity-90 focus:ring-2 focus:ring-vivid-blue focus:ring-offset-2 font-semibold py-2 px-4 rounded-md shadow-md transition-all duration-150 ease-in-out"
+>
+  <Link href="/signup">
+    <UserPlus className="mr-2 h-4 w-4" /> Εγγραφή
+  </Link>
+</Button>
               </>
             )}
           </nav>
