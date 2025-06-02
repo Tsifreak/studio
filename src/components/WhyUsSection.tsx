@@ -29,7 +29,7 @@ const WhyUsSection: React.FC = () => {
     <section id="why-us" className="py-12 md:py-16 bg-card rounded-lg shadow"> {/* Adjusted padding and added bg/shadow for consistency */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 md:mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-contentTitle">
+          <h2 className="text-3xl font-bold text-contentTitle">
             Γιατί να επιλέξετε την Amaxakis;
           </h2>
           <p className="text-lg text-contentText mt-3">

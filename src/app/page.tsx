@@ -120,9 +120,6 @@ export default function HomePage() {
           ))}
         </div>
       </section>
-      <section className="py-6"> {/* This is your "How It Works" */}
-        {/* ... your How It Works JSX ... */}
-      </section>
       <YourCategoriesSectionComponent onCategorySelect={handleCategorySelect} />
       <WhyUsSection />
       <TestimonialsSection />

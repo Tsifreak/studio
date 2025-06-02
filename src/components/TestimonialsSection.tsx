@@ -42,7 +42,7 @@ const TestimonialsSection: React.FC = () => {
     <section id="testimonials" className="py-12 md:py-16 bg-card rounded-lg shadow"> {/* Changed background */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 md:mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-contentTitle">Τι λένε οι πελάτες μας</h2>
+          <h2 className="text-3xl font-bold md:text-4xl text-contentTitle">Τι λένε οι πελάτες μας</h2>
           <p className="text-lg text-contentText mt-3">
             Χιλιάδες οδηγοί επιστρέφουν δρόμο με ασφάλεια και σιγουριά.
           </p>
