@@ -41,7 +41,7 @@ const WhyUsSection: React.FC = () => {
             <div key={index} className="flex items-start space-x-3 p-1"> {/* Adjusted padding and spacing */}
               <span className="text-2xl md:text-3xl text-green-500 mt-1">{prop.icon}</span>
               <div>
-                <h3 className="text-lg md:text-xl font-semibold mb-1 text-contentTitle">{prop.title}</h3>
+                <h3 className="text-lg md:text-xl font-bold mb-1 text-contentTitle">{prop.title}</h3>
                 <p className="text-sm md:text-base text-contentText">{prop.description}</p>
               </div>
             </div>
