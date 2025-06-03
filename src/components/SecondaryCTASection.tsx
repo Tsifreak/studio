@@ -22,7 +22,7 @@ const SecondaryCTASection: React.FC = () => {
   };
 
   return (
-    <section id="secondary-cta" className="py-12 md:py-16 bg-card rounded-lg shadow"> {/* Changed bg-white to bg-card */}
+    <section id="secondary-cta" className="py-12 md:py-16 bg-[#f8f8f8] rounded-lg shadow"> {/* Changed bg-card to bg-[#f8f8f8] */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-contentTitle">
           Έτοιμοι να ζήσετε την εμπειρία της εύκολης επισκευής;
@@ -42,3 +42,4 @@ const SecondaryCTASection: React.FC = () => {
 };
 
 export default SecondaryCTASection;
+
