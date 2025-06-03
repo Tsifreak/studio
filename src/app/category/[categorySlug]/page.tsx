@@ -1,36 +1,37 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { getAllStoresFromDB } from '@/lib/storeService';
-import type { Store, StoreCategory, SortByType } from '@/lib/types'; // Added SortByType
+import type { Store, StoreCategory, SortByType } from '@/lib/types';
 import { AppCategories } from '@/lib/types';
 import { StoreCard } from '@/components/store/StoreCard';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft, ShieldAlert, Search, ArrowUpDown, Tag } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Search, ArrowUpDown, Tag, Loader2, LocateFixed, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { calculateDistance } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from '@/hooks/use-toast';
 
-// Define sort options (could also be in types.ts)
-const sortOptions: { value: SortByType; label: string }[] = [
+
+const sortOptions: { value: SortByType; label: string; disabled?: (hasLocation: boolean) => boolean }[] = [
   { value: 'default', label: 'Προεπιλογή' },
   { value: 'rating_desc', label: 'Βαθμολογία: Υψηλότερη' },
   { value: 'rating_asc', label: 'Βαθμολογία: Χαμηλότερη' },
   { value: 'name_asc', label: 'Όνομα: Α-Ω' },
   { value: 'name_desc', label: 'Όνομα: Ω-Α' },
+  { value: 'distance_asc', label: 'Απόσταση: Πλησιέστερα', disabled: (hasLocation) => !hasLocation },
 ];
-
-// Metadata fetching should ideally be moved to a generateMetadata function if parts are server-rendered
-// For a fully client component, metadata might be set via useEffect with document.title, or rely on a parent layout.
-// Since we are converting a previously server component, for now, title will be set dynamically.
 
 export default function CategoryPage() {
   const params = useParams();
   const categorySlug = decodeURIComponent(params.categorySlug as string) as StoreCategory;
+  const { toast } = useToast();
 
   const [allStores, setAllStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +41,41 @@ export default function CategoryPage() {
   const [tagInput, setTagInput] = useState('');
   const [sortBy, setSortBy] = useState<SortByType>('default');
 
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
   const categoryInfo = AppCategories.find(cat => cat.slug === categorySlug);
+
+  const requestUserLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError("Η γεωγραφική τοποθεσία δεν υποστηρίζεται από το πρόγραμμα περιήγησής σας.");
+      toast({ title: "Σφάλμα Τοποθεσίας", description: "Η γεωγραφική τοποθεσία δεν υποστηρίζεται.", variant: "destructive" });
+      return;
+    }
+    setIsFetchingLocation(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setIsFetchingLocation(false);
+        toast({ title: "Επιτυχία", description: "Η τοποθεσία σας εντοπίστηκε!" });
+      },
+      (err) => {
+        let message = "Δεν ήταν δυνατός ο εντοπισμός της τοποθεσίας σας.";
+        if (err.code === 1) message = "Η πρόσβαση στην τοποθεσία απορρίφθηκε. Παρακαλώ ενεργοποιήστε την στις ρυθμίσεις του προγράμματος περιήγησης.";
+        else if (err.code === 2) message = "Η τοποθεσία δεν είναι διαθέσιμη.";
+        else if (err.code === 3) message = "Χρονικό όριο αιτήματος τοποθεσίας έληξε.";
+        setLocationError(message);
+        setIsFetchingLocation(false);
+        toast({ title: "Σφάλμα Τοποθεσίας", description: message, variant: "destructive" });
+      },
+      { timeout: 10000 } // Add timeout
+    );
+  }, [toast]);
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -67,16 +102,14 @@ export default function CategoryPage() {
     }
   }, [categoryInfo]);
 
-
   const storesInCategory = useMemo(() => {
     if (!categorySlug || allStores.length === 0) return [];
     return allStores.filter(store => store.categories && store.categories.includes(categorySlug));
   }, [allStores, categorySlug]);
 
   const filteredAndSortedStores = useMemo(() => {
-    let result = [...storesInCategory]; // Create a new array to avoid mutating the original
+    let result = [...storesInCategory].map(store => ({ ...store, distance: undefined } as Store)); // Initialize distance as undefined
 
-    // Filter by search term
     if (searchTerm) {
       result = result.filter(store =>
         store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,7 +117,6 @@ export default function CategoryPage() {
       );
     }
 
-    // Filter by tags
     if (tagInput) {
       const tagsToFilter = tagInput.toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
       if (tagsToFilter.length > 0) {
@@ -96,7 +128,6 @@ export default function CategoryPage() {
       }
     }
 
-    // Sort
     switch (sortBy) {
       case 'rating_desc':
         result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -110,12 +141,28 @@ export default function CategoryPage() {
       case 'name_desc':
         result.sort((a, b) => b.name.localeCompare(a.name));
         break;
+      case 'distance_asc':
+        if (userLocation) {
+          result = result.map(store => ({
+            ...store,
+            distance: store.location ? calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              store.location.latitude,
+              store.location.longitude
+            ) : Infinity,
+          })).sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+        } else {
+           // If no user location, distance sort doesn't apply, fallback to default
+           // Or it could be handled by disabling the option in UI
+        }
+        break;
       default:
-        // No specific sort or keep original fetched order (if any inherent order)
+        // No specific sort or keep original fetched order
         break;
     }
     return result;
-  }, [storesInCategory, searchTerm, tagInput, sortBy]);
+  }, [storesInCategory, searchTerm, tagInput, sortBy, userLocation]);
 
   if (isLoading) {
     return (
@@ -206,7 +253,7 @@ export default function CategoryPage() {
         <CardHeader>
             <CardTitle className="text-xl">Φίλτρα & Ταξινόμηση</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <div>
                 <label htmlFor="cat-search" className="text-sm font-medium text-foreground mb-1 block">Αναζήτηση</label>
                 <div className="relative">
@@ -244,12 +291,53 @@ export default function CategoryPage() {
                     </SelectTrigger>
                     <SelectContent>
                     {sortOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        <SelectItem 
+                          key={option.value} 
+                          value={option.value}
+                          disabled={option.disabled ? option.disabled(!!userLocation) : false}
+                        >
+                          {option.label}
+                          {option.value === 'distance_asc' && !userLocation && ' (Απαιτείται τοποθεσία)'}
+                        </SelectItem>
                     ))}
                     </SelectContent>
                 </Select>
             </div>
+            <div>
+                <label htmlFor="get-location" className="text-sm font-medium text-foreground mb-1 block">Η Τοποθεσία μου</label>
+                <Button
+                  id="get-location"
+                  variant="outline"
+                  onClick={requestUserLocation}
+                  disabled={isFetchingLocation}
+                  className="w-full"
+                >
+                  {isFetchingLocation ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Εντοπισμός...</>
+                  ) : (
+                    <><LocateFixed className="mr-2 h-4 w-4" /> Εντοπισμός</>
+                  )}
+                </Button>
+            </div>
         </CardContent>
+         {locationError && (
+          <CardContent className="pt-0">
+            <Alert variant="destructive" className="mt-2">
+                <ShieldAlert className="h-4 w-4" />
+                <AlertTitle>Σφάλμα Τοποθεσίας</AlertTitle>
+                <AlertDescription>{locationError}</AlertDescription>
+            </Alert>
+          </CardContent>
+        )}
+        {!userLocation && sortBy === 'distance_asc' && (
+          <CardContent className="pt-0">
+            <Alert variant="default" className="mt-2">
+                <Info className="h-4 w-4" />
+                <AlertTitle>Απαιτείται Τοποθεσία</AlertTitle>
+                <AlertDescription>Παρακαλώ επιτρέψτε την πρόσβαση στην τοποθεσία σας για ταξινόμηση κατά απόσταση.</AlertDescription>
+            </Alert>
+          </CardContent>
+        )}
       </Card>
 
       {filteredAndSortedStores.length > 0 ? (

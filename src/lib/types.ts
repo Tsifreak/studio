@@ -4,7 +4,7 @@ import type { Timestamp } from 'firebase/firestore';
 
 export interface Review {
   id: string;
-  userId: string; 
+  userId: string;
   userName: string;
   userAvatarUrl?: string;
   rating: number; // 1-5
@@ -12,18 +12,18 @@ export interface Review {
   date: string; // ISO date string
 }
 
-export interface Product { 
+export interface Product {
   id: string;
   name: string;
   imageUrl: string;
-  price: string; 
+  price: string;
   description: string;
 }
 
 export interface PricingPlan {
   id: string;
   name: string;
-  price: string; 
+  price: string;
   features: string[];
   isFeatured?: boolean;
 }
@@ -36,10 +36,10 @@ export interface Feature {
 }
 
 export interface AppCategoryInfo {
-  slug: string; 
-  translatedName: string; 
-  description: string; 
-  icon?: string; 
+  slug: string;
+  translatedName: string;
+  description: string;
+  icon?: string;
 }
 
 export const AppCategories: AppCategoryInfo[] = [
@@ -47,7 +47,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "mechanic",
     translatedName: "Μηχανικός",
     description: "Επισκευή κινητήρα, ανάρτηση, service.",
-    icon: "MechanicIcon" 
+    icon: "MechanicIcon"
   },
   {
     slug: "electrician",
@@ -65,7 +65,7 @@ export const AppCategories: AppCategoryInfo[] = [
     slug: "diagnostics",
     translatedName: "Διαγνωστικό",
     description: "Έλεγχος σφαλμάτων με διαγνωστικό.",
-    icon: "MyCustomIcon" 
+    icon: "MyCustomIcon"
   },
   {
     slug: "vulcanizer",
@@ -115,20 +115,20 @@ export interface AvailabilitySlot {
 export interface Booking {
   id: string;
   storeId: string;
-  storeName: string; 
+  storeName: string;
   userId: string;
-  userName: string; 
-  userEmail: string; 
+  userName: string;
+  userEmail: string;
   serviceId: string;
-  serviceName: string; 
-  serviceDurationMinutes: number; 
-  servicePrice: number; 
+  serviceName: string;
+  serviceDurationMinutes: number;
+  servicePrice: number;
   bookingDate: string; // YYYY-MM-DD format
   bookingTime: string; // HH:mm format
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: string; // ISO string
-  notes?: string; 
-  ownerId?: string; 
+  notes?: string;
+  ownerId?: string;
 }
 
 // Firestore document data for Booking (includes Firestore Timestamps for date fields)
@@ -143,12 +143,12 @@ export interface BookingDocumentData {
   serviceName: string;
   serviceDurationMinutes: number;
   servicePrice: number;
-  bookingDate: Timestamp | admin.firestore.Timestamp; 
+  bookingDate: Timestamp | admin.firestore.Timestamp;
   bookingTime: string;
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: Timestamp | admin.firestore.Timestamp;
   notes?: string;
-  ownerId?: string; 
+  ownerId?: string;
 }
 
 
@@ -159,36 +159,38 @@ export interface Store {
   bannerUrl?: string;
   description: string;
   longDescription?: string;
-  rating: number; 
+  rating: number;
   categories: StoreCategory[]; // Changed from category: StoreCategory
   tags?: string[];
   pricingPlans: PricingPlan[];
   features: Feature[];
   reviews: Review[];
-  products: Product[]; 
+  products: Product[];
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
-  ownerId?: string | null; 
-  services: Service[]; 
+  ownerId?: string | null;
+  services: Service[];
   availability: AvailabilitySlot[];
   location: {
     latitude: number;
     longitude: number;
-  }; 
+  };
+  distance?: number; // Optional: for sorting by distance
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
-  icon?: string; 
+  icon?: string;
 }
 
 // SerializedStore needs to reflect the change from single category to multiple categories
 export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability' | 'categories'> {
   features: SerializedFeature[];
-  reviews: Review[]; 
-  services: Service[]; 
-  availability: AvailabilitySlot[]; 
+  reviews: Review[];
+  services: Service[];
+  availability: AvailabilitySlot[];
   categories: StoreCategory[]; // Changed from category: StoreCategory
+  distance?: number; // Optional: for sorting by distance
 }
 
 export interface UserPreferences {
@@ -203,53 +205,53 @@ export interface UserProfile {
   avatarUrl?: string;
   isAdmin?: boolean;
   totalUnreadMessages: number;
-  pendingBookingsCount: number; 
+  pendingBookingsCount: number;
   bookingStatusUpdatesCount: number;
   preferences?: UserPreferences;
 }
 
 export interface UserProfileFirestoreData {
-  name?: string; 
-  email?: string; 
+  name?: string;
+  email?: string;
   avatarUrl?: string;
   preferences?: UserPreferences;
   totalUnreadMessages?: number;
-  pendingBookingsCount?: number; 
+  pendingBookingsCount?: number;
   bookingStatusUpdatesCount?: number;
-  lastSeen?: Timestamp | admin.firestore.FieldValue; 
+  lastSeen?: Timestamp | admin.firestore.FieldValue;
   createdAt?: Timestamp | admin.firestore.FieldValue;
 }
 
 
 export interface QueryFormData {
-  name: string; 
-  email: string; 
+  name: string;
+  email: string;
   subject: string;
   message: string;
   storeId: string;
-  userId?: string; 
-  userName?: string; 
-  userAvatarUrl?: string; 
+  userId?: string;
+  userName?: string;
+  userAvatarUrl?: string;
 }
 
 export interface StoreFormData {
   name: string;
-  logoUrl?: string; 
-  bannerUrl?: string; 
+  logoUrl?: string;
+  bannerUrl?: string;
   description: string;
   longDescription?: string;
-  tagsInput?: string; 
+  tagsInput?: string;
   categoriesInput?: string; // New field for multiple categories
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
-  ownerId?: string; 
-  servicesJson?: string; 
+  ownerId?: string;
+  servicesJson?: string;
   availabilityJson?: string;
   logoFile?: File | null;
   bannerFile?: File | null;
-  existingLogoUrl?: string | null; 
-  existingBannerUrl?: string | null; 
+  existingLogoUrl?: string | null;
+  existingBannerUrl?: string | null;
 }
 
 export interface ReviewFormData {
@@ -262,37 +264,37 @@ export interface Chat {
   storeId: string;
   storeName: string;
   storeLogoUrl?: string;
-  userId: string;          
-  userName: string;        
+  userId: string;
+  userName: string;
   userAvatarUrl?: string;
-  ownerId: string;         
-  lastMessageAt: string;   
+  ownerId: string;
+  lastMessageAt: string;
   lastMessageText: string;
-  lastMessageSenderId?: string; 
-  lastImageUrl?: string; 
+  lastMessageSenderId?: string;
+  lastImageUrl?: string;
   userUnreadCount: number;
   ownerUnreadCount: number;
-  participantIds: string[]; 
-  createdAt: string; 
+  participantIds: string[];
+  createdAt: string;
 }
 
 export interface ChatMessage {
   id: string;
-  senderId: string;    
+  senderId: string;
   senderName: string;
   text: string;
-  imageUrl?: string; 
-  createdAt: string;   
+  imageUrl?: string;
+  createdAt: string;
 }
 
 export interface ChatMessageFormData {
   text: string;
-  imageFile?: File | null; 
+  imageFile?: File | null;
 }
 
 export type BookingStatus = Booking['status'];
 
-export type SortByType = 'default' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
+export type SortByType = 'default' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc' | 'distance_asc';
 
 declare global {
   namespace NodeJS {
