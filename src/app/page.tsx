@@ -12,7 +12,7 @@ import { ListChecks, Mail, CalendarCheck, ChevronRight, ChevronDown } from 'luci
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
-import { Logo } from '@/components/shared/Logo'; // Import the Logo component
+// Logo is no longer imported here as it was removed from the hero
 
 export default function HomePage() {
   const [selectedService, setSelectedService] = useState('');
@@ -55,11 +55,20 @@ export default function HomePage() {
     return (
       <section id="hero-section" className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
         <p className="mt-3 text-lg text-heroTextLight md:text-xl font-sans">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
-        <form onSubmit={handleHeroSearch} className="mt-6 max-w-md mx-auto flex gap-2 p-2 bg-white rounded-lg shadow-md">
-          <input type="text" value={heroSearchInput} onChange={(e) => setHeroSearchInput(e.target.value)} placeholder="π.χ., Αλλαγή λαδιών..." className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-slate-800 font-sans" />
-          <button 
-            type="submit" 
-            className="bg-[#FFA500] text-white hover:bg-[#FFB733] focus:ring-2 focus:ring-[#FFA500] focus:ring-offset-2 font-sans px-4 py-2 rounded-md shadow-md transition-all duration-150 ease-in-out"
+        <form 
+          onSubmit={handleHeroSearch} 
+          className="mt-6 max-w-md mx-auto flex items-center gap-0.5 p-1 bg-white rounded-full shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 transition-all"
+        >
+          <input
+            type="text"
+            value={heroSearchInput}
+            onChange={(e) => setHeroSearchInput(e.target.value)}
+            placeholder="π.χ., Αλλαγή λαδιών..."
+            className="flex-grow h-10 px-4 bg-transparent border-none focus:outline-none text-slate-800 font-sans placeholder:text-muted-foreground"
+          />
+          <button
+            type="submit"
+            className="bg-[#FFA500] text-white hover:bg-[#FFB733] focus:outline-none font-sans h-10 px-5 rounded-full shadow-sm transition-all duration-150 ease-in-out"
           >
             Αναζήτηση
           </button>
