@@ -1,3 +1,4 @@
+
 // src/app/page.tsx (or src/pages/index.tsx)
 "use client";
 
@@ -53,12 +54,6 @@ export default function HomePage() {
     const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
     return (
       <section id="hero-section" className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-          <h1 className="text-3xl font-bold tracking-tight text-heroTextLight md:text-5xl font-sans">
-            Καλώς ήρθατε στην
-          </h1>
-          <Logo iconSize={130} className="h-12 md:h-16" /> {/* Adjusted iconSize and added height for responsiveness */}
-        </div>
         <p className="mt-3 text-lg text-heroTextLight md:text-xl font-sans">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
         <form onSubmit={handleHeroSearch} className="mt-6 max-w-md mx-auto flex gap-2 p-2 bg-white rounded-lg shadow-md">
           <input type="text" value={heroSearchInput} onChange={(e) => setHeroSearchInput(e.target.value)} placeholder="π.χ., Αλλαγή λαδιών..." className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-slate-800 font-sans" />
