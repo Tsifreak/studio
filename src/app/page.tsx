@@ -57,7 +57,12 @@ export default function HomePage() {
         <p className="mt-3 text-lg text-heroTextLight md:text-xl font-sans">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
         <form onSubmit={handleHeroSearch} className="mt-6 max-w-md mx-auto flex gap-2 p-2 bg-white rounded-lg shadow-md">
           <input type="text" value={heroSearchInput} onChange={(e) => setHeroSearchInput(e.target.value)} placeholder="π.χ., Αλλαγή λαδιών..." className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-slate-800 font-sans" />
-          <button type="submit" className="bg-vivid-blue text-primary-foreground px-4 py-2 rounded-md hover:bg-vivid-blue/90 font-sans">Αναζήτηση</button>
+          <button 
+            type="submit" 
+            className="bg-[#FFA500] text-white hover:bg-[#FFB733] focus:ring-2 focus:ring-[#FFA500] focus:ring-offset-2 font-sans px-4 py-2 rounded-md shadow-md transition-all duration-150 ease-in-out"
+          >
+            Αναζήτηση
+          </button>
         </form>
       </section>
     );
