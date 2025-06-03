@@ -15,8 +15,8 @@ interface CategoryCardProps {
 
 export function CategoryCard({ categorySlug, translatedCategoryName, description, iconName }: CategoryCardProps) {
   return (
-    <Link href={`/category/${encodeURIComponent(categorySlug)}`} className="block h-full group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg" aria-label={`Προβολή κατηγορίας ${translatedCategoryName}`}>
-      <Card className="flex flex-col items-center justify-center text-center overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full p-6 relative min-h-[180px] md:min-h-[200px]">
+    <Link href={`/category/${encodeURIComponent(categorySlug)}`} className="block h-full group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl" aria-label={`Προβολή κατηγορίας ${translatedCategoryName}`}>
+      <Card className="flex flex-col items-center justify-center text-center overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full p-6 relative min-h-[180px] md:min-h-[200px] rounded-2xl">
         {/* Icon and Name - Always Visible */}
         <div className="transition-opacity duration-300 group-hover:opacity-0 absolute inset-0 flex flex-col items-center justify-center p-4">
           {iconName && (
@@ -28,7 +28,7 @@ export function CategoryCard({ categorySlug, translatedCategoryName, description
         </div>
 
         {/* Description - Visible on Hover */}
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute inset-0 flex flex-col items-center justify-center p-4 bg-card/95 backdrop-blur-sm">
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute inset-0 flex flex-col items-center justify-center p-4 bg-card/95 backdrop-blur-sm rounded-2xl">
            {iconName && ( // Optional: Show icon dimmed in background on hover
             <RenderFeatureIcon iconName={iconName} className="h-16 w-16 md:h-20 md:w-20 mb-2 text-primary/30" />
           )}
