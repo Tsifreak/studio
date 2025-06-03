@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%; /* White */
+    --background: 0 0% 95%; /* Light Gray #f2f2f2 */
     --foreground: 240 5% 15%; /* Dark grayish blue for text, can be adjusted to 0 0% 3.9% for black */
 
     --card: 0 0% 100%; /* White */
@@ -116,3 +116,4 @@
     @apply bg-background text-foreground;
   }
 }
+
