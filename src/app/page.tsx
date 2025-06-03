@@ -54,7 +54,7 @@ export default function HomePage() {
     const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
     return (
       <section id="hero-section" className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
-        <p className="mt-3 text-lg text-heroTextLight md:text-xl font-sans">Επιλέξτε μια κατηγορία για να βρείτε εξειδικευμένα κέντρα εξυπηρέτησης.</p>
+        <p className="mt-3 text-lg text-heroTextLight md:text-xl font-sans">Όλες οι Ειδικότητες Αυτοκινήτου σε Ένα Κλικ</p>
         <form 
           onSubmit={handleHeroSearch} 
           className="mt-6 max-w-md mx-auto flex items-center gap-0.5 p-1 bg-white rounded-full shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 transition-all border-2 border-transparent hover:border-sky-300"
