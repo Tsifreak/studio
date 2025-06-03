@@ -85,7 +85,7 @@ export default function HomePage() {
       <div className="mb-4 p-4 bg-[#f3f5ff] rounded-lg shadow">
         <h2 className="text-2xl font-bold text-center mb-4 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 justify-center">
             {AppCategories.map((category) => (
               <div key={category.slug + "-wrapper"} onClick={() => onCategorySelect(category.translatedName || category.slug)} className="cursor-pointer">
                 <CategoryCard categorySlug={category.slug} translatedCategoryName={category.translatedName} description={category.description} iconName={category.icon} />
