@@ -26,7 +26,7 @@ const valuePropsData = [
 
 const WhyUsSection: React.FC = () => {
   return (
-    <section id="why-us" className="py-12 md:py-16 bg-card rounded-lg shadow"> {/* Adjusted padding and added bg/shadow for consistency */}
+    <section id="why-us" className="py-12 md:py-16 rounded-lg"> {/* Adjusted padding and removed bg/shadow */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 md:mb-12">
           <h2 className="text-3xl font-bold text-contentTitle">
@@ -53,3 +53,4 @@ const WhyUsSection: React.FC = () => {
 };
 
 export default WhyUsSection;
+
