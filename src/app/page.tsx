@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListChecks, CalendarCheck, Search, ChevronDown } from 'lucide-react'; // Changed Chevron icons
+import { ListChecks, CalendarCheck, Search } from 'lucide-react'; // Changed Chevron icons
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
@@ -115,10 +115,10 @@ export default function HomePage() {
 
       <section className="py-12 md:py-16">
         <h2 className="text-3xl font-bold text-center mb-12 text-contentTitle font-sans">Πώς Λειτουργεί;</h2>
-        <div className="flex flex-col md:flex-row items-start justify-center md:gap-x-2 lg:gap-x-4 gap-y-10">
+        <div className="flex flex-col md:flex-row items-start justify-center md:gap-x-1 lg:gap-x-2 gap-y-10">
           {howItWorksSteps.map((item, index) => (
             <React.Fragment key={item.step}>
-              <div className="flex flex-col items-center text-center w-full md:max-w-[220px] lg:max-w-xs px-2">
+              <div className="flex flex-col items-center text-center w-full md:max-w-[200px] lg:max-w-[240px] px-2">
                 <div className="text-xs font-semibold text-gray-500 mb-2">ΒΗΜΑ {item.step}</div>
                 <div className={cn(
                   "relative rounded-full w-24 h-24 md:w-28 md:h-28 flex items-center justify-center mb-4",
@@ -137,9 +137,10 @@ export default function HomePage() {
               </div>
 
               {index < howItWorksSteps.length - 1 && (
-                <div className="hidden md:flex items-center justify-center self-center mx-2 lg:mx-4">
-                  <svg width="80" height="40" viewBox="0 0 80 40" className="text-gray-400">
-                    <path d="M0 20 C 20 0, 60 40, 80 20" stroke="currentColor" fill="transparent" strokeWidth="2" strokeDasharray="4,4" />
+                <div className="hidden md:flex items-center justify-center self-center mx-1 lg:mx-2">
+                  {/* Desktop connector */}
+                  <svg width="60" height="40" viewBox="0 0 60 40" className="text-gray-400">
+                    <path d="M0 20 C 15 0, 45 40, 60 20" stroke="currentColor" fill="transparent" strokeWidth="2" strokeDasharray="4,4" />
                   </svg>
                 </div>
               )}
