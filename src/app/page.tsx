@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListChecks, CalendarCheck, Redo2, ChevronDown, Search } from 'lucide-react'; // Changed Chevron icons
+import { ListChecks, CalendarCheck, Search, Redo2, ChevronDown } from 'lucide-react'; // Changed Chevron icons
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
@@ -86,7 +86,7 @@ export default function HomePage() {
 
   const YourCategoriesSectionComponent = ({ onCategorySelect }: { onCategorySelect: (serviceName: string) => void }) => {
     return (
-      <div className="my-8 p-4 bg-[#f3f5ff] rounded-lg shadow">
+      <div className="my-8 p-4 bg-icon-disc-bg rounded-lg shadow">
         <h2 className="text-2xl font-bold text-center mb-6 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
