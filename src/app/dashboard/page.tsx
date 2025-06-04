@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { MessageSquare, ListOrdered, Heart, ClipboardList, LogOut, Loader2, User, AlertTriangle, RefreshCw, CalendarClock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getOwnerDashboardData } from './actions';
+import { getOwnerDashboardData, getUserBookings } from './actions'; // Added getUserBookings
 import type { Booking, Store } from '@/lib/types';
 import { OwnerBookingsDisplay } from '@/components/dashboard/OwnerBookingsDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBookings';
 import { Badge } from '@/components/ui/badge';
+import { format, isFuture, parseISO } from 'date-fns'; // Added date-fns imports
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -27,8 +28,11 @@ export default function DashboardPage() {
   const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false);
   const [ownerDataError, setOwnerDataError] = useState<string | null>(null);
 
+  const [clientUpcomingBookingsCount, setClientUpcomingBookingsCount] = useState(0);
+  const [isLoadingClientBookings, setIsLoadingClientBookings] = useState(true);
+
   const fetchOwnerData = useCallback(async () => {
-    if (user && user.id && user.email === 'tsifrikas.a@gmail.com') { // Assuming specific email or a different flag determines ownership
+    if (user && user.id && user.email === 'tsifrikas.a@gmail.com') { 
       setIsLoadingOwnerData(true);
       setOwnerDataError(null);
       try {
@@ -48,16 +52,39 @@ export default function DashboardPage() {
     }
   }, [user]);
 
+  const fetchClientBookingsData = useCallback(async () => {
+    if (user && user.id) {
+      setIsLoadingClientBookings(true);
+      try {
+        const fetchedBookings = await getUserBookings(user.id);
+        const upcomingAndActive = fetchedBookings.filter(b =>
+          (isFuture(parseISO(b.bookingDate)) || format(parseISO(b.bookingDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')) &&
+          (b.status === 'pending' || b.status === 'confirmed')
+        );
+        setClientUpcomingBookingsCount(upcomingAndActive.length);
+      } catch (error) {
+        console.error("DashboardPage: Failed to fetch client bookings for stat card:", error);
+        // Optionally set an error state here if needed for client bookings
+      } finally {
+        setIsLoadingClientBookings(false);
+      }
+    } else {
+      setIsLoadingClientBookings(false); // No user, so not loading client bookings
+      setClientUpcomingBookingsCount(0);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && !authLoading && !user) {
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
     }
 
-    if (user && user.id) {
+    if (!authLoading && user && user.id) {
       fetchOwnerData();
+      fetchClientBookingsData();
     }
-  }, [user, authLoading, router, fetchOwnerData]);
+  }, [user, authLoading, router, fetchOwnerData, fetchClientBookingsData]);
 
   const handleLogout = async () => {
     await logout();
@@ -142,15 +169,18 @@ export default function DashboardPage() {
             icon={MessageSquare}
             linkHref="/dashboard/chats"
             colorClass="bg-blue-600"
-            description={user.totalUnreadMessages > 0 ? "Νέα μηνύματα" : "Καμία νέα συνομιλία"}
+            description={user.totalUnreadMessages > 0 ? `${user.totalUnreadMessages} νέα μηνύματα` : "Καμία νέα συνομιλία"}
           />
           <StatCard
             title="Οι Κρατήσεις μου"
-            value={user.bookingStatusUpdatesCount || 0}
+            value={isLoadingClientBookings ? <Loader2 className="h-6 w-6 animate-spin" /> : clientUpcomingBookingsCount}
             icon={ListOrdered}
             linkHref="/dashboard/my-bookings"
             colorClass="bg-green-600"
-            description={user.bookingStatusUpdatesCount > 0 ? "Ενημερώσεις κρατήσεων" : "Καμία ενημέρωση"}
+            description={
+              isLoadingClientBookings ? "Φόρτωση..." :
+              clientUpcomingBookingsCount > 0 ? `${clientUpcomingBookingsCount} προσεχείς` : "Καμία προσεχής κράτηση"
+            }
           />
           {isOwner && (
             <StatCard
@@ -159,7 +189,7 @@ export default function DashboardPage() {
               icon={ClipboardList}
               linkHref="/dashboard/owner-bookings" 
               colorClass="bg-pink-600"
-              description={user.pendingBookingsCount > 0 ? "Εκκρεμείς κρατήσεις" : "Καμία εκκρεμής"}
+              description={user.pendingBookingsCount > 0 ? `${user.pendingBookingsCount} εκκρεμείς` : "Καμία εκκρεμής"}
               additionalInfo="(Για το Κέντρο σας)"
             />
           )}
