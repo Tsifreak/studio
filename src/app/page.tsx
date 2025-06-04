@@ -53,7 +53,10 @@ export default function HomePage() {
     }, [currentSelectedService]);
     const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
     return (
-      <section id="hero-section" className="bg-vivid-blue -mx-4 sm:-mx-6 lg:-mx-8 py-12 md:py-16">
+      <section 
+        id="hero-section" 
+        className="bg-vivid-blue -mx-4 sm:-mx-6 lg:-mx-8 -mt-24 pt-36 md:pt-40 pb-12 md:pb-16"
+      >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
           <form
@@ -84,7 +87,7 @@ export default function HomePage() {
       <div className="mb-4 p-4 bg-[#f3f5ff] rounded-lg shadow">
         <h2 className="text-2xl font-bold text-center mb-6 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
             {AppCategories.map((category, index) => {
               let wrapperClasses = "flex justify-center";
               // If this is the 7th item (index 6) AND there are exactly 7 categories,
