@@ -53,26 +53,28 @@ export default function HomePage() {
     }, [currentSelectedService]);
     const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
     return (
-      <section id="hero-section" className="text-center py-6 bg-vivid-blue rounded-lg shadow">
-        <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
-        <form
-          onSubmit={handleHeroSearch}
-          className="mt-6 max-w-md mx-auto flex items-center gap-0.5 p-1 bg-white rounded-full shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 transition-all border-2 border-transparent hover:border-sky-300"
-        >
-          <input
-            type="text"
-            value={heroSearchInput}
-            onChange={(e) => setHeroSearchInput(e.target.value)}
-            placeholder="π.χ., Αλλαγή λαδιών..."
-            className="flex-grow h-10 px-4 bg-transparent border-none focus:outline-none text-slate-800 font-sans placeholder:text-muted-foreground"
-          />
-          <button
-            type="submit"
-            className="bg-[#FFA500] text-white hover:bg-[#FFB733] focus:outline-none font-sans h-10 px-5 rounded-full shadow-sm transition-all duration-150 ease-in-out"
+      <section id="hero-section" className="bg-vivid-blue -mx-4 sm:-mx-6 lg:-mx-8 py-12 md:py-16">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
+          <form
+            onSubmit={handleHeroSearch}
+            className="mt-6 max-w-md mx-auto flex items-center gap-0.5 p-1 bg-white rounded-full shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 transition-all border-2 border-transparent hover:border-sky-300"
           >
-            Αναζήτηση
-          </button>
-        </form>
+            <input
+              type="text"
+              value={heroSearchInput}
+              onChange={(e) => setHeroSearchInput(e.target.value)}
+              placeholder="π.χ., Αλλαγή λαδιών..."
+              className="flex-grow h-10 px-4 bg-transparent border-none focus:outline-none text-slate-800 font-sans placeholder:text-muted-foreground"
+            />
+            <button
+              type="submit"
+              className="bg-[#FFA500] text-white hover:bg-[#FFB733] focus:outline-none font-sans h-10 px-5 rounded-full shadow-sm transition-all duration-150 ease-in-out"
+            >
+              Αναζήτηση
+            </button>
+          </form>
+        </div>
       </section>
     );
   };
@@ -82,7 +84,7 @@ export default function HomePage() {
       <div className="mb-4 p-4 bg-[#f3f5ff] rounded-lg shadow">
         <h2 className="text-2xl font-bold text-center mb-6 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 max-w-2xl mx-auto">
             {AppCategories.map((category, index) => {
               let wrapperClasses = "flex justify-center";
               // If this is the 7th item (index 6) AND there are exactly 7 categories,
@@ -96,7 +98,6 @@ export default function HomePage() {
                 </div>
               );
             })}
-            {/* Placeholder div removed */}
           </div>
         ) : ( <p className="text-center text-muted-foreground font-sans">Δεν Βρέθηκαν Κατηγορίες</p> )}
       </div>
