@@ -77,20 +77,25 @@ export default function HomePage() {
     );
   };
 
-  // Placeholder for your CategoriesSection.
-  // This logic should ideally be in its own src/components/CategoriesSection.tsx component
-  // that accepts `onCategorySelect` as a prop and uses your CategoryCard.
   const YourCategoriesSectionComponent = ({ onCategorySelect }: { onCategorySelect: (serviceName: string) => void }) => {
     return (
       <div className="mb-4 p-4 bg-[#f3f5ff] rounded-lg shadow">
-        <h2 className="text-2xl font-bold text-center mb-4 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
+        <h2 className="text-2xl font-bold text-center mb-6 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
             {AppCategories.map((category) => (
-              <div key={category.slug + "-wrapper"} onClick={() => onCategorySelect(category.translatedName || category.slug)} className="cursor-pointer">
+              <div key={category.slug + "-wrapper"} onClick={() => onCategorySelect(category.translatedName || category.slug)} className="cursor-pointer flex justify-center">
                 <CategoryCard categorySlug={category.slug} translatedCategoryName={category.translatedName} description={category.description} iconName={category.icon} />
               </div>
             ))}
+            {/* Placeholder for the 8th "empty" card to match the drawing */}
+            {AppCategories.length === 7 && (
+              <div className="flex justify-center">
+                <div className="w-full max-w-[180px] sm:max-w-[200px] min-h-[140px] md:min-h-[150px] border-2 border-dashed border-slate-300 bg-slate-50/50 rounded-2xl shadow-sm flex items-center justify-center">
+                  {/* Optional: content for the empty placeholder */}
+                </div>
+              </div>
+            )}
           </div>
         ) : ( <p className="text-center text-muted-foreground font-sans">Δεν Βρέθηκαν Κατηγορίες</p> )}
       </div>
@@ -98,12 +103,11 @@ export default function HomePage() {
   };
 
   return (
-        <div className="space-y-6"> {/* This was your top-level div within HomePage */}
+        <div className="space-y-6"> 
 
       <YourHeroSectionComponent currentSelectedService={selectedService} />
 
-      {/* === HOW IT WORKS SECTION (Your existing structure) === */}
-      <section className="py-6"> {/* This is your "How It Works" from previous snippet */}
+      <section className="py-6"> 
         <h2 className="text-3xl font-bold text-center mb-6 text-contentTitle font-sans">Πώς Λειτουργεί;</h2>
         <div className="flex flex-col md:flex-row items-stretch justify-center gap-y-3 md:gap-y-0 md:gap-x-1">
           {howItWorksSteps.map((item, index) => (
@@ -136,4 +140,3 @@ export default function HomePage() {
     </div>
   );
 }
-
