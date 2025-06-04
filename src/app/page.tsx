@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListChecks, Mail, CalendarCheck, ChevronRight, ChevronDown } from 'lucide-react';
+import { ListChecks, Mail, CalendarCheck, Redo2, ChevronDown } from 'lucide-react'; // Changed Chevron icons
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
@@ -131,7 +131,7 @@ export default function HomePage() {
               {index < howItWorksSteps.length - 1 && (
                 <div className="flex items-center justify-center shrink-0">
                   <ChevronDown className="h-8 w-8 text-icon-highlight-orange md:hidden" />
-                  <ChevronRight className="h-10 w-10 text-icon-highlight-orange hidden md:block" />
+                  <Redo2 className="h-10 w-10 text-icon-highlight-orange hidden md:block" />
                 </div>
               )}
             </React.Fragment>
