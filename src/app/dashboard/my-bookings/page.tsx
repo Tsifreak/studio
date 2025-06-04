@@ -182,8 +182,15 @@ export default function MyBookingsPage() {
     );
   }
 
-  const upcomingBookings = bookings.filter(b => isFuture(parseISO(b.bookingDate)) || format(parseISO(b.bookingDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') && !['completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show'].includes(b.status));
-  const pastBookings = bookings.filter(b => isPast(parseISO(b.bookingDate)) && format(parseISO(b.bookingDate), 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd') || ['completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show'].includes(b.status));
+  const upcomingBookings = bookings.filter(b => 
+    (isFuture(parseISO(b.bookingDate)) || format(parseISO(b.bookingDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')) && 
+    (b.status === 'pending' || b.status === 'confirmed')
+  );
+  
+  const pastBookings = bookings.filter(b => 
+    (isPast(parseISO(b.bookingDate)) && format(parseISO(b.bookingDate), 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')) || 
+    ['completed', 'cancelled_by_user', 'cancelled_by_store', 'no_show'].includes(b.status)
+  );
 
   console.log(`MyBookingsPage: Total bookings: ${bookings.length}, Upcoming: ${upcomingBookings.length}, Past: ${pastBookings.length}`);
 
