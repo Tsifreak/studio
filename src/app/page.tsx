@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserPlus, Settings, Smartphone } from 'lucide-react'; // Updated icons
+import { Search, ListChecks, CalendarCheck, Redo2, ChevronDown, Smartphone, UserPlus, Settings } from 'lucide-react'; // Restored and added icons, kept new ones for lines
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
@@ -29,22 +29,22 @@ export default function HomePage() {
   const howItWorksSteps = [
     {
       step: "1",
-      title: "Εγγραφή",
-      description: "Δημιουργήστε τον λογαριασμό σας γρήγορα και εύκολα για να ξεκινήσετε.",
-      icon: <UserPlus className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
+      title: "Εύρεση Υπηρεσίας",
+      description: "Περιηγηθείτε στις κατηγορίες ή χρησιμοποιήστε την αναζήτηση για να βρείτε αυτό που χρειάζεστε.",
+      icon: <Search className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
       isHighlighted: true,
     },
     {
       step: "2",
-      title: "Επιλογή & Ρύθμιση",
-      description: "Βρείτε την υπηρεσία ή το κέντρο που σας ταιριάζει και προσαρμόστε τις επιλογές σας.",
-      icon: <Settings className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
+      title: "Επιλογή Κέντρου",
+      description: "Συγκρίνετε κέντρα, διαβάστε κριτικές και επιλέξτε το κατάλληλο για εσάς.",
+      icon: <ListChecks className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
     },
     {
       step: "3",
-      title: "Χρήση Εφαρμογής",
-      description: "Αξιοποιήστε τις λειτουργίες της πλατφόρμας για ραντεβού και επικοινωνία.",
-      icon: <Smartphone className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
+      title: "Κλείσιμο Ραντεβού",
+      description: "Επικοινωνήστε ή κλείστε το ραντεβού σας online εύκολα και γρήγορα.",
+      icon: <CalendarCheck className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
     },
   ];
 
@@ -140,14 +140,14 @@ export default function HomePage() {
 
               {index < howItWorksSteps.length - 1 && (
                 <div className="hidden md:flex items-center justify-center self-center mt-[-4rem] lg:mt-[-5rem] mx-2 lg:mx-4">
-                  <svg width="100" height="30" viewBox="0 0 100 30" className="text-gray-400">
-                    <path d="M5 15 Q 50 -5, 95 15" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="4,4" />
-                  </svg>
+                  {/* Using Redo2 for a curved right arrow */}
+                  <Redo2 className="h-10 w-10 text-gray-400 transform scale-x-[-1]" />
                 </div>
               )}
               {index < howItWorksSteps.length - 1 && (
                 <div className="md:hidden flex items-center justify-center my-6 w-full">
-                  <div className="h-12 w-px bg-gray-300 border-dashed"></div>
+                  {/* Using ChevronDown for a simple vertical connector on mobile */}
+                  <ChevronDown className="h-10 w-10 text-gray-400" />
                 </div>
               )}
             </React.Fragment>
@@ -161,3 +161,4 @@ export default function HomePage() {
     </div>
   );
 }
+
