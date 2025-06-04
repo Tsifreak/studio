@@ -1,41 +1,42 @@
 
 "use client";
 
-import { ProfileForm } from '@/components/auth/ProfileForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useState, useCallback } from 'react'; // Added React, useCallback
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MessageSquare, Home, ShoppingBag, CalendarCheck, Loader2, RefreshCw, ListOrdered, AlertTriangle } from 'lucide-react'; 
-import { getOwnerDashboardData } from './actions'; 
+import { MessageSquare, ListOrdered, Heart, ClipboardList, LogOut, Loader2, User, AlertTriangle, RefreshCw, CalendarClock } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getOwnerDashboardData } from './actions';
 import type { Booking, Store } from '@/lib/types';
 import { OwnerBookingsDisplay } from '@/components/dashboard/OwnerBookingsDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { StatCard } from '@/components/dashboard/StatCard';
+import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBookings';
 
 export default function DashboardPage() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const router = useRouter();
 
   const [ownerBookings, setOwnerBookings] = useState<Booking[]>([]);
   const [ownedStores, setOwnedStores] = useState<Store[]>([]);
-  const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false); 
+  const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false);
   const [ownerDataError, setOwnerDataError] = useState<string | null>(null);
 
   const fetchOwnerData = useCallback(async () => {
-    if (user && user.id) {
+    if (user && user.id && user.email === 'tsifrikas.a@gmail.com') { // Assuming specific email or a different flag determines ownership
       setIsLoadingOwnerData(true);
       setOwnerDataError(null);
       try {
-        console.log(`[DashboardPage] Calling getOwnerDashboardData for user: ${user.email} (ID: ${user.id})`);
         const data = await getOwnerDashboardData(user.id);
         setOwnedStores(data.storesOwned);
         setOwnerBookings(data.bookings);
-        if (data.storesOwned.length === 0 && user.email === 'tsifrikas.a@gmail.com') {
-            console.warn(`[DashboardPage] User tsifrikas.a@gmail.com identified, but no stores were found for ownerId: ${user.id}. Check Firestore 'StoreInfo' collection for documents where 'ownerId' matches this UID.`);
-            setOwnerDataError("Δεν βρέθηκαν καταστήματα που ανήκουν σε εσάς. Βεβαιωθείτε ότι το 'Owner User ID' έχει ρυθμιστεί σωστά στα καταστήματά σας στην ενότητα διαχείρισης.");
+        if (data.storesOwned.length === 0) {
+          console.warn(`[DashboardPage] User ${user.email} identified as potential owner, but no stores found for ownerId: ${user.id}.`);
+          setOwnerDataError("Δεν βρέθηκαν καταστήματα που ανήκουν σε εσάς. Βεβαιωθείτε ότι το 'Owner User ID' έχει ρυθμιστεί σωστά.");
         }
       } catch (error) {
         console.error("[DashboardPage] Failed to fetch owner dashboard data:", error);
@@ -44,161 +45,202 @@ export default function DashboardPage() {
         setIsLoadingOwnerData(false);
       }
     }
-  }, [user]); 
+  }, [user]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isLoading && !user) {
+    if (typeof window !== 'undefined' && !authLoading && !user) {
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
     }
 
-    if (user && user.id) { 
-        fetchOwnerData();
+    if (user && user.id) {
+      fetchOwnerData();
     }
-  }, [user, isLoading, router, fetchOwnerData]); 
+  }, [user, authLoading, router, fetchOwnerData]);
 
-  if (isLoading) { 
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
+
+  if (authLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground ml-3">Φόρτωση πίνακα ελέγχου...</p>
+      <div className="flex flex-col space-y-8">
+        <Skeleton className="h-10 w-1/3" /> {/* Page Title Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-3">
+            <Card className="shadow-lg">
+              <CardHeader className="items-center text-center">
+                <Skeleton className="h-24 w-24 rounded-full" />
+              </CardHeader>
+              <CardContent className="text-center space-y-2">
+                <Skeleton className="h-6 w-3/4 mx-auto" />
+                <Skeleton className="h-4 w-full mx-auto" />
+                <Skeleton className="h-4 w-1/2 mx-auto" />
+                <Skeleton className="h-10 w-3/4 mx-auto mt-4" />
+              </CardContent>
+            </Card>
+          </div>
+          <div className="lg:col-span-9 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className="shadow-lg h-40"><CardContent className="pt-6"><Skeleton className="w-full h-full" /></CardContent></Card>
+            ))}
+          </div>
+        </div>
+        <Card className="shadow-lg min-h-[300px]"><CardContent className="pt-6"><Skeleton className="w-full h-full" /></CardContent></Card>
       </div>
     );
   }
 
   if (!user) {
     return (
-       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
-        <h1 className="text-3xl font-bold text-primary mb-4">Άρνηση Πρόσβασης</h1>
-        <p className="text-md text-muted-foreground mb-6">
-          Πρέπει να είστε συνδεδεμένοι για να δείτε αυτή τη σελίδα. Ανακατεύθυνση στη σελίδα σύνδεσης...
-        </p>
-         <Button asChild>
-          <Link href="/login?redirect=/dashboard">Σύνδεση</Link>
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
+        <ShieldTriangle className="w-16 h-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold text-destructive">Άρνηση Πρόσβασης</h1>
+        <p className="text-md text-muted-foreground">Πρέπει να είστε συνδεδεμένοι για να δείτε αυτή τη σελίδα.</p>
+        <Button asChild className="mt-6">
+          <Link href={`/login?redirect=/dashboard`}>Σύνδεση</Link>
         </Button>
       </div>
     );
   }
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/'); 
-  };
-
-  const isTsifrikasWithoutStores = user.email === 'tsifrikas.a@gmail.com' && ownedStores.length === 0 && !isLoadingOwnerData;
+  const isOwner = ownedStores.length > 0;
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-            <h1 className="text-3xl font-bold text-primary">Καλώς ήρθες, {user.name}!</h1>
-            <p className="text-muted-foreground">Αυτός είναι ο εξατομικευμένος πίνακας ελέγχου σας στην Amaxakis.</p>
-        </div>
-        <Button variant="outline" onClick={handleLogout}>Αποσύνδεση</Button>
-      </div>
-      
-      {isTsifrikasWithoutStores && ownerDataError && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Ειδοποίηση Ιδιοκτήτη (tsifrikas.a@gmail.com)</AlertTitle>
-          <AlertDescription>
-            {ownerDataError}
-            <br />
-            Παρακαλώ ελέγξτε το UID σας ({user.id}) με το πεδίο `ownerId` στα έγγραφα των καταστημάτων σας στη συλλογή `StoreInfo` του Firestore.
-          </AlertDescription>
-        </Alert>
-      )}
+      <h1 className="text-3xl font-bold text-primary">Ο Λογαριασμός μου</h1>
 
-      {ownedStores.length > 0 && (
-        <Card className="shadow-lg">
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle className="flex items-center">
-                        <ShoppingBag className="mr-2 h-5 w-5 text-primary" />
-                        Οι Κρατήσεις των Κέντρων μου ({ownerBookings.length})
-                    </CardTitle>
-                    <Button variant="ghost" size="icon" onClick={fetchOwnerData} disabled={isLoadingOwnerData} title="Ανανέωση Κρατήσεων">
-                        <RefreshCw className={`h-4 w-4 ${isLoadingOwnerData ? 'animate-spin' : ''}`} />
-                    </Button>
-                </div>
-                <CardDescription>Διαχειριστείτε τις κρατήσεις για τα κέντρα εξυπηρέτησης που σας ανήκουν.</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* User Info Card */}
+        <div className="lg:col-span-4 xl:col-span-3">
+          <Card className="shadow-lg">
+            <CardHeader className="items-center text-center pt-6">
+              <Avatar className="h-24 w-24 border-2 border-primary shadow-md mb-3">
+                <AvatarImage src={user.avatarUrl || ''} alt={user.name || 'User Avatar'} data-ai-hint="avatar person"/>
+                <AvatarFallback className="text-3xl">{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+              </Avatar>
+              <CardTitle className="text-xl">{user.name}</CardTitle>
+              <CardDescription className="text-sm">{user.email}</CardDescription>
+               {user.isAdmin && <Badge variant="destructive" className="mt-1">Διαχειριστής</Badge>}
+               {isOwner && !user.isAdmin && <Badge variant="secondary" className="mt-1">Ιδιοκτήτης Κέντρου</Badge>}
             </CardHeader>
-            <CardContent>
-                {isLoadingOwnerData ? (
-                    <div className="space-y-4">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                ) : (
-                    <OwnerBookingsDisplay 
-                        bookings={ownerBookings} 
-                        storesOwned={ownedStores}
-                        onBookingUpdate={fetchOwnerData} 
-                    />
-                )}
+            <CardContent className="text-center">
+              <Button variant="outline" onClick={handleLogout} className="w-full max-w-xs mx-auto">
+                <LogOut className="mr-2 h-4 w-4" /> Αποσύνδεση
+              </Button>
             </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <ProfileForm />
+          </Card>
         </div>
-        <div className="lg:col-span-1 space-y-6">
-            <Card className="shadow-md">
-                <CardHeader>
-                    <CardTitle>Επισκόπηση Λογαριασμού</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <p><strong>Όνομα:</strong> {user.name}</p>
-                    <p><strong>Email:</strong> {user.email}</p>
-                    {user.isAdmin && <p className="text-sm font-semibold text-destructive">Ρόλος: Διαχειριστής</p>}
-                    {ownedStores.length > 0 && !user.isAdmin && <p className="text-sm font-semibold text-green-600">Ρόλος: Ιδιοκτήτης Κέντρου</p>}
-                     {ownedStores.length === 0 && !user.isAdmin && user.email === 'tsifrikas.a@gmail.com' && (
-                        <p className="text-sm font-semibold text-orange-600">Ρόλος: Ιδιοκτήτης Κέντρου (Δεν βρέθηκαν ενεργά καταστήματα)</p>
-                    )}
 
+        {/* Stat Cards Container */}
+        <div className="lg:col-span-8 xl:col-span-9 grid grid-cols-1 sm:grid-cols-2 gap-4 xl:grid-cols-4">
+          <StatCard
+            title="Συνομιλίες"
+            value={user.totalUnreadMessages || 0}
+            icon={MessageSquare}
+            linkHref="/dashboard/chats"
+            colorClass="bg-blue-600"
+            description={user.totalUnreadMessages > 0 ? "Νέα μηνύματα" : "Καμία νέα συνομιλία"}
+          />
+          <StatCard
+            title="Οι Κρατήσεις μου"
+            value={user.bookingStatusUpdatesCount || 0}
+            icon={ListOrdered}
+            linkHref="/dashboard/my-bookings"
+            colorClass="bg-green-600"
+            description={user.bookingStatusUpdatesCount > 0 ? "Ενημερώσεις κρατήσεων" : "Καμία ενημέρωση"}
+            additionalInfo="(Ως Πελάτης)"
+          />
+          {isOwner && (
+            <StatCard
+              title="Κρατήσεις Κέντρου"
+              value={user.pendingBookingsCount || 0}
+              icon={ClipboardList}
+              linkHref="/dashboard#owner-bookings" // Link to the section on this page
+              colorClass="bg-pink-600"
+              description={user.pendingBookingsCount > 0 ? "Εκκρεμείς κρατήσεις" : "Καμία εκκρεμής"}
+              additionalInfo="(Για το Κέντρο σας)"
+            />
+          )}
+          <StatCard
+            title="Αποθηκευμένα Κέντρα"
+            value="0" // Placeholder
+            icon={Heart}
+            linkHref="/dashboard" // Placeholder link
+            colorClass="bg-purple-600"
+            description="Δείτε τα αγαπημένα σας"
+          />
+        </div>
+      </div>
 
-                    <Button asChild variant="link" className="p-0 h-auto text-primary">
-                        <Link href="/dashboard/my-bookings">
-                            <ListOrdered className="mr-2 h-4 w-4" />
-                            Οι Κρατήσεις μου (Ως Πελάτης)
-                        </Link>
-                    </Button>
-                </CardContent>
-            </Card>
-            <Card className="shadow-md">
+      {/* Main Content Area */}
+      <div id="dashboard-main-content" className="mt-8">
+        {isOwner ? (
+          <>
+            {isLoadingOwnerData && (
+              <Card className="shadow-lg">
                 <CardHeader>
+                  <div className="flex justify-between items-center">
                     <CardTitle className="flex items-center">
-                      <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                      Οι Συνομιλίες μου
+                        <ClipboardList className="mr-2 h-5 w-5 text-primary" />
+                        Οι Κρατήσεις των Κέντρων μου
                     </CardTitle>
-                    <CardDescription>Δείτε και απαντήστε στις συνομιλίες σας.</CardDescription>
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                  </div>
+                   <CardDescription>Διαχειριστείτε τις κρατήσεις για τα κέντρα εξυπηρέτησης που σας ανήκουν.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {!isLoadingOwnerData && ownerDataError && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Σφάλμα Φόρτωσης Δεδομένων Ιδιοκτήτη</AlertTitle>
+                <AlertDescription>{ownerDataError}</AlertDescription>
+              </Alert>
+            )}
+            {!isLoadingOwnerData && !ownerDataError && (
+              <Card id="owner-bookings" className="shadow-lg">
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="flex items-center">
+                            <ClipboardList className="mr-2 h-5 w-5 text-primary" />
+                            Οι Κρατήσεις των Κέντρων μου ({ownerBookings.length})
+                        </CardTitle>
+                        <Button variant="outline" size="icon" onClick={fetchOwnerData} disabled={isLoadingOwnerData} title="Ανανέωση Κρατήσεων">
+                            <RefreshCw className={`h-4 w-4 ${isLoadingOwnerData ? 'animate-spin' : ''}`} />
+                        </Button>
+                    </div>
+                    <CardDescription>Διαχειριστείτε τις κρατήσεις για τα κέντρα εξυπηρέτησης που σας ανήκουν.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/dashboard/chats">Προβολή Συνομιλιών ({user.totalUnreadMessages || 0})</Link>
-                    </Button>
+                    <OwnerBookingsDisplay
+                        bookings={ownerBookings}
+                        storesOwned={ownedStores}
+                        onBookingUpdate={fetchOwnerData}
+                    />
                 </CardContent>
-            </Card>
-             <Card className="shadow-md">
-                <CardHeader>
-                    <CardTitle>Γρήγοροι Σύνδεσμοι</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col space-y-2">
-                    <Button variant="outline" asChild><Link href="/"><Home className="mr-2"/>Αρχική Σελίδα</Link></Button>
-                     {user.isAdmin && (
-                        <Button variant="outline" asChild>
-                            <Link href="/admin"><CalendarCheck className="mr-2"/>Πίνακας Διαχείρισης</Link>
-                        </Button>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
+              </Card>
+            )}
+          </>
+        ) : (
+          <ClientUpcomingBookings />
+        )}
       </div>
     </div>
   );
 }
 
-    
+// Helper Icon for missing ShieldTriangle
+const ShieldTriangle = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 7v10M22 7v10M12 12L2 7M12 12l10-5M12 12v10"/>
+  </svg>
+);
