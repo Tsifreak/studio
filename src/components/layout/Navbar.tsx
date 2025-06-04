@@ -126,7 +126,7 @@ export function Navbar() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/dashboard/my-bookings')}>
                       <ListOrdered className="mr-2 h-4 w-4" />
-                      Οι Κρατήσεις μου (Πελάτης)
+                      Οι Κρατήσεις μου
                         {clientBookingUpdates > 0 && (
                             <span className="ml-auto text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded-full">
                             {clientBookingUpdates} ενημερώσεις
