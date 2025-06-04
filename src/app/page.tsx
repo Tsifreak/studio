@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, ListChecks, CalendarCheck, Redo2, ChevronDown, Smartphone, UserPlus, Settings } from 'lucide-react'; // Restored and added icons, kept new ones for lines
+import { ListChecks, CalendarCheck, Redo2, ChevronDown, Smartphone, UserPlus, Settings, Search } from 'lucide-react'; // Restored and added icons, kept new ones for lines
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
@@ -31,20 +31,20 @@ export default function HomePage() {
       step: "1",
       title: "Εύρεση Υπηρεσίας",
       description: "Περιηγηθείτε στις κατηγορίες ή χρησιμοποιήστε την αναζήτηση για να βρείτε αυτό που χρειάζεστε.",
-      icon: <Search className="h-8 w-8 md:h-10 md:w-10 text-primary" />,
+      icon: <Search className="h-8 w-8 md:h-10 md:w-10 text-vivid-blue" />,
       isHighlighted: true,
     },
     {
       step: "2",
       title: "Επιλογή Κέντρου",
       description: "Συγκρίνετε κέντρα, διαβάστε κριτικές και επιλέξτε το κατάλληλο για εσάς.",
-      icon: <ListChecks className="h-8 w-8 md:h-10 md:w-10 text-primary" />,
+      icon: <ListChecks className="h-8 w-8 md:h-10 md:w-10 text-vivid-blue" />,
     },
     {
       step: "3",
       title: "Κλείσιμο Ραντεβού",
       description: "Επικοινωνήστε ή κλείστε το ραντεβού σας online εύκολα και γρήγορα.",
-      icon: <CalendarCheck className="h-8 w-8 md:h-10 md:w-10 text-primary" />,
+      icon: <CalendarCheck className="h-8 w-8 md:h-10 md:w-10 text-vivid-blue" />,
     },
   ];
 
@@ -92,6 +92,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
             {AppCategories.map((category, index) => {
               let wrapperClasses = "flex justify-center";
+              // Center the last item if it's the 7th item in a 3-column layout
               if (AppCategories.length === 7 && index === 6) {
                 wrapperClasses += " sm:col-start-2";
               }
@@ -101,6 +102,7 @@ export default function HomePage() {
                 </div>
               );
             })}
+            {/* Placeholder div is removed as per previous request */}
           </div>
         ) : ( <p className="text-center text-muted-foreground font-sans">Δεν Βρέθηκαν Κατηγορίες</p> )}
       </div>
@@ -127,7 +129,7 @@ export default function HomePage() {
                   item.isHighlighted ? "bg-white shadow-xl" : "bg-transparent border-2 border-dashed border-gray-300"
                 )}>
                   {item.isHighlighted ? (
-                    <div className="bg-primary/10 rounded-full p-3">
+                    <div className="bg-app-teal/10 rounded-full p-3">
                       {item.icon}
                     </div>
                   ) : (
@@ -140,13 +142,11 @@ export default function HomePage() {
 
               {index < howItWorksSteps.length - 1 && (
                 <div className="hidden md:flex items-center justify-center self-center mt-[-4rem] lg:mt-[-5rem] mx-2 lg:mx-4">
-                  {/* Using Redo2 for a curved right arrow */}
                   <Redo2 className="h-10 w-10 text-gray-400 transform scale-x-[-1]" />
                 </div>
               )}
               {index < howItWorksSteps.length - 1 && (
                 <div className="md:hidden flex items-center justify-center my-6 w-full">
-                  {/* Using ChevronDown for a simple vertical connector on mobile */}
                   <ChevronDown className="h-10 w-10 text-gray-400" />
                 </div>
               )}
