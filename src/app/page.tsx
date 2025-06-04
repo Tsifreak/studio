@@ -53,8 +53,8 @@ export default function HomePage() {
     }, [currentSelectedService]);
     const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
     return (
-      <section id="hero-section" className="text-center py-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg shadow">
-        <p className="mt-3 text-lg text-heroTextLight md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
+      <section id="hero-section" className="text-center py-6 bg-vivid-blue rounded-lg shadow">
+        <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
         <form
           onSubmit={handleHeroSearch}
           className="mt-6 max-w-md mx-auto flex items-center gap-0.5 p-1 bg-white rounded-full shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 transition-all border-2 border-transparent hover:border-sky-300"
@@ -84,7 +84,7 @@ export default function HomePage() {
         {AppCategories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
             {AppCategories.map((category, index) => {
-              let wrapperClasses = "cursor-pointer flex justify-center";
+              let wrapperClasses = "flex justify-center";
               // If this is the 7th item (index 6) AND there are exactly 7 categories,
               // make it start at the second column for 'sm' screens and up (3-column layout).
               if (AppCategories.length === 7 && index === 6) {
