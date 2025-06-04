@@ -199,7 +199,7 @@ export default function DashboardPage() {
               value={isLoadingActiveOwnerBookings ? <Loader2 className="h-6 w-6 animate-spin" /> : activeUpcomingOwnerBookingsCount}
               icon={ClipboardList}
               linkHref="/dashboard/owner-bookings"
-              colorClass="bg-pink-600 text-white"
+              colorClass="bg-[#ff9300] text-white"
               description={
                 isLoadingActiveOwnerBookings ? "Φόρτωση..." :
                 activeUpcomingOwnerBookingsCount > 0 ? `${activeUpcomingOwnerBookingsCount} ενεργές/εκκρεμείς` : "Καμία ενεργή/εκκρεμής"
