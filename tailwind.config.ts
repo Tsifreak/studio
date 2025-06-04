@@ -71,6 +71,7 @@ export default {
         contentTitle: 'hsl(var(--content-title-color))',
         contentText: 'hsl(var(--content-text-color))',
         heroTextLight: 'hsl(var(--hero-text-light))', // Added for the light hero text
+        'app-teal': 'hsl(var(--teal))',
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

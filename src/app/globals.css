@@ -54,6 +54,8 @@
 
     --content-title-color: 217 33% 17%; /* #1e293b */
     --content-text-color: 215 20% 27%;  /* #374151 */
+
+    --teal: 160 100% 30%; /* HSL for a vibrant teal/green like in the image, e.g., #009973 */
   }
 
   .dark {
@@ -105,6 +107,8 @@
     
     --content-title-color: 0 0% 95%; /* Light title for dark mode */
     --content-text-color: 210 30% 80%;  /* Lighter text for dark mode */
+
+    --teal: 160 100% 40%; /* Slightly lighter teal for dark mode */
   }
 }
 
