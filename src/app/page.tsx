@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListChecks, CalendarCheck, Search, Redo2, ChevronDown } from 'lucide-react'; // Changed Chevron icons
+import { ListChecks, CalendarCheck, Search, ChevronDown } from 'lucide-react'; // Changed Chevron icons
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
@@ -115,8 +115,7 @@ export default function HomePage() {
 
       <section className="py-12 md:py-16">
         <h2 className="text-3xl font-bold text-center mb-12 text-contentTitle font-sans">Πώς Λειτουργεί;</h2>
-        {/* Removed the subtitle <p> tag here */}
-        <div className="flex flex-col md:flex-row items-start justify-center md:gap-x-4 lg:gap-x-8 gap-y-10">
+        <div className="flex flex-col md:flex-row items-start justify-center md:gap-x-2 lg:gap-x-4 gap-y-10">
           {howItWorksSteps.map((item, index) => (
             <React.Fragment key={item.step}>
               <div className="flex flex-col items-center text-center w-full md:max-w-[220px] lg:max-w-xs px-2">
@@ -134,20 +133,18 @@ export default function HomePage() {
                   )}
                 </div>
                 <h3 className="text-xl font-bold text-contentTitle mb-2">{item.title}</h3>
-                <p className="text-xs text-contentText">{item.description}</p> {/* Changed text-sm to text-xs */}
+                <p className="text-xs text-contentText">{item.description}</p>
               </div>
 
               {index < howItWorksSteps.length - 1 && (
-                <div className="hidden md:flex items-center justify-center self-center mt-[-4rem] lg:mt-[-5rem] mx-2 lg:mx-4">
-                   {/* Using an SVG for a curved dashed line */}
-                  <svg width="100" height="50" viewBox="0 0 100 50" className="text-gray-400">
-                    <path d="M5 45 Q 50 -15, 95 45" stroke="currentColor" fill="transparent" strokeWidth="2" strokeDasharray="5,5" />
+                <div className="hidden md:flex items-center justify-center self-center mx-2 lg:mx-4">
+                  <svg width="80" height="40" viewBox="0 0 80 40" className="text-gray-400">
+                    <path d="M0 20 C 20 0, 60 40, 80 20" stroke="currentColor" fill="transparent" strokeWidth="2" strokeDasharray="4,4" />
                   </svg>
                 </div>
               )}
               {index < howItWorksSteps.length - 1 && (
                 <div className="md:hidden flex items-center justify-center my-6 w-full">
-                  {/* Simple vertical dashed line for mobile */}
                   <div className="w-px h-16 border-l-2 border-dashed border-gray-400"></div>
                 </div>
               )}
