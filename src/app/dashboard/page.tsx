@@ -187,7 +187,7 @@ export default function DashboardPage() {
             value={isLoadingClientBookings ? <Loader2 className="h-6 w-6 animate-spin" /> : clientUpcomingBookingsCount}
             icon={ListOrdered}
             linkHref="/dashboard/my-bookings"
-            colorClass="bg-green-600 text-white"
+            colorClass="bg-[#0088f3] text-white"
             description={
               isLoadingClientBookings ? "Φόρτωση..." :
               clientUpcomingBookingsCount > 0 ? `${clientUpcomingBookingsCount} προσεχείς` : "Καμία προσεχής κράτηση"
