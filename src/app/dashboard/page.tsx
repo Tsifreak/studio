@@ -18,6 +18,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBookings';
 import { Badge } from '@/components/ui/badge';
 import { format, isFuture, parseISO } from 'date-fns';
+import { ProfileForm } from '@/components/auth/ProfileForm';
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -106,7 +107,7 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return (
-      <div className="flex flex-col space-y-8">
+      <div className="space-y-8 pt-8">
         <Skeleton className="h-10 w-1/3" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-3">
@@ -149,7 +150,7 @@ export default function DashboardPage() {
   const isOwner = ownedStores.length > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pt-8">
       <h1 className="text-3xl font-bold text-primary">Ο Λογαριασμός μου</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -216,6 +217,10 @@ export default function DashboardPage() {
             description="Δείτε τα αγαπημένα σας"
           />
         </div>
+      </div>
+      
+      <div id="profile-form-section" className="mt-8">
+        <ProfileForm />
       </div>
 
       <div id="dashboard-main-content" className="mt-8">
