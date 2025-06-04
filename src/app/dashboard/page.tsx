@@ -157,7 +157,7 @@ export default function DashboardPage() {
               title="Κρατήσεις Κέντρου"
               value={user.pendingBookingsCount || 0}
               icon={ClipboardList}
-              linkHref="/dashboard#owner-bookings" // Link to the section on this page
+              linkHref="/dashboard/owner-bookings" 
               colorClass="bg-pink-600"
               description={user.pendingBookingsCount > 0 ? "Εκκρεμείς κρατήσεις" : "Καμία εκκρεμής"}
               additionalInfo="(Για το Κέντρο σας)"
