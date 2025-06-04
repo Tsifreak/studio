@@ -32,7 +32,7 @@ const SecondaryCTASection: React.FC = () => {
         </p>
         <button
           onClick={handleCTAClick}
-          className="bg-orange-500 text-white px-8 py-3 sm:px-10 sm:py-4 rounded-lg font-bold text-lg sm:text-xl hover:bg-orange-600 transition-transform hover:scale-105 shadow-md"
+          className="bg-[#ff9300] text-white px-8 py-3 sm:px-10 sm:py-4 rounded-lg font-bold text-lg sm:text-xl hover:bg-[#e68300] transition-transform hover:scale-105 shadow-md"
         >
           Βρείτε Μηχανικό Τώρα
         </button>
