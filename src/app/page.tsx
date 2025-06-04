@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListChecks, CalendarCheck, Redo2, ChevronDown, Smartphone, UserPlus, Settings, Search } from 'lucide-react'; // Restored and added icons, kept new ones for lines
+import { ListChecks, CalendarCheck, Redo2, ChevronDown, Search } from 'lucide-react'; // Changed Chevron icons
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
@@ -102,7 +102,6 @@ export default function HomePage() {
                 </div>
               );
             })}
-            {/* Placeholder div is removed as per previous request */}
           </div>
         ) : ( <p className="text-center text-muted-foreground font-sans">Δεν Βρέθηκαν Κατηγορίες</p> )}
       </div>
@@ -129,7 +128,7 @@ export default function HomePage() {
                   item.isHighlighted ? "bg-white shadow-xl" : "bg-transparent border-2 border-dashed border-gray-300"
                 )}>
                   {item.isHighlighted ? (
-                    <div className="bg-app-teal/10 rounded-full p-3">
+                    <div className="bg-icon-disc-bg rounded-full p-3">
                       {item.icon}
                     </div>
                   ) : (
@@ -142,12 +141,16 @@ export default function HomePage() {
 
               {index < howItWorksSteps.length - 1 && (
                 <div className="hidden md:flex items-center justify-center self-center mt-[-4rem] lg:mt-[-5rem] mx-2 lg:mx-4">
-                  <Redo2 className="h-10 w-10 text-gray-400 transform scale-x-[-1]" />
+                   {/* Using an SVG for a curved dashed line */}
+                  <svg width="100" height="50" viewBox="0 0 100 50" className="text-gray-400">
+                    <path d="M5 45 Q 50 -15, 95 45" stroke="currentColor" fill="transparent" strokeWidth="2" strokeDasharray="5,5" />
+                  </svg>
                 </div>
               )}
               {index < howItWorksSteps.length - 1 && (
                 <div className="md:hidden flex items-center justify-center my-6 w-full">
-                  <ChevronDown className="h-10 w-10 text-gray-400" />
+                  {/* Simple vertical dashed line for mobile */}
+                  <div className="w-px h-16 border-l-2 border-dashed border-gray-400"></div>
                 </div>
               )}
             </React.Fragment>

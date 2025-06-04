@@ -56,6 +56,7 @@
     --content-text-color: 215 20% 27%;  /* #374151 */
 
     --teal: 160 100% 30%; /* HSL for a vibrant teal/green like in the image, e.g., #009973 */
+    --icon-disc-bg: 225 60% 93.3%; /* #E6EBF6 */
   }
 
   .dark {
@@ -109,6 +110,7 @@
     --content-text-color: 210 30% 80%;  /* Lighter text for dark mode */
 
     --teal: 160 100% 40%; /* Slightly lighter teal for dark mode */
+    --icon-disc-bg: 225 30% 20%; /* Dark mode equivalent for #E6EBF6, e.g., a darker muted blue */
   }
 }
 
