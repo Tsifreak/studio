@@ -4,23 +4,25 @@
 
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useRouter }
+from 'next/navigation'; // Added for navigation
 
 // Your existing imports for HomePage content
 import { AppCategories } from '@/lib/types';
 import { CategoryCard } from '@/components/category/CategoryCard'; // Your actual component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListChecks, CalendarCheck, Search } from 'lucide-react'; // Changed Chevron icons
+import { ListChecks, CalendarCheck, Search } from 'lucide-react'; 
 import WhyUsSection from '@/components/WhyUsSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import SecondaryCTASection from '@/components/SecondaryCTASection';
-// Logo is no longer imported here as it was removed from the hero
+
 
 export default function HomePage() {
   const [selectedService, setSelectedService] = useState('');
 
   const handleCategorySelect = (serviceName: string) => {
     setSelectedService(serviceName);
-    const heroElement = document.getElementById('hero-section'); // Ensure your Hero section component has this ID
+    const heroElement = document.getElementById('hero-section'); 
     if (heroElement) {
       heroElement.scrollIntoView({ behavior: 'smooth' });
     }
@@ -50,10 +52,19 @@ export default function HomePage() {
 
   const YourHeroSectionComponent = ({ currentSelectedService }: { currentSelectedService: string }) => {
     const [heroSearchInput, setHeroSearchInput] = useState('');
+    const router = useRouter(); // Initialize router
+
     useEffect(() => {
       if (currentSelectedService) { setHeroSearchInput(currentSelectedService); }
     }, [currentSelectedService]);
-    const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
+
+    const handleHeroSearch = (e: React.FormEvent) => { 
+      e.preventDefault(); 
+      if (heroSearchInput.trim()) {
+        router.push(`/search?q=${encodeURIComponent(heroSearchInput.trim())}`);
+      }
+    };
+
     return (
       <section
         id="hero-section"
@@ -159,4 +170,3 @@ export default function HomePage() {
     </div>
   );
 }
-
