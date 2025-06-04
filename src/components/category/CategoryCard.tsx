@@ -17,7 +17,7 @@ export function CategoryCard({ categorySlug, translatedCategoryName, description
   return (
     <Link 
       href={`/category/${encodeURIComponent(categorySlug)}`} 
-      className="block h-full group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl max-w-xs mx-auto" 
+      className="block h-full group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl max-w-[200px] mx-auto" 
       aria-label={`Προβολή κατηγορίας ${translatedCategoryName}`}
     >
       <Card className="flex flex-col items-center justify-center text-center overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full p-3 relative min-h-[140px] md:min-h-[160px] rounded-2xl">
