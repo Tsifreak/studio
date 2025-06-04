@@ -83,19 +83,20 @@ export default function HomePage() {
         <h2 className="text-2xl font-bold text-center mb-6 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
-            {AppCategories.map((category) => (
-              <div key={category.slug + "-wrapper"} onClick={() => onCategorySelect(category.translatedName || category.slug)} className="cursor-pointer flex justify-center">
-                <CategoryCard categorySlug={category.slug} translatedCategoryName={category.translatedName} description={category.description} iconName={category.icon} />
-              </div>
-            ))}
-            {/* Placeholder for the 8th "empty" card to match the drawing */}
-            {AppCategories.length === 7 && (
-              <div className="flex justify-center">
-                <div className="w-full max-w-[180px] sm:max-w-[200px] min-h-[140px] md:min-h-[150px] border-2 border-dashed border-slate-300 bg-slate-50/50 rounded-2xl shadow-sm flex items-center justify-center">
-                  {/* Optional: content for the empty placeholder */}
+            {AppCategories.map((category, index) => {
+              let wrapperClasses = "cursor-pointer flex justify-center";
+              // If this is the 7th item (index 6) AND there are exactly 7 categories,
+              // make it start at the second column for 'sm' screens and up (3-column layout).
+              if (AppCategories.length === 7 && index === 6) {
+                wrapperClasses += " sm:col-start-2";
+              }
+              return (
+                <div key={category.slug + "-wrapper"} onClick={() => onCategorySelect(category.translatedName || category.slug)} className={wrapperClasses}>
+                  <CategoryCard categorySlug={category.slug} translatedCategoryName={category.translatedName} description={category.description} iconName={category.icon} />
                 </div>
-              </div>
-            )}
+              );
+            })}
+            {/* Placeholder div removed */}
           </div>
         ) : ( <p className="text-center text-muted-foreground font-sans">Δεν Βρέθηκαν Κατηγορίες</p> )}
       </div>
@@ -140,3 +141,4 @@ export default function HomePage() {
     </div>
   );
 }
+
