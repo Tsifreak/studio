@@ -153,7 +153,6 @@ export default function DashboardPage() {
                 <CardContent className="space-y-3">
                     <p><strong>Όνομα:</strong> {user.name}</p>
                     <p><strong>Email:</strong> {user.email}</p>
-                    <p><strong>User ID (UID):</strong> {user.id}</p> 
                     {user.isAdmin && <p className="text-sm font-semibold text-destructive">Ρόλος: Διαχειριστής</p>}
                     {ownedStores.length > 0 && !user.isAdmin && <p className="text-sm font-semibold text-green-600">Ρόλος: Ιδιοκτήτης Κέντρου</p>}
                      {ownedStores.length === 0 && !user.isAdmin && user.email === 'tsifrikas.a@gmail.com' && (
