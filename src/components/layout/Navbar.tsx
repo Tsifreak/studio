@@ -1,4 +1,3 @@
-
 // src/components/layout/navbar.tsx
 "use client";
 
@@ -157,7 +156,7 @@ export function Navbar() {
                 </Button>
                 <Button
                   asChild
-                  className="bg-[#FFA500] text-white hover:bg-[#FFB733] focus:ring-2 focus:ring-[#FFA500] focus:ring-offset-2 font-semibold py-2 px-4 rounded-md shadow-md transition-all duration-150 ease-in-out"
+                  className="bg-[#ff9300] text-white hover:bg-[#e68300] focus:ring-2 focus:ring-[#ff9300] focus:ring-offset-2 font-semibold py-2 px-4 rounded-md shadow-md transition-all duration-150 ease-in-out"
                 >
                   <Link href="/signup">
                     <UserPlus className="mr-2 h-4 w-4" /> Εγγραφή
