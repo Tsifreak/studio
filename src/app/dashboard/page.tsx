@@ -16,8 +16,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBookings';
-import { Badge } from '@/components/ui/badge';
-import { format, isFuture, parseISO } from 'date-fns'; // Added date-fns imports
+import { Badge } from '@/components/ui/badge'; // Ensure Badge is imported
+import { format, isFuture, parseISO } from 'date-fns';
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -27,18 +27,28 @@ export default function DashboardPage() {
   const [ownedStores, setOwnedStores] = useState<Store[]>([]);
   const [isLoadingOwnerData, setIsLoadingOwnerData] = useState(false);
   const [ownerDataError, setOwnerDataError] = useState<string | null>(null);
+  const [activeUpcomingOwnerBookingsCount, setActiveUpcomingOwnerBookingsCount] = useState(0);
+  const [isLoadingActiveOwnerBookings, setIsLoadingActiveOwnerBookings] = useState(true);
 
   const [clientUpcomingBookingsCount, setClientUpcomingBookingsCount] = useState(0);
   const [isLoadingClientBookings, setIsLoadingClientBookings] = useState(true);
 
   const fetchOwnerData = useCallback(async () => {
-    if (user && user.id && user.email === 'tsifrikas.a@gmail.com') { 
+    if (user && user.id && user.email === 'tsifrikas.a@gmail.com') {
       setIsLoadingOwnerData(true);
+      setIsLoadingActiveOwnerBookings(true);
       setOwnerDataError(null);
       try {
         const data = await getOwnerDashboardData(user.id);
         setOwnedStores(data.storesOwned);
         setOwnerBookings(data.bookings);
+
+        const activeUpcomingOwner = data.bookings.filter(b =>
+          (isFuture(parseISO(b.bookingDate)) || format(parseISO(b.bookingDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')) &&
+          (b.status === 'pending' || b.status === 'confirmed')
+        );
+        setActiveUpcomingOwnerBookingsCount(activeUpcomingOwner.length);
+
         if (data.storesOwned.length === 0) {
           console.warn(`[DashboardPage] User ${user.email} identified as potential owner, but no stores found for ownerId: ${user.id}.`);
           setOwnerDataError("Δεν βρέθηκαν καταστήματα που ανήκουν σε εσάς. Βεβαιωθείτε ότι το 'Owner User ID' έχει ρυθμιστεί σωστά.");
@@ -48,7 +58,11 @@ export default function DashboardPage() {
         setOwnerDataError("Σφάλμα κατά τη φόρτωση δεδομένων ιδιοκτήτη.");
       } finally {
         setIsLoadingOwnerData(false);
+        setIsLoadingActiveOwnerBookings(false);
       }
+    } else {
+        setIsLoadingActiveOwnerBookings(false);
+        setActiveUpcomingOwnerBookingsCount(0);
     }
   }, [user]);
 
@@ -64,12 +78,11 @@ export default function DashboardPage() {
         setClientUpcomingBookingsCount(upcomingAndActive.length);
       } catch (error) {
         console.error("DashboardPage: Failed to fetch client bookings for stat card:", error);
-        // Optionally set an error state here if needed for client bookings
       } finally {
         setIsLoadingClientBookings(false);
       }
     } else {
-      setIsLoadingClientBookings(false); // No user, so not loading client bookings
+      setIsLoadingClientBookings(false);
       setClientUpcomingBookingsCount(0);
     }
   }, [user]);
@@ -94,7 +107,7 @@ export default function DashboardPage() {
   if (authLoading) {
     return (
       <div className="flex flex-col space-y-8">
-        <Skeleton className="h-10 w-1/3" /> {/* Page Title Skeleton */}
+        <Skeleton className="h-10 w-1/3" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-3">
             <Card className="shadow-lg">
@@ -140,7 +153,6 @@ export default function DashboardPage() {
       <h1 className="text-3xl font-bold text-primary">Ο Λογαριασμός μου</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* User Info Card */}
         <div className="lg:col-span-4 xl:col-span-3">
           <Card className="shadow-lg">
             <CardHeader className="items-center text-center pt-6">
@@ -161,7 +173,6 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Stat Cards Container */}
         <div className="lg:col-span-8 xl:col-span-9 grid grid-cols-1 sm:grid-cols-2 gap-4 xl:grid-cols-4">
           <StatCard
             title="Συνομιλίες"
@@ -185,26 +196,28 @@ export default function DashboardPage() {
           {isOwner && (
             <StatCard
               title="Κρατήσεις Κέντρου"
-              value={user.pendingBookingsCount || 0}
+              value={isLoadingActiveOwnerBookings ? <Loader2 className="h-6 w-6 animate-spin" /> : activeUpcomingOwnerBookingsCount}
               icon={ClipboardList}
-              linkHref="/dashboard/owner-bookings" 
+              linkHref="/dashboard/owner-bookings"
               colorClass="bg-pink-600"
-              description={user.pendingBookingsCount > 0 ? `${user.pendingBookingsCount} εκκρεμείς` : "Καμία εκκρεμής"}
+              description={
+                isLoadingActiveOwnerBookings ? "Φόρτωση..." :
+                activeUpcomingOwnerBookingsCount > 0 ? `${activeUpcomingOwnerBookingsCount} ενεργές/εκκρεμείς` : "Καμία ενεργή/εκκρεμής"
+              }
               additionalInfo="(Για το Κέντρο σας)"
             />
           )}
           <StatCard
             title="Αποθηκευμένα Κέντρα"
-            value="0" // Placeholder
+            value="0" 
             icon={Heart}
-            linkHref="/dashboard" // Placeholder link
+            linkHref="/dashboard" 
             colorClass="bg-purple-600"
             description="Δείτε τα αγαπημένα σας"
           />
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div id="dashboard-main-content" className="mt-8">
         {isOwner ? (
           <>
