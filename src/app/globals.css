@@ -57,6 +57,10 @@
 
     --teal: 160 100% 30%; /* HSL for a vibrant teal/green like in the image, e.g., #009973 */
     --icon-disc-bg: 225 60% 93.3%; /* #E6EBF6 */
+
+    /* New variables for "Saved Stores" card */
+    --saved-card-background: 255 100% 96%; /* #f1edff for light mode */
+    --saved-card-foreground: 220 50% 20%;  /* A dark blue for light mode text */
   }
 
   .dark {
@@ -111,6 +115,10 @@
 
     --teal: 160 100% 40%; /* Slightly lighter teal for dark mode */
     --icon-disc-bg: 225 30% 20%; /* Dark mode equivalent for #E6EBF6, e.g., a darker muted blue */
+
+    /* New variables for "Saved Stores" card - dark mode */
+    --saved-card-background: 255 25% 22%; /* Darker, muted lavender for dark mode bg */
+    --saved-card-foreground: 255 80% 90%;  /* Light lavender/pink for text on dark bg */
   }
 }
 

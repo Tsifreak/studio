@@ -9,14 +9,14 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { MessageSquare, ListOrdered, Heart, ClipboardList, LogOut, Loader2, User, AlertTriangle, RefreshCw, CalendarClock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getOwnerDashboardData, getUserBookings } from './actions'; // Added getUserBookings
+import { getOwnerDashboardData, getUserBookings } from './actions'; 
 import type { Booking, Store } from '@/lib/types';
 import { OwnerBookingsDisplay } from '@/components/dashboard/OwnerBookingsDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBookings';
-import { Badge } from '@/components/ui/badge'; // Ensure Badge is imported
+import { Badge } from '@/components/ui/badge';
 import { format, isFuture, parseISO } from 'date-fns';
 
 export default function DashboardPage() {
@@ -179,7 +179,7 @@ export default function DashboardPage() {
             value={user.totalUnreadMessages || 0}
             icon={MessageSquare}
             linkHref="/dashboard/chats"
-            colorClass="bg-blue-600"
+            colorClass="bg-blue-600 text-white"
             description={user.totalUnreadMessages > 0 ? `${user.totalUnreadMessages} νέα μηνύματα` : "Καμία νέα συνομιλία"}
           />
           <StatCard
@@ -187,7 +187,7 @@ export default function DashboardPage() {
             value={isLoadingClientBookings ? <Loader2 className="h-6 w-6 animate-spin" /> : clientUpcomingBookingsCount}
             icon={ListOrdered}
             linkHref="/dashboard/my-bookings"
-            colorClass="bg-green-600"
+            colorClass="bg-green-600 text-white"
             description={
               isLoadingClientBookings ? "Φόρτωση..." :
               clientUpcomingBookingsCount > 0 ? `${clientUpcomingBookingsCount} προσεχείς` : "Καμία προσεχής κράτηση"
@@ -199,7 +199,7 @@ export default function DashboardPage() {
               value={isLoadingActiveOwnerBookings ? <Loader2 className="h-6 w-6 animate-spin" /> : activeUpcomingOwnerBookingsCount}
               icon={ClipboardList}
               linkHref="/dashboard/owner-bookings"
-              colorClass="bg-pink-600"
+              colorClass="bg-pink-600 text-white"
               description={
                 isLoadingActiveOwnerBookings ? "Φόρτωση..." :
                 activeUpcomingOwnerBookingsCount > 0 ? `${activeUpcomingOwnerBookingsCount} ενεργές/εκκρεμείς` : "Καμία ενεργή/εκκρεμής"
@@ -212,7 +212,7 @@ export default function DashboardPage() {
             value="0" 
             icon={Heart}
             linkHref="/dashboard" 
-            colorClass="bg-purple-600"
+            colorClass="bg-saved-card text-saved-card-foreground"
             description="Δείτε τα αγαπημένα σας"
           />
         </div>

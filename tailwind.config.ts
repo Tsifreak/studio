@@ -73,6 +73,10 @@ export default {
         heroTextLight: 'hsl(var(--hero-text-light))', // Added for the light hero text
         'app-teal': 'hsl(var(--teal))',
         'icon-disc-bg': 'hsl(var(--icon-disc-bg))',
+        'saved-card': { // New color utility for the saved stores card
+            DEFAULT: 'hsl(var(--saved-card-background))',
+            foreground: 'hsl(var(--saved-card-foreground))',
+        },
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
