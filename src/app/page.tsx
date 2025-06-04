@@ -68,7 +68,7 @@ export default function HomePage() {
     return (
       <section
         id="hero-section"
-        className="bg-vivid-blue -mx-4 sm:-mx-6 lg:-mx-8 pt-24 md:pt-28 pb-12 md:pb-16" // Removed -mt-24
+        className="bg-vivid-blue pt-24 md:pt-28 pb-12 md:pb-16" // Removed negative margins -mx-4 sm:-mx-6 lg:-mx-8
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
@@ -97,8 +97,8 @@ export default function HomePage() {
 
   const YourCategoriesSectionComponent = ({ onCategorySelect }: { onCategorySelect: (serviceName: string) => void }) => {
     return (
-      <div className="py-12 md:py-16 bg-icon-disc-bg rounded-lg shadow"> {/* Changed my-8 p-4 to py-12 md:py-16 */}
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8"> {/* Added container */}
+      <div className="py-12 md:py-16 bg-icon-disc-bg rounded-lg shadow">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-center mb-6 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
           {AppCategories.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
@@ -122,12 +122,12 @@ export default function HomePage() {
   };
 
   return (
-        <div className="space-y-12 md:space-y-16"> {/* Increased space-y for better section separation */}
+        <div className="space-y-12 md:space-y-16">
 
       <YourHeroSectionComponent currentSelectedService={selectedService} />
 
       <section className="py-12 md:py-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8"> {/* Added container */}
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center mb-12 text-contentTitle font-sans">Πώς Λειτουργεί;</h2>
           <div className="flex flex-col md:flex-row items-start justify-center md:gap-x-1 lg:gap-x-2 gap-y-10">
             {howItWorksSteps.map((item, index) => (
