@@ -31,20 +31,20 @@ export default function HomePage() {
       step: "1",
       title: "Εύρεση Υπηρεσίας",
       description: "Περιηγηθείτε στις κατηγορίες ή χρησιμοποιήστε την αναζήτηση για να βρείτε αυτό που χρειάζεστε.",
-      icon: <Search className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
+      icon: <Search className="h-8 w-8 md:h-10 md:w-10 text-primary" />,
       isHighlighted: true,
     },
     {
       step: "2",
       title: "Επιλογή Κέντρου",
       description: "Συγκρίνετε κέντρα, διαβάστε κριτικές και επιλέξτε το κατάλληλο για εσάς.",
-      icon: <ListChecks className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
+      icon: <ListChecks className="h-8 w-8 md:h-10 md:w-10 text-primary" />,
     },
     {
       step: "3",
       title: "Κλείσιμο Ραντεβού",
       description: "Επικοινωνήστε ή κλείστε το ραντεβού σας online εύκολα και γρήγορα.",
-      icon: <CalendarCheck className="h-8 w-8 md:h-10 md:w-10 text-app-teal" />,
+      icon: <CalendarCheck className="h-8 w-8 md:h-10 md:w-10 text-primary" />,
     },
   ];
 
@@ -127,7 +127,7 @@ export default function HomePage() {
                   item.isHighlighted ? "bg-white shadow-xl" : "bg-transparent border-2 border-dashed border-gray-300"
                 )}>
                   {item.isHighlighted ? (
-                    <div className="bg-app-teal/10 rounded-full p-3">
+                    <div className="bg-primary/10 rounded-full p-3">
                       {item.icon}
                     </div>
                   ) : (
