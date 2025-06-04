@@ -74,7 +74,7 @@ export default function HomePage() {
             />
             <button
               type="submit"
-              className="bg-[#FFA500] text-white hover:bg-[#FFB733] focus:outline-none font-sans h-10 px-5 rounded-full shadow-sm transition-all duration-150 ease-in-out"
+              className="bg-[#ff9300] text-white hover:bg-[#e68300] focus:outline-none font-sans h-10 px-5 rounded-full shadow-sm transition-all duration-150 ease-in-out"
             >
               Αναζήτηση
             </button>
@@ -138,7 +138,6 @@ export default function HomePage() {
 
               {index < howItWorksSteps.length - 1 && (
                 <div className="hidden md:flex items-center justify-center self-center mx-1 lg:mx-2">
-                  {/* Desktop connector */}
                   <svg width="60" height="40" viewBox="0 0 60 40" className="text-gray-400">
                     <path d="M0 20 C 15 0, 45 40, 60 20" stroke="currentColor" fill="transparent" strokeWidth="2" strokeDasharray="4,4" />
                   </svg>
