@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import React, { useEffect, useState, useRef } from "react";
-import { UploadCloud, X, Camera } from "lucide-react"; // Added Camera icon
+import { UploadCloud, X, Camera } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Το όνομα πρέπει να περιέχει τουλάχιστον 2 χαρακτήρες." }),
@@ -160,15 +160,17 @@ export function ProfileForm() {
 
 
   return (
-    <Card className="w-full max-w-2xl shadow-lg">
+    <Card className="w-full max-w-4xl shadow-lg"> {/* Increased max-w for horizontal layout */}
       <CardHeader>
         <CardTitle className="text-2xl">Το Προφίλ σας</CardTitle>
         <CardDescription>Διαχειριστείτε τις ρυθμίσεις και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="flex flex-col items-center space-y-4 mb-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+            
+            {/* Avatar Section - Column 1 on md and up */}
+            <div className="md:col-span-1 flex flex-col items-center space-y-4 pt-2">
               <div className="relative group">
                 <Avatar className="h-32 w-32 border-2 border-primary shadow-md">
                   <AvatarImage 
@@ -209,77 +211,80 @@ export function ProfileForm() {
               {form.formState.errors.avatarUrl && <FormMessage>{form.formState.errors.avatarUrl.message}</FormMessage>}
             </div>
 
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Πλήρες Όνομα</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Το πλήρες όνομά σας" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Διεύθυνση Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="your@email.com" {...field} disabled />
-                  </FormControl>
-                  <FormMessage />
-                  <p className="text-xs text-muted-foreground pt-1">Το Email δεν μπορεί να αλλάξει.</p>
-                </FormItem>
-              )}
-            />
-            
-            <div className="space-y-4 rounded-md border p-4">
-              <h3 className="text-lg font-medium">Προτιμήσεις</h3>
-               <FormField
+            {/* Form Fields Section - Column 2 & 3 on md and up */}
+            <div className="md:col-span-2 space-y-8">
+              <FormField
                 control={form.control}
-                name="preferences.darkMode"
+                name="name"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between">
-                    <div className="space-y-0.5">
-                      <FormLabel>Σκοτεινή Λειτουργία</FormLabel>
-                      <p className="text-xs text-muted-foreground">Ενεργοποίηση σκοτεινού θέματος για την εφαρμογή.</p>
-                    </div>
+                  <FormItem>
+                    <FormLabel>Πλήρες Όνομα</FormLabel>
                     <FormControl>
-                       <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Input placeholder="Το πλήρες όνομά σας" {...field} />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
-               <FormField
+              <FormField
                 control={form.control}
-                name="preferences.notifications"
+                name="email"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between">
-                    <div className="space-y-0.5">
-                      <FormLabel>Ειδοποιήσεις μέσω Email</FormLabel>
-                      <p className="text-xs text-muted-foreground">Λήψη ενημερώσεων και ενημερωτικών δελτίων μέσω email.</p>
-                    </div>
+                  <FormItem>
+                    <FormLabel>Διεύθυνση Email</FormLabel>
                     <FormControl>
-                       <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Input type="email" placeholder="your@email.com" {...field} disabled />
                     </FormControl>
+                    <FormMessage />
+                    <p className="text-xs text-muted-foreground pt-1">Το Email δεν μπορεί να αλλάξει.</p>
                   </FormItem>
                 )}
               />
-            </div>
+              
+              <div className="space-y-4 rounded-md border p-4">
+                <h3 className="text-lg font-medium">Προτιμήσεις</h3>
+                <FormField
+                  control={form.control}
+                  name="preferences.darkMode"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between">
+                      <div className="space-y-0.5">
+                        <FormLabel>Σκοτεινή Λειτουργία</FormLabel>
+                        <p className="text-xs text-muted-foreground">Ενεργοποίηση σκοτεινού θέματος για την εφαρμογή.</p>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="preferences.notifications"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between">
+                      <div className="space-y-0.5">
+                        <FormLabel>Ειδοποιήσεις μέσω Email</FormLabel>
+                        <p className="text-xs text-muted-foreground">Λήψη ενημερώσεων και ενημερωτικών δελτίων μέσω email.</p>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || (!form.formState.isDirty && !selectedAvatarFile) }>
-              {isSubmitting ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}
-            </Button>
+              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || (!form.formState.isDirty && !selectedAvatarFile) }>
+                {isSubmitting ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}
+              </Button>
+            </div>
           </form>
         </Form>
       </CardContent>
