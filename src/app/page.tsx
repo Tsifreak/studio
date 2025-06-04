@@ -114,10 +114,8 @@ export default function HomePage() {
       <YourHeroSectionComponent currentSelectedService={selectedService} />
 
       <section className="py-12 md:py-16">
-        <h2 className="text-3xl font-bold text-center mb-4 text-contentTitle font-sans">Μάθετε Περισσότερα για τη Διαδικασία μας</h2>
-        <p className="text-lg text-center text-contentText mb-12 max-w-2xl mx-auto">
-          Ανακαλύψτε πόσο εύκολο είναι να βρείτε την κατάλληλη υπηρεσία και να κλείσετε το ραντεβού σας.
-        </p>
+        <h2 className="text-3xl font-bold text-center mb-12 text-contentTitle font-sans">Πώς Λειτουργεί;</h2>
+        {/* Removed the subtitle <p> tag here */}
         <div className="flex flex-col md:flex-row items-start justify-center md:gap-x-4 lg:gap-x-8 gap-y-10">
           {howItWorksSteps.map((item, index) => (
             <React.Fragment key={item.step}>
@@ -136,7 +134,7 @@ export default function HomePage() {
                   )}
                 </div>
                 <h3 className="text-xl font-bold text-contentTitle mb-2">{item.title}</h3>
-                <p className="text-sm text-contentText">{item.description}</p>
+                <p className="text-xs text-contentText">{item.description}</p> {/* Changed text-sm to text-xs */}
               </div>
 
               {index < howItWorksSteps.length - 1 && (
