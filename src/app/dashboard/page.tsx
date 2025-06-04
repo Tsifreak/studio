@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBookings';
+import { Badge } from '@/components/ui/badge'; // Added import for Badge
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -244,3 +245,5 @@ const ShieldTriangle = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 7v10M22 7v10M12 12L2 7M12 12l10-5M12 12v10"/>
   </svg>
 );
+
+    
