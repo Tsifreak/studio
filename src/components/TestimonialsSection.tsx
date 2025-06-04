@@ -1,4 +1,3 @@
-
 // src/components/TestimonialsSection.tsx
 "use client"; // Needed for useState
 
@@ -39,34 +38,32 @@ const TestimonialsSection: React.FC = () => {
   }
 
   return (
-    <section id="testimonials" className="py-12 md:py-16 bg-card rounded-lg shadow"> {/* Changed background */}
+    <section id="testimonials" className="py-8 md:py-10 bg-icon-disc-bg"> {/* Changed background, padding, removed rounded-lg and shadow */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10 md:mb-12">
-          <h2 className="text-3xl font-bold md:text-4xl text-contentTitle">Τι λένε οι πελάτες μας</h2>
-          <p className="text-lg text-contentText mt-3">
+        <div className="text-center mb-6 md:mb-8"> {/* Reduced margin-bottom */}
+          <h2 className="text-3xl font-bold md:text-4xl text-contentTitle">Τι λένε οι πελάτες μας</h2> {/* Reverted text color */}
+          <p className="text-lg text-contentText mt-3"> {/* Reverted text color */}
             Χιλιάδες οδηγοί επιστρέφουν δρόμο με ασφάλεια και σιγουριά.
           </p>
         </div>
-        <div className="relative max-w-3xl mx-auto min-h-[220px] sm:min-h-[180px] flex flex-col items-center justify-center px-8 sm:px-0"> {/* Added padding for buttons on small screens */}
-          {/* Testimonial Content with fade effect (optional) */}
-          <div className="text-center p-4 transition-opacity duration-300 ease-in-out" key={currentIndex}> {/* Added key for re-render on change for fade */}
-            <p className="text-lg sm:text-xl italic text-contentText">"{testimonialsData[currentIndex].quote}"</p>
-            <p className="mt-4 sm:mt-6 font-semibold text-orange-400">— {testimonialsData[currentIndex].author}</p>
+        <div className="relative max-w-3xl mx-auto min-h-[220px] sm:min-h-[180px] flex flex-col items-center justify-center px-8 sm:px-0">
+          <div className="text-center p-4 transition-opacity duration-300 ease-in-out" key={currentIndex}>
+            <p className="text-lg sm:text-xl italic text-contentText">"{testimonialsData[currentIndex].quote}"</p> {/* Reverted text color */}
+            <p className="mt-4 sm:mt-6 font-semibold text-orange-400">— {testimonialsData[currentIndex].author}</p> {/* Kept orange color */}
           </div>
 
-          {/* Navigation Buttons */}
-          {testimonialsData.length > 1 && ( // Only show buttons if more than one testimonial
+          {testimonialsData.length > 1 && (
             <>
               <button
                 onClick={handlePrev}
-                className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+                className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors" // Reverted button style
                 aria-label="Previous testimonial"
               >
                 ❮
               </button>
               <button
                 onClick={handleNext}
-                className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+                className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors" // Reverted button style
                 aria-label="Next testimonial"
               >
                 ❯
