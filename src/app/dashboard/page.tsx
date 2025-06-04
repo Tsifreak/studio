@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBookings';
-import { Badge } from '@/components/ui/badge'; // Added import for Badge
+import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -151,7 +151,6 @@ export default function DashboardPage() {
             linkHref="/dashboard/my-bookings"
             colorClass="bg-green-600"
             description={user.bookingStatusUpdatesCount > 0 ? "Ενημερώσεις κρατήσεων" : "Καμία ενημέρωση"}
-            additionalInfo="(Ως Πελάτης)"
           />
           {isOwner && (
             <StatCard
