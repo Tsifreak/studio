@@ -50,7 +50,7 @@ export function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-white">
       <div className="container flex h-16 items-center justify-between">
         <Logo iconSize={100} className="ml-2" />
 
