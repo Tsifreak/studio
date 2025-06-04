@@ -85,7 +85,7 @@ export default function HomePage() {
       <div className="mb-4 p-4 bg-[#f3f5ff] rounded-lg shadow">
         <h2 className="text-2xl font-bold text-center mb-4 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 justify-center">
             {AppCategories.map((category) => (
               <div key={category.slug + "-wrapper"} onClick={() => onCategorySelect(category.translatedName || category.slug)} className="cursor-pointer">
                 <CategoryCard categorySlug={category.slug} translatedCategoryName={category.translatedName} description={category.description} iconName={category.icon} />
@@ -121,8 +121,8 @@ export default function HomePage() {
               </div>
               {index < howItWorksSteps.length - 1 && (
                 <div className="flex items-center justify-center shrink-0">
-                  <ChevronDown className="h-8 w-8 text-icon-highlight-orange md:hidden my-1" />
-                  <ChevronRight className="h-10 w-10 text-icon-highlight-orange hidden md:block mx-1" />
+                  <ChevronDown className="h-8 w-8 text-icon-highlight-orange md:hidden" />
+                  <ChevronRight className="h-10 w-10 text-icon-highlight-orange hidden md:block" />
                 </div>
               )}
             </React.Fragment>
