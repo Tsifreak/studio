@@ -53,9 +53,9 @@ export default function HomePage() {
     }, [currentSelectedService]);
     const handleHeroSearch = (e: React.FormEvent) => { e.preventDefault(); alert(`Αναζήτηση από Hero για: ${heroSearchInput}`); };
     return (
-      <section 
-        id="hero-section" 
-        className="bg-vivid-blue -mx-4 sm:-mx-6 lg:-mx-8 -mt-24 pt-36 md:pt-40 pb-12 md:pb-16"
+      <section
+        id="hero-section"
+        className="bg-vivid-blue -mx-4 sm:-mx-6 lg:-mx-8 -mt-24 pt-24 md:pt-28 pb-12 md:pb-16"
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
@@ -84,7 +84,7 @@ export default function HomePage() {
 
   const YourCategoriesSectionComponent = ({ onCategorySelect }: { onCategorySelect: (serviceName: string) => void }) => {
     return (
-      <div className="mb-4 p-4 bg-[#f3f5ff] rounded-lg shadow">
+      <div className="my-8 p-4 bg-[#f3f5ff] rounded-lg shadow">
         <h2 className="text-2xl font-bold text-center mb-6 text-contentTitle font-sans">Εξερεύνηση Κατηγοριών</h2>
         {AppCategories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-6 max-w-2xl mx-auto">
@@ -108,11 +108,11 @@ export default function HomePage() {
   };
 
   return (
-        <div className="space-y-6"> 
+        <div className="space-y-6">
 
       <YourHeroSectionComponent currentSelectedService={selectedService} />
 
-      <section className="py-6"> 
+      <section className="py-6">
         <h2 className="text-3xl font-bold text-center mb-6 text-contentTitle font-sans">Πώς Λειτουργεί;</h2>
         <div className="flex flex-col md:flex-row items-stretch justify-center gap-y-3 md:gap-y-0 md:gap-x-1">
           {howItWorksSteps.map((item, index) => (
