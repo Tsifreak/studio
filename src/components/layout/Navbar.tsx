@@ -1,11 +1,12 @@
+
 // src/components/layout/navbar.tsx
 "use client";
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button'; // Assuming you have this
-import { Logo } from '@/components/shared/Logo'; // Assuming you have this
-import { useAuth } from '@/hooks/useAuth'; // Assuming you have this
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Assuming
+import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/shared/Logo';
+import { useAuth } from '@/hooks/useAuth';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +14,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; // Assuming
-import { LayoutDashboard, LogOut, UserPlus, LogIn, ShieldCheck, Bell, MessageSquare, ListOrdered } from 'lucide-react';
+} from "@/components/ui/dropdown-menu";
+import { LayoutDashboard, LogOut, UserPlus, LogIn, ShieldCheck, Bell, MessageSquare, ListOrdered, Briefcase, AlertCircle } from 'lucide-react'; // Added Briefcase, AlertCircle
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
@@ -22,7 +23,7 @@ export function Navbar() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // <-- ADDED for mobile menu
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const unreadMessages = Number(user?.totalUnreadMessages) || 0;
   const pendingBookingsForOwner = Number(user?.pendingBookingsCount) || 0;
@@ -38,11 +39,11 @@ export function Navbar() {
     router.push('/');
   };
 
-  const toggleMobileMenu = () => { // <-- ADDED for mobile menu
+  const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const landingPageLinks = [ // <-- ADDED landing page links
+  const landingPageLinks = [
     { href: "/#services", label: "Υπηρεσίες" },
     { href: "/#how-it-works", label: "Πώς Λειτουργεί" },
     { href: "/#why-us", label: "Γιατί Εμάς" }
@@ -53,7 +54,6 @@ export function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <Logo iconSize={100} className="ml-2" />
 
-        {/* ===== START: Desktop Landing Page Links ===== */}
         <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
           {landingPageLinks.map((link) => (
             <Link key={link.label} href={link.href} legacyBehavior>
@@ -63,31 +63,59 @@ export function Navbar() {
             </Link>
           ))}
         </div>
-        {/* ===== END: Desktop Landing Page Links ===== */}
 
-        <div className="flex items-center"> {/* Wrapper for auth nav and mobile menu button */}
+        <div className="flex items-center">
           <nav className="flex items-center gap-2 sm:gap-4">
             {!isClient || isLoading ? (
               <div className="h-10 w-24 animate-pulse rounded-md bg-muted"></div>
             ) : user ? (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative rounded-full"
-                  onClick={() => {
-                    if (pendingBookingsForOwner > 0) router.push('/dashboard');
-                    else if (clientBookingUpdates > 0) router.push('/dashboard/my-bookings');
-                    else if (unreadMessages > 0) router.push('/dashboard/chats');
-                    else router.push('/dashboard');
-                  }}
-                  aria-label={`Notifications. Unread Messages: ${unreadMessages}, Pending Bookings (Owner): ${pendingBookingsForOwner}, Booking Updates (Client): ${clientBookingUpdates}`}
-                >
-                  <Bell className="h-5 w-5" />
-                  {showNotificationDot && (
-                    <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-600 z-30" aria-hidden="true" />
-                  )}
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative rounded-full"
+                      aria-label={`Notifications. Unread Messages: ${unreadMessages}, Pending Bookings (Owner): ${pendingBookingsForOwner}, Booking Updates (Client): ${clientBookingUpdates}`}
+                    >
+                      <Bell className="h-5 w-5" />
+                      {showNotificationDot && (
+                        <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-600 z-30" aria-hidden="true" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-72" align="end">
+                    <DropdownMenuLabel>Ειδοποιήσεις</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {showNotificationDot ? (
+                      <>
+                        {unreadMessages > 0 && (
+                          <DropdownMenuItem onClick={() => router.push('/dashboard/chats')}>
+                            <MessageSquare className="mr-2 h-4 w-4 text-blue-500" />
+                            <span>{unreadMessages} νέα μηνύματα</span>
+                          </DropdownMenuItem>
+                        )}
+                        {clientBookingUpdates > 0 && (
+                          <DropdownMenuItem onClick={() => router.push('/dashboard/my-bookings')}>
+                            <ListOrdered className="mr-2 h-4 w-4 text-green-500" />
+                            <span>{clientBookingUpdates} ενημερώσεις κρατήσεων</span>
+                          </DropdownMenuItem>
+                        )}
+                        {pendingBookingsForOwner > 0 && (
+                          <DropdownMenuItem onClick={() => router.push('/dashboard/owner-bookings')}>
+                            <Briefcase className="mr-2 h-4 w-4 text-orange-500" />
+                            <span>{pendingBookingsForOwner} νέες κρατήσεις (Κέντρο)</span>
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    ) : (
+                      <DropdownMenuItem disabled className="text-muted-foreground">
+                        <AlertCircle className="mr-2 h-4 w-4" />
+                        Δεν υπάρχουν νέες ειδοποιήσεις
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -166,8 +194,7 @@ export function Navbar() {
             )}
           </nav>
 
-          {/* ===== START: Mobile Menu Button (Hamburger) ===== */}
-          <div className="md:hidden ml-2"> {/* Added ml-2 for spacing from auth buttons if they are visible */}
+          <div className="md:hidden ml-2">
             <button
               onClick={toggleMobileMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-primary hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
@@ -181,11 +208,9 @@ export function Navbar() {
               )}
             </button>
           </div>
-          {/* ===== END: Mobile Menu Button ===== */}
-        </div> {/* End of flex items-center justify-between */}
-      </div> {/* End of container div */}
+        </div>
+      </div>
 
-      {/* ===== START: Mobile Menu Dropdown ===== */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
@@ -193,22 +218,18 @@ export function Navbar() {
               <Link key={link.label} href={link.href} legacyBehavior>
                 <a
                   className="block rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => setIsMobileMenuOpen(false)} // Close menu on click
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {link.label}
                 </a>
               </Link>
             ))}
-            {/* Divider for visual separation before auth links on mobile, if user is not logged in */}
             {!user && !isLoading && isClient && (
                  <div className="border-t border-slate-200 my-2"></div>
             )}
-            {/* Optional: You can also include simplified login/signup here from your existing logic if needed */}
-            {/* Or keep the mobile menu focused on section links and let the main auth buttons (if they become visible on mobile) handle auth */}
           </div>
         </div>
       )}
-      {/* ===== END: Mobile Menu Dropdown ===== */}
     </header>
   );
 }
