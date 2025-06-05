@@ -15,17 +15,18 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// Avatar imports are removed as it's no longer part of this form
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import React, { useEffect, useState, useRef } from "react";
-import { UploadCloud, X, Camera } from "lucide-react";
+// UploadCloud, X, Camera icons are removed as avatar editing is moved
+import { Save } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Το όνομα πρέπει να περιέχει τουλάχιστον 2 χαρακτήρες." }),
   email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
-  avatarUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για τη φωτογραφία προφίλ σας." }).optional().or(z.literal('')),
+  // avatarUrl is removed as it's handled by the main dashboard avatar now
   preferences: z.object({
     darkMode: z.boolean().optional(),
     notifications: z.boolean().optional(),
@@ -37,16 +38,14 @@ type ProfileFormValues = z.infer<typeof formSchema>;
 export function ProfileForm() {
   const { user, updateUserProfile, isLoading } = useAuth();
   const { toast } = useToast();
-  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // selectedAvatarFile, avatarPreview, fileInputRef are removed
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
-      avatarUrl: "",
+      // avatarUrl default removed
       preferences: {
         darkMode: false,
         notifications: true,
@@ -59,47 +58,18 @@ export function ProfileForm() {
       form.reset({
         name: user.name || "",
         email: user.email || "",
-        avatarUrl: user.avatarUrl || "",
+        // avatarUrl reset removed
         preferences: {
           darkMode: user.preferences?.darkMode || false,
           notifications: user.preferences?.notifications === undefined ? true : user.preferences.notifications,
         },
       });
-      setAvatarPreview(null);
-      setSelectedAvatarFile(null);
     }
   }, [user, form.reset]);
 
   const {formState: {isSubmitting, dirtyFields}} = form;
 
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({
-          title: "Σφάλμα Φόρτωσης Εικόνας",
-          description: "Το μέγεθος του αρχείου δεν πρέπει να υπερβαίνει τα 5MB.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setSelectedAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
-      form.setValue('avatarUrl', URL.createObjectURL(file), { shouldDirty: true });
-    }
-  };
-
-  const clearAvatarSelection = () => {
-    setSelectedAvatarFile(null);
-    if (avatarPreview) {
-      URL.revokeObjectURL(avatarPreview);
-    }
-    setAvatarPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    form.setValue('avatarUrl', user?.avatarUrl || "", { shouldDirty: true });
-  };
+  // handleAvatarChange and clearAvatarSelection are removed
 
   async function onSubmit(values: ProfileFormValues) {
     if (!user) return;
@@ -108,24 +78,24 @@ export function ProfileForm() {
     
     if (dirtyFields.name) changedValues.name = values.name;
     if (dirtyFields.preferences) changedValues.preferences = values.preferences;
-    if (selectedAvatarFile) changedValues.avatarFile = selectedAvatarFile;
+    // Avatar file handling removed from here
 
     const hasFormChanges = dirtyFields.name || dirtyFields.preferences;
-    if (!hasFormChanges && !selectedAvatarFile) {
+    if (!hasFormChanges) { // Check only for form field changes
         toast({
           title: "Καμία Αλλαγή",
-          description: "Δεν έχετε κάνει αλλαγές στο προφίλ σας.",
+          description: "Δεν έχετε κάνει αλλαγές στα στοιχεία του προφίλ σας.",
         });
         return;
     }
 
     try {
-      await updateUserProfile(changedValues);
+      await updateUserProfile(changedValues); // Only pass name/preferences
       toast({
         title: "Το προφίλ ενημερώθηκε",
         description: "Οι πληροφορίες του προφίλ σας ενημερώθηκαν επιτυχώς.",
       });
-      setSelectedAvatarFile(null);
+      // setSelectedAvatarFile(null) removed;
     } catch (error: any) {
       toast({
         title: "Η ενημέρωση απέτυχε",
@@ -160,59 +130,19 @@ export function ProfileForm() {
 
 
   return (
-    <Card className="w-full max-w-4xl shadow-lg"> {/* Increased max-w for horizontal layout */}
+    <Card className="w-full max-w-2xl shadow-lg"> {/* Adjusted max-width if needed */}
       <CardHeader>
-        <CardTitle className="text-2xl">Το Προφίλ σας</CardTitle>
-        <CardDescription>Διαχειριστείτε τις ρυθμίσεις και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
+        <CardTitle className="text-2xl">Επεξεργασία Προφίλ</CardTitle>
+        <CardDescription>Ενημερώστε τα στοιχεία και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+          {/* Form layout changed: removed outer grid, fields stack vertically */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Avatar Section removed */}
             
-            {/* Avatar Section - Column 1 on md and up */}
-            <div className="md:col-span-1 flex flex-col items-center space-y-4 pt-2">
-              <div className="relative group">
-                <Avatar className="h-32 w-32 border-2 border-primary shadow-md">
-                  <AvatarImage 
-                    src={avatarPreview || user.avatarUrl || ""} 
-                    alt={user.name || "User"} 
-                    data-ai-hint="avatar"
-                  />
-                  <AvatarFallback className="text-4xl">{user.name?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
-                </Avatar>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute inset-0 flex items-center justify-center w-full h-full bg-black/30 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSubmitting}
-                  aria-label="Change profile picture"
-                >
-                  <Camera className="h-8 w-8" />
-                </Button>
-              </div>
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleAvatarChange} 
-                ref={fileInputRef} 
-                className="hidden" 
-                id="avatarUpload"
-              />
-              {avatarPreview && (
-                <div className="flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground">Επιλεγμένη εικόνα.</p>
-                    <Button type="button" variant="link" size="sm" className="text-destructive hover:text-destructive/80" onClick={clearAvatarSelection} title="Αφαίρεση επιλεγμένης εικόνας" disabled={isSubmitting}>
-                        <X className="mr-1 h-4 w-4" /> Κατάργηση
-                    </Button>
-                </div>
-              )}
-              {form.formState.errors.avatarUrl && <FormMessage>{form.formState.errors.avatarUrl.message}</FormMessage>}
-            </div>
-
-            {/* Form Fields Section - Column 2 & 3 on md and up */}
-            <div className="md:col-span-2 space-y-8">
+            {/* Form Fields Section */}
+            <div className="space-y-6"> {/* Fields stack vertically */}
               <FormField
                 control={form.control}
                 name="name"
@@ -281,7 +211,8 @@ export function ProfileForm() {
                 />
               </div>
 
-              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || (!form.formState.isDirty && !selectedAvatarFile) }>
+              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || !form.formState.isDirty }>
+                <Save className="mr-2 h-4 w-4" />
                 {isSubmitting ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}
               </Button>
             </div>
@@ -291,4 +222,3 @@ export function ProfileForm() {
     </Card>
   );
 }
-

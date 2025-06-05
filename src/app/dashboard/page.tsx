@@ -3,11 +3,11 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MessageSquare, ListOrdered, Heart, ClipboardList, LogOut, Loader2, User, AlertTriangle, RefreshCw, CalendarClock } from 'lucide-react';
+import { MessageSquare, ListOrdered, Heart, ClipboardList, LogOut, Loader2, User, AlertTriangle, RefreshCw, CalendarClock, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getOwnerDashboardData, getUserBookings } from './actions'; 
 import type { Booking, Store } from '@/lib/types';
@@ -19,10 +19,13 @@ import { ClientUpcomingBookings } from '@/components/dashboard/ClientUpcomingBoo
 import { Badge } from '@/components/ui/badge';
 import { format, isFuture, parseISO } from 'date-fns';
 import { ProfileForm } from '@/components/auth/ProfileForm';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
-  const { user, isLoading: authLoading, logout } = useAuth();
+  const { user, isLoading: authLoading, logout, updateUserProfile } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   const [ownerBookings, setOwnerBookings] = useState<Booking[]>([]);
   const [ownedStores, setOwnedStores] = useState<Store[]>([]);
@@ -105,6 +108,38 @@ export default function DashboardPage() {
     router.push('/');
   };
 
+  const handleDashboardAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && user) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "Σφάλμα Φόρτωσης Εικόνας",
+          description: "Το μέγεθος του αρχείου δεν πρέπει να υπερβαίνει τα 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      try {
+        toast({ title: "Επεξεργασία...", description: "Η φωτογραφία σας ανεβαίνει." });
+        await updateUserProfile({ avatarFile: file });
+        toast({
+          title: "Επιτυχία!",
+          description: "Η φωτογραφία προφίλ ενημερώθηκε.",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Αποτυχία Ενημέρωσης",
+          description: error.message || "Δεν ήταν δυνατή η ενημέρωση της φωτογραφίας προφίλ.",
+          variant: "destructive",
+        });
+      }
+    }
+    // Reset file input to allow re-selection of the same file if needed
+    if (avatarFileInputRef.current) {
+        avatarFileInputRef.current.value = "";
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="space-y-8 pt-8">
@@ -152,15 +187,23 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 pt-8">
       <h1 className="text-3xl font-bold text-primary">Ο Λογαριασμός μου</h1>
+      <input type="file" accept="image/*" ref={avatarFileInputRef} onChange={handleDashboardAvatarChange} className="hidden" id="mainAvatarUpload"/>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-4 xl:col-span-3">
           <Card className="shadow-lg">
-            <CardHeader className="items-center text-center pt-6">
+            <CardHeader 
+              className="items-center text-center pt-6 cursor-pointer group relative"
+              onClick={() => avatarFileInputRef.current?.click()}
+              title="Αλλαγή φωτογραφίας προφίλ"
+            >
               <Avatar className="h-24 w-24 border-2 border-primary shadow-md mb-3">
-                <AvatarImage src={user.avatarUrl || ''} alt={user.name || 'User Avatar'} data-ai-hint="avatar person"/>
+                <AvatarImage src={user.avatarUrl || ''} alt={user.name || 'User Avatar'} data-ai-hint="avatar"/>
                 <AvatarFallback className="text-3xl">{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
               </Avatar>
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/30 rounded-t-lg">
+                  <Camera className="h-8 w-8 text-white" />
+              </div>
               <CardTitle className="text-xl">{user.name}</CardTitle>
               <CardDescription className="text-sm">{user.email}</CardDescription>
                {user.isAdmin && <Badge variant="destructive" className="mt-1">Διαχειριστής</Badge>}
@@ -292,5 +335,4 @@ const ShieldTriangle = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 7v10M22 7v10M12 12L2 7M12 12l10-5M12 12v10"/>
   </svg>
 );
-
     
