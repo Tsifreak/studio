@@ -68,7 +68,7 @@ export default function HomePage() {
     return (
       <section
         id="hero-section"
-        className="bg-vivid-blue pt-24 md:pt-28 pb-12 md:pb-16" // Removed negative margins -mx-4 sm:-mx-6 lg:-mx-8
+        className="bg-vivid-blue pt-12 md:pt-16 pb-12 md:pb-16" 
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
