@@ -56,14 +56,14 @@ const TestimonialsSection: React.FC = () => {
             <>
               <button
                 onClick={handlePrev}
-                className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors" // Reverted button style
+                className="absolute left-0 sm:-left-10 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
                 aria-label="Previous testimonial"
               >
                 ❮
               </button>
               <button
                 onClick={handleNext}
-                className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors" // Reverted button style
+                className="absolute right-0 sm:-right-10 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
                 aria-label="Next testimonial"
               >
                 ❯
