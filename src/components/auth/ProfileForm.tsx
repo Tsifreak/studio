@@ -15,18 +15,15 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-// Avatar imports are removed as it's no longer part of this form
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
-import React, { useEffect, useState, useRef } from "react";
-// UploadCloud, X, Camera icons are removed as avatar editing is moved
+import React, { useEffect } from "react";
 import { Save } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Το όνομα πρέπει να περιέχει τουλάχιστον 2 χαρακτήρες." }),
   email: z.string().email({ message: "Παρακαλώ εισάγετε μια έγκυρη διεύθυνση email." }),
-  // avatarUrl is removed as it's handled by the main dashboard avatar now
   preferences: z.object({
     darkMode: z.boolean().optional(),
     notifications: z.boolean().optional(),
@@ -38,14 +35,12 @@ type ProfileFormValues = z.infer<typeof formSchema>;
 export function ProfileForm() {
   const { user, updateUserProfile, isLoading } = useAuth();
   const { toast } = useToast();
-  // selectedAvatarFile, avatarPreview, fileInputRef are removed
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
-      // avatarUrl default removed
       preferences: {
         darkMode: false,
         notifications: true,
@@ -58,7 +53,6 @@ export function ProfileForm() {
       form.reset({
         name: user.name || "",
         email: user.email || "",
-        // avatarUrl reset removed
         preferences: {
           darkMode: user.preferences?.darkMode || false,
           notifications: user.preferences?.notifications === undefined ? true : user.preferences.notifications,
@@ -69,8 +63,6 @@ export function ProfileForm() {
 
   const {formState: {isSubmitting, dirtyFields}} = form;
 
-  // handleAvatarChange and clearAvatarSelection are removed
-
   async function onSubmit(values: ProfileFormValues) {
     if (!user) return;
 
@@ -78,10 +70,9 @@ export function ProfileForm() {
     
     if (dirtyFields.name) changedValues.name = values.name;
     if (dirtyFields.preferences) changedValues.preferences = values.preferences;
-    // Avatar file handling removed from here
 
     const hasFormChanges = dirtyFields.name || dirtyFields.preferences;
-    if (!hasFormChanges) { // Check only for form field changes
+    if (!hasFormChanges) { 
         toast({
           title: "Καμία Αλλαγή",
           description: "Δεν έχετε κάνει αλλαγές στα στοιχεία του προφίλ σας.",
@@ -90,12 +81,11 @@ export function ProfileForm() {
     }
 
     try {
-      await updateUserProfile(changedValues); // Only pass name/preferences
+      await updateUserProfile(changedValues);
       toast({
         title: "Το προφίλ ενημερώθηκε",
         description: "Οι πληροφορίες του προφίλ σας ενημερώθηκαν επιτυχώς.",
       });
-      // setSelectedAvatarFile(null) removed;
     } catch (error: any) {
       toast({
         title: "Η ενημέρωση απέτυχε",
@@ -106,10 +96,10 @@ export function ProfileForm() {
   }
 
   if (isLoading) return (
-    <Card className="w-full max-w-2xl shadow-lg">
+    <Card className="w-full max-w-4xl shadow-lg">
       <CardHeader>
-        <CardTitle className="text-2xl">Το Προφίλ σας</CardTitle>
-        <CardDescription>Διαχειριστείτε τις ρυθμίσεις και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
+        <CardTitle className="text-2xl">Επεξεργασία Προφίλ</CardTitle>
+        <CardDescription>Ενημερώστε τα στοιχεία και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
       </CardHeader>
       <CardContent>
         <p>Φόρτωση προφίλ...</p>
@@ -118,7 +108,7 @@ export function ProfileForm() {
   );
 
   if (!user) return (
-     <Card className="w-full max-w-2xl shadow-lg">
+     <Card className="w-full max-w-4xl shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl">Προφίλ Μη Διαθέσιμο</CardTitle>
       </CardHeader>
@@ -128,21 +118,20 @@ export function ProfileForm() {
     </Card>
   );
 
-
   return (
-    <Card className="w-full max-w-2xl shadow-lg"> {/* Adjusted max-width if needed */}
+    <Card className="w-full max-w-4xl shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl">Επεξεργασία Προφίλ</CardTitle>
         <CardDescription>Ενημερώστε τα στοιχεία και τις προτιμήσεις του λογαριασμού σας.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          {/* Form layout changed: removed outer grid, fields stack vertically */}
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Avatar Section removed */}
-            
-            {/* Form Fields Section */}
-            <div className="space-y-6"> {/* Fields stack vertically */}
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="grid md:grid-cols-2 md:gap-x-8 space-y-6 md:space-y-0"
+          >
+            {/* Column 1: Name and Email */}
+            <div className="space-y-6">
               <FormField
                 control={form.control}
                 name="name"
@@ -170,7 +159,10 @@ export function ProfileForm() {
                   </FormItem>
                 )}
               />
-              
+            </div>
+
+            {/* Column 2: Preferences and Save Button */}
+            <div className="space-y-6 flex flex-col">
               <div className="space-y-4 rounded-md border p-4">
                 <h3 className="text-lg font-medium">Προτιμήσεις</h3>
                 <FormField
@@ -210,11 +202,12 @@ export function ProfileForm() {
                   )}
                 />
               </div>
-
-              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || !form.formState.isDirty }>
-                <Save className="mr-2 h-4 w-4" />
-                {isSubmitting ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}
-              </Button>
+              <div className="mt-auto md:pt-6 flex justify-end"> {/* Ensures button is at the bottom of this column */}
+                <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || !form.formState.isDirty}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSubmitting ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}
+                </Button>
+              </div>
             </div>
           </form>
         </Form>
