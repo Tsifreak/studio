@@ -22,7 +22,7 @@ const mapAdminDocToStore = (docSnapshot: admin.firestore.DocumentSnapshot): Stor
     description: data.description || '',
     longDescription: data.longDescription,
     rating: data.rating || 0,
-    category: data.category || 'mechanic',
+    categories: data.categories || [], // Assuming categories is stored as an array
     tags: data.tags || [],
     features: data.features || [],
     reviews: data.reviews ? data.reviews.map((r: any) => ({ ...r, date: r.date instanceof admin.firestore.Timestamp ? r.date.toDate().toISOString() : r.date })) : [],
@@ -34,6 +34,10 @@ const mapAdminDocToStore = (docSnapshot: admin.firestore.DocumentSnapshot): Stor
     ownerId: data.ownerId,
     services: data.services || [],
     availability: data.availability || [],
+ location: { // Add location mapping
+ latitude: data.location?.latitude || 0,
+ longitude: data.location?.longitude || 0,
+ },
   };
 };
 
@@ -60,7 +64,7 @@ const mapAdminDocToBooking = (docSnapshot: admin.firestore.DocumentSnapshot): Bo
   };
 };
 
-export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings: Booking[], storesOwned: Store[] }> {
+export async function getOwnerDashboardData(ownerId: string, date?: string | Date): Promise<{ bookings: Booking[], storesOwned: Store[] }> {
   if (!ownerId) {
     console.warn("[getOwnerDashboardData] ownerId is undefined or null. Returning empty data.");
     return { bookings: [], storesOwned: [] };
@@ -99,11 +103,17 @@ export async function getOwnerDashboardData(ownerId: string): Promise<{ bookings
     let bookings: Booking[] = [];
     if (storeIds.length > 0) {
         console.log(`[getOwnerDashboardData] Querying '${BOOKINGS_COLLECTION}' for bookings related to store IDs: ${storeIds.join(', ')}`);
-        const bookingsQuery = adminDb.collection(BOOKINGS_COLLECTION)
+        let bookingsQuery: admin.firestore.Query = adminDb.collection(BOOKINGS_COLLECTION)
             .where("storeId", "in", storeIds)
             .orderBy("bookingDate", "desc") 
             .orderBy("bookingTime", "asc");
+
+        if (date) {
+            const dateString = date instanceof Date ? date.toISOString().split('T')[0] : date;
+            bookingsQuery = bookingsQuery.where("bookingDate", "==", dateString);
+        }
         const bookingsSnapshot = await bookingsQuery.get();
+
         bookings = bookingsSnapshot.docs.map(mapAdminDocToBooking);
         console.log(`[getOwnerDashboardData] Found ${bookings.length} bookings for stores: ${storeIds.join(', ')}`);
     }

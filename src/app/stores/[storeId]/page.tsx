@@ -1,35 +1,34 @@
+"use client";
 
-"use client"; 
-
-import { getStoreByIdFromDB } from '@/lib/storeService'; 
-import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot, StoreCategory } from '@/lib/types'; 
+import { getStoreByIdFromDB } from '@/lib/storeService';
+import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot, StoreCategory } from '@/lib/types';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags } from 'lucide-react'; 
+import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
-import { ProductListItem } from '@/components/store/ProductListItem'; 
+import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
 import { ReviewForm } from '@/components/store/ReviewForm';
-import { submitStoreQuery, addReviewAction } from './actions'; 
-import { AppCategories } from '@/lib/types'; 
+import { submitStoreQuery, addReviewAction } from './actions';
+import { AppCategories } from '@/lib/types';
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
-import { Button } from '@/components/ui/button'; 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { BookingForm } from '@/components/booking/BookingForm';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { SingleStoreMap } from '@/components/maps/SingleStoreMap'; 
+import { SingleStoreMap } from '@/components/maps/SingleStoreMap';
 import { cn } from '@/lib/utils';
 
 export default function StoreDetailPage() {
-  const params = useParams<{ storeId: string }>(); 
-  const storeId = params.storeId; 
+  const params = useParams<{ storeId: string }>();
+  const storeId = params.storeId;
 
-  const [storeData, setStoreData] = useState<Store | null | undefined>(undefined); 
+  const [storeData, setStoreData] = useState<Store | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +46,7 @@ export default function StoreDetailPage() {
           if (fetchedStore) {
             setStoreData(fetchedStore);
           } else {
-            setStoreData(null); 
+            setStoreData(null);
           }
         } else {
           console.warn("storeId is not a string or is undefined:", currentStoreId);
@@ -62,7 +61,7 @@ export default function StoreDetailPage() {
         setIsLoading(false);
       }
     };
-    if (storeId) { 
+    if (storeId) {
       fetchStore();
     }
   }, [storeId]);
@@ -82,7 +81,7 @@ export default function StoreDetailPage() {
                     </div>
                 </CardHeader>
             </Card>
-             <Skeleton className="h-10 w-1/3 mx-auto bg-muted mb-6" /> 
+             <Skeleton className="h-10 w-1/3 mx-auto bg-muted mb-6" />
             <Card>
                 <CardHeader><Skeleton className="h-8 w-1/2 bg-muted" /></CardHeader>
                 <CardContent><Skeleton className="h-20 w-full bg-muted" /></CardContent>
@@ -122,27 +121,27 @@ export default function StoreDetailPage() {
 
   const serializableStore: SerializedStore = {
     ...storeData,
-    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => ({ 
+    features: storeData.features.map((feature: Feature | SerializedFeature): SerializedFeature => ({
       id: feature.id,
       name: feature.name,
       description: feature.description,
-      icon: typeof feature.icon === 'string' ? feature.icon : undefined, 
+      icon: typeof feature.icon === 'string' ? feature.icon : undefined,
     })),
     products: storeData.products || [],
     reviews: storeData.reviews || [],
-    services: storeData.services || [], 
-    availability: storeData.availability || [], 
-    categories: storeData.categories || [], 
+    services: storeData.services || [],
+    availability: storeData.availability || [],
+    categories: storeData.categories || [],
   };
 
 
-  const averageRating = serializableStore.reviews && serializableStore.reviews.length > 0 
+  const averageRating = serializableStore.reviews && serializableStore.reviews.length > 0
     ? serializableStore.reviews.reduce((acc, review) => acc + review.rating, 0) / serializableStore.reviews.length
-    : serializableStore.rating; 
+    : serializableStore.rating;
 
   const categoryDisplay = serializableStore.categories
     .map(slug => AppCategories.find(cat => cat.slug === slug)?.translatedName)
-    .filter(Boolean) 
+    .filter(Boolean)
     .join(', ');
 
   const hasAvailability = serializableStore.availability && serializableStore.availability.length > 0;
@@ -207,15 +206,15 @@ export default function StoreDetailPage() {
       </Card>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 mb-6">
-          <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
-          <TabsTrigger value="services_booking">Υπηρεσίες & Κράτηση ({serializableStore.services?.length || 0})</TabsTrigger>
-          <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
-          <TabsTrigger value="pricing">Πακέτα</TabsTrigger>
-          <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
-          <TabsTrigger value="add-review"><Edit className="w-4 h-4 mr-1 sm:mr-2" />Γράψε Κριτική</TabsTrigger>
-          <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
-        </TabsList>
+      <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 mb-6">
+  <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
+  <TabsTrigger value="services_booking">Υπηρεσίες & Κράτηση ({serializableStore.services?.length || 0})</TabsTrigger>
+  <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
+  <TabsTrigger value="pricing">Πακέτα</TabsTrigger>
+  <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
+  {/* The "Write a Review" trigger has been removed */}
+  <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
+</TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <Card>
@@ -271,17 +270,46 @@ export default function StoreDetailPage() {
                 <CardContent>
                     <div className="h-80 w-full rounded-md overflow-hidden border shadow-inner">
                         <SingleStoreMap
-                            key={serializableStore.id} 
+                            key={serializableStore.id}
                             latitude={serializableStore.location.latitude}
                             longitude={serializableStore.location.longitude}
                             storeName={serializableStore.name}
-                            zoom={15} 
+                            zoom={15}
                         />
                     </div>
                 </CardContent>
             </Card>
           )}
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Εξειδίκευση σε Brands</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {serializableStore.specializedBrands && serializableStore.specializedBrands.length > 0 ? (
+                <>
+                  <h3 className="text-sm font-semibold mb-4 text-foreground">Brands:</h3>
+                  <div className="flex flex-wrap items-center gap-4">
+                    {serializableStore.specializedBrands.map(brand => (
+                      <div key={brand} className="flex flex-col items-center">
+                         <Image
+                          src={`/logos/brands/${brand.toLowerCase().replace(/\\s+/g, '-')}.svg`} // Construct logo path
+                          alt={`${brand} logo`}
+                          width={64}
+                          height={64}
+                          className="object-contain"
+                          onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
+                        />
+                    
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Το κέντρο δεν έχει καταχωρήσει εξειδίκευση σε συγκεκριμένα brands.</p>
+              )}
+            </CardContent>
+          </Card>
           {serializableStore.features && serializableStore.features.length > 0 && (
             <Card>
               <CardHeader>
@@ -295,7 +323,7 @@ export default function StoreDetailPage() {
                       <h4 className="font-semibold text-foreground">{feature.name}</h4>
                       {feature.description && <p className="text-xs text-muted-foreground">{feature.description}</p>}
                     </div>
-                  </div>
+                  </div> // This is the line your error image is pointing to.
                 ))}
               </CardContent>
             </Card>
@@ -332,11 +360,11 @@ export default function StoreDetailPage() {
                             <span className="flex items-center"><Tag className="w-4 h-4 mr-1.5 text-muted-foreground"/> Τιμή: {service.price.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}</span>
                           </div>
                         </div>
-                        <Button 
-                          className="mt-3 sm:mt-0 sm:ml-4" 
+                        <Button
+                          className="mt-3 sm:mt-0 sm:ml-4"
                           disabled={!hasAvailability}
                           onClick={() => handleBookServiceClick(service)}
-                        > 
+                        >
                           Κάντε Κράτηση
                         </Button>
                       </div>
@@ -345,7 +373,7 @@ export default function StoreDetailPage() {
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground" /> 
+                  <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground" />
                   <p className="mt-4 text-muted-foreground">Δεν υπάρχουν διαθέσιμες υπηρεσίες για κράτηση αυτή τη στιγμή.</p>
                 </div>
               )}
@@ -362,7 +390,7 @@ export default function StoreDetailPage() {
             <CardContent>
               {serializableStore.products && serializableStore.products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {serializableStore.products.map((product: ProductType, index: number) => ( 
+                  {serializableStore.products.map((product: ProductType, index: number) => (
                     <ProductListItem key={`${product.id}-${index}`} product={product} />
                   ))}
                 </div>
@@ -393,45 +421,54 @@ export default function StoreDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="reviews">
-          <Card>
-            <CardHeader>
-              <CardTitle>Κριτικές Πελατών</CardTitle>
-              <CardDescription>Δείτε τι λένε οι άλλοι για το {serializableStore.name}.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {serializableStore.reviews && serializableStore.reviews.length > 0 ? (
-                 <div className="space-y-4"> 
-                  {serializableStore.reviews.map((review: Review) => (
-                    <div key={review.id} className="p-4 border rounded-md bg-muted/50">
-                      <div className="flex items-center mb-1">
-                        {review.userAvatarUrl && (
-                           <Image src={review.userAvatarUrl} alt={review.userName} width={32} height={32} className="rounded-full mr-3" data-ai-hint="avatar person" />
-                        )}
-                        <p className="font-semibold text-foreground">{review.userName}</p>
-                      </div>
-                      <div className="flex items-center my-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
-                        ))}
-                         <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
-                       {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν ακόμη κριτικές για αυτό το κέντρο εξυπηρέτησης.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <TabsContent value="reviews" className="space-y-8">
+  {/* Card 1: Contains the form to write a new review */}
+  <Card>
+    <CardHeader>
+      <CardTitle>Γράψτε τη γνώμη σας</CardTitle>
+      <CardDescription>Μοιραστείτε την εμπειρία σας με την κοινότητα.</CardDescription>
+    </CardHeader>
+    <CardContent>
+      {/* The ReviewForm component is now placed here */}
+      <ReviewForm storeId={serializableStore.id} action={addReviewAction} />
+    </CardContent>
+  </Card>
 
-        <TabsContent value="add-review">
-            <ReviewForm storeId={serializableStore.id} action={addReviewAction} />
-        </TabsContent>
-        
+  {/* Card 2: Contains the list of existing reviews */}
+  <Card>
+    <CardHeader>
+      <CardTitle>Κριτικές Πελατών</CardTitle>
+      <CardDescription>Δείτε τι λένε οι άλλοι για το {serializableStore.name}.</CardDescription>
+    </CardHeader>
+    <CardContent>
+      {serializableStore.reviews && serializableStore.reviews.length > 0 ? (
+         <div className="space-y-4">
+          {serializableStore.reviews.map((review: Review) => (
+            <div key={review.id} className="p-4 border rounded-md bg-muted/50">
+              <div className="flex items-center mb-1">
+                {review.userAvatarUrl && (
+                   <Image src={review.userAvatarUrl} alt={review.userName} width={32} height={32} className="rounded-full mr-3" data-ai-hint="avatar person" />
+                )}
+                <p className="font-semibold text-foreground">{review.userName}</p>
+              </div>
+              <div className="flex items-center my-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                ))}
+                 <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
+              </div>
+              <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
+               {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν ακόμη κριτικές για αυτό το κέντρο εξυπηρέτησης.</p>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
+
         <TabsContent value="contact">
           <Card>
             <CardHeader>
@@ -447,7 +484,7 @@ export default function StoreDetailPage() {
 
       {selectedServiceForBooking && (
         <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-          <DialogContent className="sm:max-w-[480px]"> 
+          <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
                 <DialogTitle>Κράτηση για: {selectedServiceForBooking.name}</DialogTitle>
                 <DialogDescription>
@@ -457,7 +494,7 @@ export default function StoreDetailPage() {
             <BookingForm
               selectedService={selectedServiceForBooking}
               storeId={serializableStore.id}
-              storeName={serializableStore.name} 
+              storeName={serializableStore.name}
               storeAvailability={serializableStore.availability}
               onOpenChange={setIsBookingDialogOpen}
             />

@@ -33,8 +33,7 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'storage.googleapis.com',
         port: '',
-        // Corrected pathname to match the standard Firebase bucket name
-        pathname: '/cariera-9ba32.appspot.com/**', 
+        pathname: '/cariera-9ba32.firebasestorage.app/**', 
       },
       { 
         protocol: 'https',
@@ -44,7 +43,6 @@ const nextConfig: NextConfig = {
       }
     ],
   },
-  // ADD THIS LINE TO DISABLE STRICT MODE FOR DEBUGGING
   reactStrictMode: false, 
 };
 

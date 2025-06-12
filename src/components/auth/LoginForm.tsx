@@ -35,7 +35,7 @@ export function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || "/dashboard";
+  const redirectPath = searchParams.get('redirect') || "/";
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(formSchema),

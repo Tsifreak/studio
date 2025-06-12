@@ -124,13 +124,13 @@ const servicesArraySchema = z.array(serviceSchema);
 
 const availabilitySlotSchema = z.object({
     dayOfWeek: z.number().int().min(0).max(6),
-    startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
-    endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
+    startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).or(z.literal('')),
+    endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).or(z.literal('')),
     lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
     lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
-
+const specializedBrandsSchema = z.array(z.string()).optional();
 const storeDbSchema = z.object({
     name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
     logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }).optional().or(z.literal('')),
@@ -182,8 +182,8 @@ const storeDbSchema = z.object({
             return false;
         }
     }, { message: "Μη έγκυρο JSON για τη διαθεσιμότητα ή δεν συμφωνεί με το σχήμα." }),
+    specializedBrands: specializedBrandsSchema,
 });
-
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
     if (!adminDb || !adminStorage) {
@@ -244,6 +244,8 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         ownerId: formData.get('ownerId') as string || '',
         servicesJson: formData.get('servicesJson') as string || '[]',
         availabilityJson: formData.get('availabilityJson') as string || '[]',
+        // Assuming specializedBrands comes as FormData entry, potentially as a comma-separated string or an array (handled by form library?)
+        // If it's an array of strings from the form, Zod handles it. If it's a single string, you might need refinement.
     });
 
     if (!validatedFields.success) {
@@ -302,6 +304,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             rating: 0,
             services,
             availability,
+            specializedBrands: [], // Initialize with an empty array for new stores
         };
 
         const docRef = await adminDb.collection(STORE_COLLECTION).add(storeDataForDB);
@@ -398,6 +401,8 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         ownerId: formData.get('ownerId') as string || '',
         servicesJson: formData.get('servicesJson') as string || '[]',
         availabilityJson: formData.get('availabilityJson') as string || '[]',
+        specializedBrands: formData.getAll('specializedBrands') as string[] | undefined, // Assuming checkboxes send an array
+
     });
 
     if (!validatedFields.success) {
@@ -452,8 +457,9 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             pricingPlans: existingStoreData.pricingPlans || [],
             products: existingStoreData.products || [],
             reviews: (existingStoreData.reviews || []).map((review: any) => {
+                // Ensure reviews have proper Timestamp dates before saving
               const date = review.date as any;
-               let isoDateString: string;
+ let isoDateString: string;
                 if (date && typeof date.toDate === 'function') { isoDateString = date.toDate().toISOString(); }
                 else if (date && typeof date._seconds === 'number') { isoDateString = new Date(date._seconds * 1000 + (date._nanoseconds || 0) / 1000000).toISOString(); }
                 else if (date && typeof date.seconds === 'number') { isoDateString = new Date(date.seconds * 1000 + (date.nanoseconds || 0) / 1000000).toISOString(); }
@@ -463,13 +469,27 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
               return { ...review, date: FirestoreTimestamp.fromDate(new Date(isoDateString)) };
             }),
             rating: existingStoreData.rating || 0,
+            // This line is correct assuming validatedFields.data now contains specializedBrands
+ specializedBrands: validatedFields.data.specializedBrands || [], // This line is correct assuming validatedFields.data now contains specializedBrands
         };
 
         console.log("[updateStoreAction] FINAL PAYLOAD for Firestore update:", JSON.stringify(firestoreUpdatePayload, null, 2));
         console.log("[updateStoreAction] FINAL PAYLOAD categories field specifically:", firestoreUpdatePayload.categories);
 
 
-        await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload);
+        // Perform the Firestore update
+ await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload as any) // Type assertion due to potential GeoPoint type mismatch with Partial<Omit<Store...>>
+            .catch(updateError => {
+                console.error(`[updateStoreAction] Firestore update error for storeId ${storeId}:`, updateError);
+                throw updateError; // Re-throw to be caught by the main try...catch block
+            });
+        
+        // Revalidate paths after successful update
+ revalidatePath('/admin/stores');
+ revalidatePath(`/admin/stores/edit/${storeId}`);
+ revalidatePath('/');
+ AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
+ revalidatePath(`/stores/${storeId}`);
 
         const updatedDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
         if (!updatedDocSnap.exists) {
@@ -485,17 +505,11 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         };
         const updatedSerializedStore = serializeStoreForClient(updatedRawStore);
 
-        revalidatePath('/admin/stores');
-        revalidatePath(`/admin/stores/edit/${storeId}`);
-        revalidatePath('/');
-        AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
-        revalidatePath(`/stores/${storeId}`);
-
         return { success: true, message: `Το κέντρο "${updatedSerializedStore.name}" ενημερώθηκε επιτυχώς.`, store: updatedSerializedStore };
     } catch (error: any) {
         console.error("[updateStoreAction] Error during store update process with Admin SDK:", error);
         let message = `Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message || 'Unknown error'}`;
-        if (error.code) message += ` (Code: ${error.code})`;
+ if (error.code) message += ` (Code: ${error.code})`;
          if (error.message && error.message.includes("GeoPoint")) {
           message = `Σφάλμα με το GeoPoint: ${error.message}. Βεβαιωθείτε ότι οι συντεταγμένες είναι έγκυρες.`;
         }

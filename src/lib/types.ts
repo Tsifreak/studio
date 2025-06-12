@@ -177,6 +177,7 @@ export interface Store {
     longitude: number;
   };
   distance?: number; // Optional: for sorting by distance
+  specializedBrands?: string[]; // New field for specialized brands, made optional
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
@@ -188,7 +189,8 @@ export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 's
   features: SerializedFeature[];
   reviews: Review[];
   services: Service[];
-  availability: AvailabilitySlot[];
+  availability: AvailabilitySlot[]; 
+  specializedBrands?: string[]; // Make optional for serialization if not always present
   categories: StoreCategory[]; // Changed from category: StoreCategory
   distance?: number; // Optional: for sorting by distance
 }
@@ -251,6 +253,7 @@ export interface StoreFormData {
   logoFile?: File | null;
   bannerFile?: File | null;
   existingLogoUrl?: string | null;
+  specializedBrands?: string[]; // Make optional for form data
   existingBannerUrl?: string | null;
 }
 
