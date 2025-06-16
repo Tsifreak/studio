@@ -109,6 +109,8 @@ function serializeStoreForClient(store: Store): SerializedStore {
         availability: store.availability || [],
         location: (store.location instanceof admin.firestore.GeoPoint) ? { latitude: store.location.latitude, longitude: store.location.longitude } :
                   (store.location && typeof store.location.latitude === 'number' && typeof store.location.longitude === 'number') ? { latitude: store.location.latitude, longitude: store.location.longitude } : undefined,
+        specializedBrands: store.specializedBrands || [],
+        tyreBrands: store.tyreBrands || [],
     };
 }
 
@@ -126,11 +128,10 @@ const availabilitySlotSchema = z.object({
     dayOfWeek: z.number().int().min(0).max(6),
     startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).or(z.literal('')),
     endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).or(z.literal('')),
-    lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
-    lunchBreakEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().or(z.literal('')),
 });
 const availabilityArraySchema = z.array(availabilitySlotSchema);
 const specializedBrandsSchema = z.array(z.string()).optional();
+const tyreBrandsSchema = z.array(z.string()).optional();
 const storeDbSchema = z.object({
     name: z.string().min(3, { message: "Το όνομα πρέπει να έχει τουλάχιστον 3 χαρακτήρες." }),
     logoUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL για το λογότυπο." }).optional().or(z.literal('')),
@@ -183,6 +184,7 @@ const storeDbSchema = z.object({
         }
     }, { message: "Μη έγκυρο JSON για τη διαθεσιμότητα ή δεν συμφωνεί με το σχήμα." }),
     specializedBrands: specializedBrandsSchema,
+    tyreBrands: tyreBrandsSchema,
 });
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
@@ -248,6 +250,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         // If it's an array of strings from the form, Zod handles it. If it's a single string, you might need refinement.
     });
 
+
     if (!validatedFields.success) {
         console.error("[addStoreAction] Zod Validation Failed. Errors:", JSON.stringify(validatedFields.error.flatten().fieldErrors, null, 2));
         return {
@@ -261,7 +264,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
 
     try {
-        const { ownerId, servicesJson, availabilityJson, tagsInput, /*categoriesInput,*/ latitude, longitude, ...storeCoreData } = validatedFields.data;
+        const { ownerId, servicesJson, availabilityJson, tagsInput, specializedBrands, tyreBrands, latitude, longitude, ...storeCoreData } = validatedFields.data;
         
         let categoriesToSave: StoreCategory[] = [];
         // If validatedCategoriesInputFromZod is a string (even empty), parse it.
@@ -304,7 +307,8 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             rating: 0,
             services,
             availability,
-            specializedBrands: [], // Initialize with an empty array for new stores
+            specializedBrands: specializedBrands || [], // Use validated data
+            tyreBrands: tyreBrands || [], // Initialize with validated data or empty array
         };
 
         const docRef = await adminDb.collection(STORE_COLLECTION).add(storeDataForDB);
@@ -338,6 +342,9 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         return { success: false, message: errorMsg };
     }
     console.log(`[updateStoreAction] Received request for storeId: ${storeId}`);
+    console.log("[updateStoreAction] FormData for specializedBrands:", formData.getAll('specializedBrands'));
+console.log("[updateStoreAction] FormData for tyreBrands:", formData.getAll('tyreBrands'));
+    
     const formEntries: { [key: string]: any } = {};
     for (const [key, value] of formData.entries()) {
         formEntries[key] = value;
@@ -402,7 +409,8 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
         servicesJson: formData.get('servicesJson') as string || '[]',
         availabilityJson: formData.get('availabilityJson') as string || '[]',
         specializedBrands: formData.getAll('specializedBrands') as string[] | undefined, // Assuming checkboxes send an array
-
+        // Explicitly include tyreBrands from formData using getAll
+        tyreBrands: formData.getAll('tyreBrands') as string[] | undefined, // Ensure tyreBrands is passed to Zod
     });
 
     if (!validatedFields.success) {
@@ -418,7 +426,7 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
 
 
     try {
-        const { servicesJson, availabilityJson, tagsInput, /*categoriesInput,*/ latitude, longitude, ...dataToUpdate } = validatedFields.data;
+        const { servicesJson, availabilityJson, tagsInput, specializedBrands, tyreBrands, latitude, longitude, ...dataToUpdate } = validatedFields.data;
 
         let categoriesToUseInUpdate: StoreCategory[];
 
@@ -457,20 +465,33 @@ export async function updateStoreAction(storeId: string, prevState: any, formDat
             pricingPlans: existingStoreData.pricingPlans || [],
             products: existingStoreData.products || [],
             reviews: (existingStoreData.reviews || []).map((review: any) => {
-                // Ensure reviews have proper Timestamp dates before saving
-              const date = review.date as any;
- let isoDateString: string;
-                if (date && typeof date.toDate === 'function') { isoDateString = date.toDate().toISOString(); }
-                else if (date && typeof date._seconds === 'number') { isoDateString = new Date(date._seconds * 1000 + (date._nanoseconds || 0) / 1000000).toISOString(); }
-                else if (date && typeof date.seconds === 'number') { isoDateString = new Date(date.seconds * 1000 + (date.nanoseconds || 0) / 1000000).toISOString(); }
-                else if (typeof date === 'string') { isoDateString = new Date(date).toISOString(); }
-                else if (date instanceof Date) { isoDateString = date.toISOString(); }
-                else { isoDateString = new Date().toISOString(); }
-              return { ...review, date: FirestoreTimestamp.fromDate(new Date(isoDateString)) };
+                const date = review.date;
+                let jsDate: Date;
+
+                // Attempt to convert to a standard JavaScript Date object
+                if (date instanceof Date) {
+                    jsDate = date;
+                } else if (date && typeof date.toDate === 'function') {
+                    // This handles Firestore Timestamp objects (from both client and admin SDKs)
+                    jsDate = date.toDate();
+                } else if (typeof date === 'string') {
+                    // Handles date strings
+                    jsDate = new Date(date);
+                } else if (date && typeof date._seconds === 'number' && typeof date._nanoseconds === 'number') {
+                    // This specifically handles the internal structure of admin.firestore.Timestamp objects
+                    // when they might not be direct instances (e.g., after serialization/deserialization).
+                    jsDate = new Date(date._seconds * 1000 + date._nanoseconds / 1_000_000);
+                } else {
+                    // Fallback for any other unexpected or missing date formats
+                    console.warn(`[updateStoreAction] Unexpected date format for review.date: ${JSON.stringify(date)}. Using current date.`);
+                    jsDate = new Date();
+                }
+
+                return { ...review, date: jsDate }; // Pass a standard JavaScript Date object
             }),
             rating: existingStoreData.rating || 0,
-            // This line is correct assuming validatedFields.data now contains specializedBrands
- specializedBrands: validatedFields.data.specializedBrands || [], // This line is correct assuming validatedFields.data now contains specializedBrands
+ specializedBrands: specializedBrands !== undefined ? specializedBrands : existingStoreData.specializedBrands || [],
+            tyreBrands: tyreBrands !== undefined ? tyreBrands : existingStoreData.tyreBrands || [], // Use validated data or retain existing
         };
 
         console.log("[updateStoreAction] FINAL PAYLOAD for Firestore update:", JSON.stringify(firestoreUpdatePayload, null, 2));

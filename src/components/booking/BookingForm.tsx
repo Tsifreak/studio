@@ -112,13 +112,6 @@ const generateTimeSlots = (
   const openTime = timeToMinutes(dailySchedule.startTime);
   const closeTime = timeToMinutes(dailySchedule.endTime);
 
-  const lunchStart = dailySchedule.lunchBreakStartTime
-    ? timeToMinutes(dailySchedule.lunchBreakStartTime)
-    : -1;
-  const lunchEnd = dailySchedule.lunchBreakEndTime
-    ? timeToMinutes(dailySchedule.lunchBreakEndTime)
-    : -1;
-
   for (
     let currentTime = openTime;
     currentTime <= closeTime - serviceDuration;
@@ -128,15 +121,6 @@ const generateTimeSlots = (
     const slotEndTime = currentTime + serviceDuration;
 
     if (slotEndTime > closeTime) {
-      continue;
-    }
-
-    const overlapsLunch =
-      lunchStart !== -1 &&
-      lunchEnd !== -1 &&
-      Math.max(slotStartTime, lunchStart) < Math.min(slotEndTime, lunchEnd);
-
-    if (overlapsLunch) {
       continue;
     }
 

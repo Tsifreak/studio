@@ -14,8 +14,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, LogOut, UserPlus, LogIn, ShieldCheck, Bell, MessageSquare, ListOrdered, Briefcase, AlertCircle } from 'lucide-react'; // Added Briefcase, AlertCircle
+} from "@/components/ui/dropdown-menu"; // Fixed import path
+import { FaRegCircleUser } from "react-icons/fa6";
+import { BsChatDots } from "react-icons/bs"; // Import the chat icon
+import { LuCalendarCheck } from "react-icons/lu"; // Import the calendar check icon
+import { LayoutDashboard, LogOut, UserPlus, LogIn, ShieldCheck, Bell, ListOrdered, Briefcase, AlertCircle } from 'lucide-react'; // Added Briefcase, AlertCircle
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
@@ -90,14 +93,14 @@ export function Navbar() {
                     {showNotificationDot ? (
                       <>
                         {unreadMessages > 0 && (
-                          <DropdownMenuItem onClick={() => router.push('/dashboard/chats')}>
-                            <MessageSquare className="mr-2 h-4 w-4 text-blue-500" />
+                          <DropdownMenuItem onClick={() => router.push('/dashboard/chats')} className="text-sm">
+ <BsChatDots className="mr-2 h-4 w-4 text-blue-500" />
                             <span>{unreadMessages} νέα μηνύματα</span>
                           </DropdownMenuItem>
                         )}
                         {clientBookingUpdates > 0 && (
                           <DropdownMenuItem onClick={() => router.push('/dashboard/my-bookings')}>
-                            <ListOrdered className="mr-2 h-4 w-4 text-green-500" />
+                            <LuCalendarCheck className="mr-2 h-4 w-4 text-green-500" /> {/* Changed icon */}
                             <span>{clientBookingUpdates} ενημερώσεις κρατήσεων</span>
                           </DropdownMenuItem>
                         )}
@@ -116,35 +119,36 @@ export function Navbar() {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                <DropdownMenu>
+ 
+                  <DropdownMenu> {/* User Avatar Dropdown */}
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={user.avatarUrl || ''} alt={user.name || 'User Avatar'} />
+                      <div className="absolute inset-0 rounded-full border-2 border-orange-500"></div>
+                        <AvatarImage src={user.avatarUrl || '/placeholder-avatar.png'} alt={user.name || 'User Avatar'} />
                         <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-60" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    <DropdownMenuLabel className="font-normal p-0"> {/* Removed default padding */}
+                      <div className="flex flex-col space-y-1 bg-[#E6EBF6] p-2 rounded-md">
+ <p className="text-sm font-medium leading-none">{user.name}</p>
+ <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => router.push('/dashboard')}>
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      Πίνακας Ελέγχου
+                      <FaRegCircleUser className="mr-2 h-4 w-4" /> {/* Changed icon */}
+                      Λογαριασμός
                       {pendingBookingsForOwner > 0 && (
                            <span className="ml-auto text-xs bg-accent text-accent-foreground px-1.5 py-0.5 rounded-full">
-                            {pendingBookingsForOwner} εκκρεμείς
+                            {pendingBookingsForOwner} νέα
                            </span>
                       )}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/dashboard/chats')}>
-                      <MessageSquare className="mr-2 h-4 w-4" />
+                      <BsChatDots className="mr-2 h-4 w-4" />
                       Συνομιλίες
                       {unreadMessages > 0 && (
                         <span className="ml-auto text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full">
@@ -153,18 +157,18 @@ export function Navbar() {
                       )}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push('/dashboard/my-bookings')}>
-                      <ListOrdered className="mr-2 h-4 w-4" />
-                      Οι Κρατήσεις μου
+                      <LuCalendarCheck className="mr-2 h-4 w-4" /> {/* Changed icon */}
+                      Κρατήσεις
                         {clientBookingUpdates > 0 && (
                             <span className="ml-auto text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded-full">
-                            {clientBookingUpdates} ενημερώσεις
+                            {clientBookingUpdates} νέα
                             </span>
                         )}
                     </DropdownMenuItem>
                     {user.isAdmin && (
                       <DropdownMenuItem onClick={() => router.push('/admin')}>
                         <ShieldCheck className="mr-2 h-4 w-4" />
-                        Πίνακας Διαχείρισης
+                        Διαχείριση
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />

@@ -68,7 +68,7 @@ export default function HomePage() {
     return (
       <section
         id="hero-section"
-        className="bg-vivid-blue pt-12 md:pt-16 pb-12 md:pb-16" 
+        className="bg-vivid-blue pt-60 md:pt-46 pb-12 md:pb-16 bg-[url('/images/hero-background.jpg')] bg-cover bg-center"
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
@@ -126,7 +126,7 @@ export default function HomePage() {
 
       <YourHeroSectionComponent currentSelectedService={selectedService} />
 
-      <section className="py-12 md:py-16">
+      <section className="py-6 md:py-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center mb-12 text-contentTitle font-sans">Πώς Λειτουργεί;</h2>
           <div className="flex flex-col md:flex-row items-start justify-center md:gap-x-1 lg:gap-x-2 gap-y-10">

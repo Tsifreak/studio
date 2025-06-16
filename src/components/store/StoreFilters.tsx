@@ -1,20 +1,29 @@
-
 "use client";
 
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, ArrowUpDown, Filter as FilterIcon } from 'lucide-react';
-import type { StoreCategory } from '@/lib/types';
-import { StoreCategories, TranslatedStoreCategories } from '@/lib/types'; // Import the array of categories
+import { AppCategories } from '@/lib/types'; // Correctly import AppCategories
+
+// Define tyre brands locally
+const tyreBrands = [
+  'Michelin', 'Goodyear', 'Pirelli', 'Continental', 'Bridgestone',
+  'Dunlop', 'Hankook', 'Falken', 'Toyo', 'Yokohama',
+  'Kumho', 'Nexen', 'Cooper', 'BFGoodrich', 'Firestone',
+  'General Tire', 'Kleber', 'Vredestein', 'Nokian', 'Barum',
+  'Semperit', 'Uniroyal', 'Sava', 'Kormoran', 'Debica'
+];
 
 interface StoreFiltersProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
   sortBy: string;
   onSortChange: (value: string) => void;
-  selectedCategory: string; // Can be "all" or a StoreCategory
+  selectedCategory: string; // Can be "all" or a category slug
   onCategoryChange: (category: string) => void;
+  selectedTyreBrand: string;
+  onTyreBrandChange: (brand: string) => void;
 }
 
 export function StoreFilters({
@@ -24,6 +33,8 @@ export function StoreFilters({
   onSortChange,
   selectedCategory,
   onCategoryChange,
+  selectedTyreBrand,
+  onTyreBrandChange,
 }: StoreFiltersProps) {
   return (
     <div className="mb-8 p-6 bg-card rounded-lg shadow">
@@ -69,14 +80,32 @@ export function StoreFilters({
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">Όλες οι Κατηγορίες</SelectItem>
-                    {StoreCategories.map((category, index) => (
-                        <SelectItem key={category} value={category}>{TranslatedStoreCategories[index]}</SelectItem>
+                    {/* Use AppCategories to map over for category filter */}
+                    {AppCategories.map((category) => (
+                        <SelectItem key={category.slug} value={category.slug}>{category.translatedName}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
+        </div>
+
+        {/* New Tyre Brand Filter */}
+        <div className="space-y-2">
+          <label htmlFor="tyre-brand-filter" className="text-sm font-medium text-foreground">Φίλτρο ανά Brands Ελαστικών</label>
+          <Select value={selectedTyreBrand} onValueChange={onTyreBrandChange}>
+            <SelectTrigger id="tyre-brand-filter">
+              <FilterIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Όλα τα Brands Ελαστικών" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Όλα τα Brands Ελαστικών</SelectItem>
+              {/* Populate with actual tyre brands */}
+              {tyreBrands.map((brand) => (
+                <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </div>
   );
 }
-

@@ -175,9 +175,11 @@ export interface Store {
   location: {
     latitude: number;
     longitude: number;
+
   };
   distance?: number; // Optional: for sorting by distance
-  specializedBrands?: string[]; // New field for specialized brands, made optional
+  specializedBrands?: string[];
+  tyreBrands?: string[];
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
@@ -193,6 +195,7 @@ export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 's
   specializedBrands?: string[]; // Make optional for serialization if not always present
   categories: StoreCategory[]; // Changed from category: StoreCategory
   distance?: number; // Optional: for sorting by distance
+
 }
 
 export interface UserPreferences {
@@ -255,6 +258,7 @@ export interface StoreFormData {
   existingLogoUrl?: string | null;
   specializedBrands?: string[]; // Make optional for form data
   existingBannerUrl?: string | null;
+  tyreBrands?: string[] | undefined; // Add new field for tyre brands
 }
 
 export interface ReviewFormData {

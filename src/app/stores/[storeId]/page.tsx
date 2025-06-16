@@ -167,7 +167,7 @@ export default function StoreDetailPage() {
             <div className="absolute inset-0 bg-black/30" />
           </div>
         )}
-        <CardHeader className="p-6 relative mt-[-48px] sm:mt-[-64px] z-10 flex flex-col sm:flex-row items-start sm:items-end gap-4">
+        <CardHeader className="p-6 relative mt-[-36px] sm:mt-[-44px] z-10 flex flex-col sm:flex-row items-start sm:items-end gap-4">
           <Image
             src={serializableStore.logoUrl}
             alt={`${serializableStore.name} logo`}
@@ -291,6 +291,35 @@ export default function StoreDetailPage() {
                   <h3 className="text-sm font-semibold mb-4 text-foreground">Brands:</h3>
                   <div className="flex flex-wrap items-center gap-4">
                     {serializableStore.specializedBrands.map(brand => (
+                      <div key={brand} className="flex flex-col items-center">
+                         <Image
+                          src={`/logos/brands/${brand.toLowerCase().replace(/\s+/g, '-')}.svg`} // Construct logo path
+                          alt={`${brand} logo`}
+                          width={64}
+                          height={64}
+                          className="object-contain"
+                          onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
+                        />
+                    
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Το κέντρο δεν έχει καταχωρήσει εξειδίκευση σε συγκεκριμένα brands.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Brands Ελαστικών</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {serializableStore.tyreBrands && serializableStore.tyreBrands.length > 0 ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-4">
+                    {serializableStore.tyreBrands.map(brand => (
                       <div key={brand} className="flex flex-col items-center">
                          <Image
                           src={`/logos/brands/${brand.toLowerCase().replace(/\\s+/g, '-')}.svg`} // Construct logo path

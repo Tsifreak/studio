@@ -34,18 +34,20 @@ const getBrandLogoPath = (brand: string) => {
   const filename = brand.toLowerCase().replace(/\s+/g, '-');
   return `/logos/brands/${filename}.svg`;
 };
-// Brand Filter Dropdown Component
-const BrandFilterDropdown = ({ allBrands, selectedBrands, handleBrandChange }: {
-  allBrands: string[],
-  selectedBrands: string[],
-  handleBrandChange: (brand: string) => void
+// Re-usable Filter Dropdown Component for both Specialized Brands and Tyre Brands
+const FilterDropdown = ({ allItems, selectedItems, handleItemChange, title }: {
+  allItems: string[],
+  selectedItems: string[],
+  handleItemChange: (item: string) => void,
+  title: string
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const dropdownRef = useRef<HTMLDivElement>(null); // Specify ref type for better type safety
 
   useEffect(() => {
-    const handleClickOutside = (event: any) => {
-      if (dropdownRef.current && !(dropdownRef.current as any).contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Improved type assertion for contains method
+      if (dropdownRef.current && !(dropdownRef.current as HTMLDivElement).contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -55,34 +57,34 @@ const BrandFilterDropdown = ({ allBrands, selectedBrands, handleBrandChange }: {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <h3 className="text-md font-medium text-foreground mb-2">Εξειδικευμένα Brands</h3>
+      <h3 className="text-md font-medium text-foreground mb-2">{title}</h3>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-2 border rounded-md flex justify-between items-center bg-white shadow hover:shadow-md"
       >
-        <span>{selectedBrands.length ? `${selectedBrands.length} Επιλεγμένα` : 'Επιλογή Brands'}</span>
+        <span>{selectedItems.length ? `${selectedItems.length} Επιλεγμένα` : 'Επιλογή Brands'}</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
-        <div className="absolute z-10 mt-2 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
-          {allBrands.map(brand => (
-            <label key={brand} className="flex items-center px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selectedBrands.includes(brand)}
-              onChange={() => handleBrandChange(brand)}
-              className="mr-2"
-            />
-            <span className="flex items-center gap-2">
-              <img
-                src={getBrandLogoPath(brand)}
-                alt={brand}
-                className="w-5 h-5 object-contain"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+         <div className="absolute z-10 mt-2 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-y-auto">
+          {allItems.map(item => (
+            <label key={item} className="flex items-center px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedItems.includes(item)}
+                onChange={() => handleItemChange(item)}
+                className="mr-2"
               />
-              {brand}
-            </span>
-          </label>
+              <span className="flex items-center gap-2">
+                <img
+                  src={getBrandLogoPath(item)}
+                  alt={item}
+                  className="w-5 h-5 object-contain"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+                {item}
+              </span>
+            </label>
           ))}
         </div>
       )}
@@ -108,6 +110,7 @@ export default function CategoryPage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedTyreBrands, setSelectedTyreBrands] = useState<string[]>([]); // NEW state for tyre brands
 
   // Tag chip helpers
   const allAvailableTags = useMemo(() => {
@@ -146,9 +149,14 @@ export default function CategoryPage() {
     const term = searchParams.get('search') || '';
     const tags = searchParams.get('tags') || '';
     const sort = (searchParams.get('sort') as SortByType) || 'default';
+    const brands = searchParams.get('brands')?.split(',').filter(Boolean) || []; // Sync existing brands
+    const tyreBrands = searchParams.get('tyreBrands')?.split(',').filter(Boolean) || []; // NEW: Sync tyreBrands param
+
     setSearchTerm(term);
     setTagInput(tags);
     setSortBy(sort);
+    setSelectedBrands(brands);
+    setSelectedTyreBrands(tyreBrands); // NEW: Set tyre brands from URL
   }, [searchParams]);
 
   const updateSearchParams = useCallback((key: string, value: string | null) => {
@@ -164,6 +172,16 @@ export default function CategoryPage() {
   useEffect(() => {
     updateSearchParams('tags', tagInput || null);
   }, [tagInput, updateSearchParams]);
+
+  // Sync selectedBrands to URL (already existed or implicitly needed)
+  useEffect(() => {
+    updateSearchParams('brands', selectedBrands.length > 0 ? selectedBrands.join(',') : null);
+  }, [selectedBrands, updateSearchParams]);
+
+  // NEW: Update URL parameter for selectedTyreBrands
+  useEffect(() => {
+    updateSearchParams('tyreBrands', selectedTyreBrands.length > 0 ? selectedTyreBrands.join(',') : null);
+  }, [selectedTyreBrands, updateSearchParams]);
 
   const requestUserLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -194,7 +212,16 @@ export default function CategoryPage() {
       store.specializedBrands?.forEach(b => brands.add(b.trim()));
     });
     return Array.from(brands).sort();
-  }, [allStores]); 
+  }, [allStores]);
+
+  // NEW: Extract unique Tyre Brands
+  const uniqueTyreBrands = useMemo(() => {
+    const brands = new Set<string>();
+    allStores.forEach(store => {
+      store.tyreBrands?.forEach(b => brands.add(b.trim()));
+    });
+    return Array.from(brands).sort();
+  }, [allStores]);
 
   const filteredAndSortedStores = useMemo(() => {
     let filtered = [...storesInCategory];
@@ -214,6 +241,13 @@ export default function CategoryPage() {
         store.specializedBrands?.some(brand => selectedBrands.includes(brand))
       );
     }
+    // --- NEW: Filter by Tyre Brands ---
+    if (selectedTyreBrands.length > 0) {
+      filtered = filtered.filter(store =>
+        store.tyreBrands?.some(brand => selectedTyreBrands.includes(brand))
+      );
+    }
+    // ----------------------------------
 
     switch (sortBy) {
       case 'name_asc': return filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -229,10 +263,10 @@ export default function CategoryPage() {
               : Infinity,
           })).sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
         }
-        return filtered;
+        return filtered; // Return filtered even if no location
       default: return filtered;
     }
-  }, [storesInCategory, searchTerm, selectedTags, selectedBrands, sortBy, userLocation]);
+  }, [storesInCategory, searchTerm, selectedTags, selectedBrands, selectedTyreBrands, sortBy, userLocation]); // Add selectedTyreBrands to dependencies
 
   if (isLoading) return <div className="p-6 text-center">Φόρτωση...</div>;
   if (error) return <div className="p-6 text-red-500">{error}</div>;
@@ -294,10 +328,26 @@ export default function CategoryPage() {
             </div>
           </div>
 
-          {/* Brand Dropdown */}
-          <BrandFilterDropdown allBrands={uniqueBrands} selectedBrands={selectedBrands} handleBrandChange={(brand) => {
-            setSelectedBrands(prev => prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]);
-          }} />
+          {/* Existing Brand Dropdown (now using the generic FilterDropdown) */}
+          <FilterDropdown
+            allItems={uniqueBrands}
+            selectedItems={selectedBrands}
+            handleItemChange={(brand) => {
+              setSelectedBrands(prev => prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]);
+            }}
+            title="Εξειδικευμένα Brands"
+          />
+
+          {/* NEW: Tyre Brands Dropdown */}
+          <FilterDropdown
+            allItems={uniqueTyreBrands}
+            selectedItems={selectedTyreBrands}
+            handleItemChange={(brand) => {
+              setSelectedTyreBrands(prev => prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]);
+            }}
+            title="Brands Ελαστικών"
+          />
+
         </Card>
 
         {/* Listings */}

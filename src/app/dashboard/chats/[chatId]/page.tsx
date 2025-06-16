@@ -158,13 +158,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-var(--header-height,64px)-var(--page-padding,64px)-2px)] max-w-3xl mx-auto">
-       <div className="flex items-center gap-4 mb-4 p-4 border-b sticky top-0 bg-background z-10">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/dashboard/chats">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Πίσω στις Συνομιλίες</span>
-          </Link>
-        </Button>
+       <div className="flex items-center justify-between mb-4 p-4 border-b sticky top-0 bg-background z-10 w-full">
         <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border">
                 <AvatarImage src={otherParticipantAvatar || ''} alt={otherParticipantName} data-ai-hint={user.id === chatDetails.userId ? "logo business" : "avatar person"}/>
@@ -172,6 +166,12 @@ export default function ChatPage() {
             </Avatar>
             <h1 className="text-xl font-semibold text-primary truncate">{otherParticipantName}</h1>
         </div>
+        <Button variant="outline" size="icon" asChild>
+          <Link href="/dashboard/chats">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Πίσω στις Συνομιλίες</span>
+          </Link>
+        </Button>
       </div>
       <ChatView
         messages={messages}

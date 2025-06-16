@@ -50,8 +50,6 @@ const availabilitySlotSchema = z.object({
   isClosed: z.boolean().default(false),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
-  lunchBreakStartTime: z.string().optional(),
-  lunchBreakEndTime: z.string().optional(),
 });
 
 
@@ -78,6 +76,7 @@ const clientStoreFormSchema = z.object({
   logoFile: z.instanceof(File).optional(),
   bannerFile: z.instanceof(File).optional(),
   specializedBrands: z.array(z.string()).optional(),
+  tyreBrands: z.array(z.string()).optional(), // Added for tyre brands
   existingLogoUrl: z.string().optional(),
   existingBannerUrl: z.string().optional(),
 });
@@ -99,6 +98,15 @@ const initialFormState: ActionFormState = { success: false, message: '', errors:
 
 const carBrands = ['Audi', 'BMW', 'Citroen', 'Mercedes', 'Dacia', 'Fiat', 'Ford', 'Honda', 'Hyundai', 'Kia', 'Mazda', 'Nissan', 'Peugeot', 'Renault', 'Skoda', 'Tesla', 'Toyota', 'Volkswagen', 'Volvo'];
 
+// List of tyre brands
+const tyreBrands = [
+  'Michelin', 'Goodyear', 'Pirelli', 'Continental', 'Bridgestone',
+  'Dunlop', 'Hankook', 'Falken', 'Toyo', 'Yokohama',
+  'Kumho', 'Nexen', 'Cooper', 'BFGoodrich', 'Firestone',
+  'General Tire', 'Kleber', 'Vredestein', 'Nokian', 'Barum',
+  'Semperit', 'Uniroyal', 'Sava', 'Kormoran', 'Debica'
+];
+
 declare global {
   interface Window {
     googleMapsScriptLoadedForStoreForm?: () => void;
@@ -112,11 +120,11 @@ const getDefaultAvailability = () => weekDays.map((_, index) => ({
     isClosed: index === 0,
     startTime: index >= 1 && index <= 5 ? '09:00' : (index === 6 ? '10:00' : ''),
     endTime: index >= 1 && index <= 5 ? '17:00' : (index === 6 ? '14:00' : ''),
-    lunchBreakStartTime: index >= 1 && index <= 5 ? '13:00' : '',
-    lunchBreakEndTime: index >= 1 && index <= 5 ? '14:00' : '',
 }));
 
 export function StoreForm({ store, action }: StoreFormProps) {
+  console.log("[StoreForm - Initial Load] Store prop received:", store);
+  console.log("[StoreForm - Initial Load] Tyre Brands from prop:", store?.tyreBrands);
   const { toast } = useToast();
   const router = useRouter();
   const [formState, formAction, isPending] = useActionState<ActionFormState, FormData>(action, initialFormState);
@@ -135,9 +143,9 @@ export function StoreForm({ store, action }: StoreFormProps) {
         return dayData
           ? { ...dayData, isClosed: !dayData.startTime && !dayData.endTime }
           : { dayOfWeek: index, isClosed: true, startTime: '', endTime: '', lunchBreakStartTime: '', lunchBreakEndTime: '' };
-      })
+      }) // Note: Removed lunch break props here too if they were implicitly included
     : getDefaultAvailability();
-
+ 
   const form = useForm<ClientStoreFormValues>({
     resolver: zodResolver(clientStoreFormSchema),
     defaultValues: {
@@ -159,6 +167,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
       servicesJson: store?.services ? JSON.stringify(store.services) : '[]',
       availabilityJson: store?.availability ? JSON.stringify(store.availability) : '[]', 
       specializedBrands: store?.specializedBrands ?? [],
+      tyreBrands: store?.tyreBrands ?? [],
     },
   });
 
@@ -187,8 +196,6 @@ export function StoreForm({ store, action }: StoreFormProps) {
         dayOfWeek: day.dayOfWeek,
         startTime: day.startTime || '',
         endTime: day.endTime || '',
-        lunchBreakStartTime: day.lunchBreakStartTime || '',
-        lunchBreakEndTime: day.lunchBreakEndTime || '',
     }));
     form.setValue('availabilityJson', JSON.stringify(availabilityToSave));
   }, [watchedAvailability, form]);
@@ -262,12 +269,21 @@ export function StoreForm({ store, action }: StoreFormProps) {
   
           {form.watch('specializedBrands')?.map((brand) => (
               <input
-                  key={`hidden-${brand}`} // Unique key for each hidden input
+                  key={`hidden-car-${brand}`} // Unique key for each hidden input
                   type="hidden"
                   name="specializedBrands" // CRITICAL: This name must match what actions.ts expects
                   value={brand}
               />
           ))}
+          {form.watch('tyreBrands')?.map((brand) => (
+              <input
+                  key={`hidden-tyre-${brand}`} // Unique key for each hidden input
+                  type="hidden"
+                  name="tyreBrands" // CRITICAL: This name must match what actions.ts expects
+                  value={brand}
+              />
+          ))}
+
 
            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
             <div className="space-y-6">
@@ -294,6 +310,34 @@ export function StoreForm({ store, action }: StoreFormProps) {
                                 field.onChange(field.value?.filter(value => value !== brand));
                               }
                             }} /></FormControl><FormLabel className="font-normal cursor-pointer">{brand}</FormLabel></FormItem>))}</div><FormDescription>Επιλέξτε τα brands στα οποία ειδικεύεται το κέντρο.</FormDescription><FormMessage /></FormItem>)} />
+
+              {/* NEW FIELD FOR TYRE BRANDS */}
+              <FormField control={form.control} name="tyreBrands" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Εξειδίκευση σε Μάρκες Ελαστικών</FormLabel>
+                  <div className="space-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                    {tyreBrands.map((brand) => (
+                      <FormItem key={brand} className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value?.includes(brand)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                field.onChange([...(field.value || []), brand]);
+                              } else {
+                                field.onChange(field.value?.filter(value => value !== brand));
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal cursor-pointer">{brand}</FormLabel>
+                      </FormItem>
+                    ))}
+                  </div>
+                  <FormDescription>Επιλέξτε τις μάρκες ελαστικών στις οποίες ειδικεύεται το κέντρο.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )} />
             </div>
             <div className="space-y-6">
               <FormField control={form.control} name="contactEmail" render={({ field }) => (<FormItem><FormLabel>Email Επικοινωνίας</FormLabel><FormControl><Input type="email" placeholder="contact@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -371,9 +415,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
                         {!day.isClosed && (
                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 lg:grid-cols-4">
                             <FormField control={form.control} name={`availability.${index}.startTime`} render={({ field }) => (<FormItem><FormLabel>Opening</FormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
-                            <FormField control={form.control} name={`availability.${index}.endTime`} render={({ field }) => (<FormItem><FormLabel>Closing</FormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
-                            <FormField control={form.control} name={`availability.${index}.lunchBreakStartTime`} render={({ field }) => (<FormItem><FormLabel>Break Start</FormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
-                            <FormField control={form.control} name={`availability.${index}.lunchBreakEndTime`} render={({ field }) => (<FormItem><FormLabel>Break End</FormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                            <FormField control={form.control} name={`availability.${index}.endTime`} render={({ field }) => (<FormItem><FormLabel>Closing</FormLabel><FormControl><Input type="time" {...field}/></FormControl><FormMessage /></FormItem>)}/>
+                            {/* Lunch break fields removed */}
                           </div>
                         )}
                       </div>

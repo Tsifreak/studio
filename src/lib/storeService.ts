@@ -92,7 +92,8 @@ const mapDocToStore = (docSnapshot: any): Store => {
     ownerId: data.ownerId || null,
     services: data.services || [],
     availability: data.availability || [],
-    specializedBrands: data.specializedBrands || [], // Added this line
+    specializedBrands: data.specializedBrands || [],
+    tyreBrands: data.tyreBrands || [],
   };
   return store;
 };
@@ -145,7 +146,8 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
     services: data.servicesJson ? JSON.parse(data.servicesJson) : [],
     availability: data.availabilityJson ? JSON.parse(data.availabilityJson) : [],
     location: { latitude: 0, longitude: 0 }, // Needs to be set, perhaps from form
- specializedBrands: data.specializedBrands || [], // Added this line
+ specializedBrands: data.specializedBrands || [], 
+ tyreBrands: data.tyreBrands || [],
   };
   try {
     const docRef = await addDoc(collection(db, STORE_COLLECTION), storeData);
