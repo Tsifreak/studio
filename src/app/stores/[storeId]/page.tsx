@@ -281,18 +281,6 @@ export default function StoreDetailPage() {
               )}
             </div>
           </div>
-          {/* Save Button on the right corner of the CardHeader */}
-          {status === 'authenticated' && userId && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-6 right-6 z-20 text-muted-foreground hover:text-red-500"
-              onClick={handleToggleSave}
-              aria-label={isSaved ? "Unsave store" : "Save store"}
-            >
-              <Heart className={cn("w-6 h-6", isSaved ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
-            </Button>
-          )}
         </CardHeader>
       </Card>
 
@@ -431,14 +419,14 @@ export default function StoreDetailPage() {
                   <div className="flex flex-wrap items-center gap-4">
                     {serializableStore.specializedBrands.map(brand => (
                       <div key={brand} className="flex flex-col items-center">
-                         <Image
-                          src={`/logos/brands/${brand.toLowerCase().replace(/\s+/g, '-')}.svg`} // Construct logo path
-                          alt={`${brand} logo`}
-                          width={64}
-                          height={64}
-                          className="object-contain"
-                          onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
-                        />
+                           <Image
+                           src={`/logos/brands/${brand.toLowerCase().replace(/\s+/g, '-')}.svg`} // Construct logo path
+                           alt={`${brand} logo`}
+                           width={64}
+                           height={64}
+                           className="object-contain"
+                           onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
+                         />
 
                       </div>
                     ))}
@@ -460,14 +448,14 @@ export default function StoreDetailPage() {
                   <div className="flex flex-wrap items-center gap-4">
                     {serializableStore.tyreBrands.map(brand => (
                       <div key={brand} className="flex flex-col items-center">
-                         <Image
-                          src={`/logos/brands/${brand.toLowerCase().replace(/\\s+/g, '-')}.svg`} // Construct logo path
-                          alt={`${brand} logo`}
-                          width={64}
-                          height={64}
-                          className="object-contain"
-                          onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
-                        />
+                           <Image
+                           src={`/logos/brands/${brand.toLowerCase().replace(/\\s+/g, '-')}.svg`} // Construct logo path
+                           alt={`${brand} logo`}
+                           width={64}
+                           height={64}
+                           className="object-contain"
+                           onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
+                         />
 
                       </div>
                     ))}
@@ -506,15 +494,15 @@ export default function StoreDetailPage() {
             </CardHeader>
             <CardContent>
               {!hasAvailability && (
-                 <Alert variant="default" className="mb-6">
-                    <Info className="h-5 w-5" />
-                    <AlertTitle>Η Διαθεσιμότητα δεν έχει Οριστεί</AlertTitle>
-                    <AlertDescription>
-                      Αυτό το κατάστημα δεν έχει ορίσει ακόμη το πρόγραμμα διαθεσιμότητάς του. Οι κρατήσεις δεν είναι δυνατές αυτή τη στιγμή.
-                      Παρακαλούμε ελέγξτε ξανά αργότερα ή επικοινωνήστε απευθείας με το κατάστημα.
-                    </AlertDescription>
-                  </Alert>
-               )}
+                   <Alert variant="default" className="mb-6">
+                     <Info className="h-5 w-5" />
+                     <AlertTitle>Η Διαθεσιμότητα δεν έχει Οριστεί</AlertTitle>
+                     <AlertDescription>
+                       Αυτό το κατάστημα δεν έχει ορίσει ακόμη το πρόγραμμα διαθεσιμότητάς του. Οι κρατήσεις δεν είναι δυνατές αυτή τη στιγμή.
+                       Παρακαλούμε ελέγξτε ξανά αργότερα ή επικοινωνήστε απευθείας με το κατάστημα.
+                     </AlertDescription>
+                   </Alert>
+                 )}
               {serializableStore.services && serializableStore.services.length > 0 ? (
                 <div className="space-y-4">
                   {serializableStore.services.map((service: Service) => (
@@ -610,26 +598,26 @@ export default function StoreDetailPage() {
     </CardHeader>
     <CardContent>
       {serializableStore.reviews && serializableStore.reviews.length > 0 ? (
-         <div className="space-y-4">
-          {serializableStore.reviews.map((review: Review) => (
-            <div key={review.id} className="p-4 border rounded-md bg-muted/50">
-              <div className="flex items-center mb-1">
-                {review.userAvatarUrl && (
-                   <Image src={review.userAvatarUrl} alt={review.userName} width={32} height={32} className="rounded-full mr-3" data-ai-hint="avatar person" />
-                )}
-                <p className="font-semibold text-foreground">{review.userName}</p>
-              </div>
-              <div className="flex items-center my-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
-                ))}
-                 <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
-              </div>
-              <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
-               {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
-            </div>
-          ))}
-        </div>
+           <div className="space-y-4">
+           {serializableStore.reviews.map((review: Review) => (
+             <div key={review.id} className="p-4 border rounded-md bg-muted/50">
+               <div className="flex items-center mb-1">
+                 {review.userAvatarUrl && (
+                    <Image src={review.userAvatarUrl} alt={review.userName} width={32} height={32} className="rounded-full mr-3" data-ai-hint="avatar person" />
+                 )}
+                 <p className="font-semibold text-foreground">{review.userName}</p>
+               </div>
+               <div className="flex items-center my-1">
+                 {[...Array(5)].map((_, i) => (
+                   <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                 ))}
+                   <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
+               </div>
+               <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
+                {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
+             </div>
+           ))}
+         </div>
       ) : (
         <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν ακόμη κριτικές για αυτό το κέντρο εξυπηρέτησης.</p>
       )}
