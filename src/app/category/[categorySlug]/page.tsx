@@ -285,31 +285,43 @@ export default function CategoryPage() {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
-          <div>
-            <Label htmlFor="search">Αναζήτηση</Label>
-            <Input id="search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+      <Card className="border-none"> {/* Added border-none to remove the card border */}
+        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+          {/* Search Input */}
+          <div className="md:col-span-2">
+             <Input id="search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Αναζήτηση" className="rounded-lg" />
           </div>
-          <div>
-            <Label htmlFor="sort">Ταξινόμηση</Label>
-            <Select value={sortBy} onValueChange={value => setSortBy(value as SortByType)}>
-              <SelectTrigger id="sort"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {sortOptions.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled?.(!!userLocation)}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Τοποθεσία</Label>
-            <Button onClick={requestUserLocation} disabled={isFetchingLocation} className="w-full">
-              {isFetchingLocation ? <><Loader2 className="mr-2 animate-spin" />Εντοπισμός...</> : <><LocateFixed className="mr-2" />Εντοπισμός</>}
-            </Button>
-          </div>
+
+          {/* Sort Select */}
+          <Select value={sortBy} onValueChange={value => setSortBy(value as SortByType)}>
+            <SelectTrigger id="sort" className="rounded-lg"> {/* More rounded corners */}
+              <SelectValue placeholder="Προτεινόμενα" /> {/* Placeholder instead of label */}
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled?.(!!userLocation)}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Location Button */}
+          <Button
+            onClick={requestUserLocation}
+            disabled={isFetchingLocation}
+            className="w-full rounded-lg" // More rounded corners
+          >
+            {isFetchingLocation ? (
+              <>
+                <Loader2 className="mr-2 animate-spin" />Εντοπισμός...
+              </>
+            ) : (
+              <>
+                <LocateFixed className="mr-2" />Τοποθεσία {/* Text directly on the button */}
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
 

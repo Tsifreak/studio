@@ -1,11 +1,10 @@
-
 "use server";
-
-import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData, Store, Chat } from '@/lib/types'; 
-import { getStoreByIdFromDB } from '@/lib/storeService'; 
+import { auth } from "@/lib/firebase";
+import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData, Store, Chat } from '@/lib/types';
+import { getStoreByIdFromDB } from '@/lib/storeService';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { adminDb, admin } from '@/lib/firebase-admin'; 
+import { adminDb, admin } from '@/lib/firebase-admin';
 // Removed chatService import for submitMessageToChat as its logic will be inlined.
 import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
 
@@ -21,7 +20,7 @@ const COOLDOWN_PERIOD = 60 * 1000; // 1 minute
 
 export async function submitStoreQuery(formData: QueryFormData): Promise<{ success: boolean; message: string; chatId?: string }> {
   console.log("[submitStoreQuery - Server Action] Received form data for store:", formData.storeId);
-  const userIdentifier = formData.email; 
+  const userIdentifier = formData.email;
   const now = Date.now();
   const attemptRecord = submissionAttempts.get(userIdentifier);
 
@@ -35,7 +34,7 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
   } else {
     submissionAttempts.set(userIdentifier, { count: 1, lastAttempt: now });
   }
-  
+
   try {
     const storeDocSnap = await adminDb.collection(STORE_COLLECTION).doc(formData.storeId).get();
     if (!storeDocSnap.exists) {
@@ -51,7 +50,7 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
 
     if (store.ownerId && formData.userId && formData.userName) {
       console.log(`[submitStoreQuery - Server Action] Store has owner ${store.ownerId}. Initiating chat for user ${formData.userName} (${formData.userId}).`);
-      
+
       // --- Inlined logic from submitMessageToChat ---
       const chatsRefAdmin = adminDb.collection(CHATS_COLLECTION);
       const fullMessageText = `Θέμα: ${formData.subject}\n\n${formData.message}`;
@@ -72,7 +71,7 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
         console.log("[submitStoreQuery/ChatLogic - Admin SDK] Existing chat found, ID:", chatDocRef.id);
 
         const messagesColRefAdmin = chatDocRef.collection(MESSAGES_SUBCOLLECTION);
-        const newMessageRefAdmin = messagesColRefAdmin.doc(); 
+        const newMessageRefAdmin = messagesColRefAdmin.doc();
 
         batch.set(newMessageRefAdmin, {
           senderId: formData.userId,
@@ -86,12 +85,12 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
           lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
           lastMessageSenderId: formData.userId,
           lastImageUrl: null,
-          ownerUnreadCount: admin.firestore.FieldValue.increment(1), 
-          userUnreadCount: 0, 
+          ownerUnreadCount: admin.firestore.FieldValue.increment(1),
+          userUnreadCount: 0,
         });
       } else {
         console.log("[submitStoreQuery/ChatLogic - Admin SDK] No existing chat found. Creating new chat.");
-        chatDocRef = chatsRefAdmin.doc(); 
+        chatDocRef = chatsRefAdmin.doc();
         batch.set(chatDocRef, {
           storeId: store.id,
           storeName: store.name,
@@ -105,7 +104,7 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
           lastMessageSenderId: formData.userId,
           lastImageUrl: null,
           userUnreadCount: 0,
-          ownerUnreadCount: 1, 
+          ownerUnreadCount: 1,
           participantIds: [formData.userId, store.ownerId].sort(),
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -122,32 +121,32 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
       }
       await batch.commit();
       // --- End of inlined logic ---
-      
+
       setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: "Το μήνυμά σας εστάλη. Μπορείτε να δείτε αυτήν τη συνομιλία στον πίνακα ελέγχου σας.",
-        chatId: chatDocRef.id 
+        chatId: chatDocRef.id
       };
 
     } else {
       console.log("[submitStoreQuery - Server Action] Store has no owner or user is not logged in. Saving to storeMessages.");
       const messageData = {
         storeId: formData.storeId,
-        storeName: store.name, 
+        storeName: store.name,
         subject: formData.subject,
         message: formData.message,
-        senderName: formData.name,    
-        senderEmail: formData.email,  
-        ...(formData.userId && { senderUserId: formData.userId }), 
-        recipientOwnerId: store.ownerId || null, 
-        createdAt: admin.firestore.FieldValue.serverTimestamp(), 
+        senderName: formData.name,
+        senderEmail: formData.email,
+        ...(formData.userId && { senderUserId: formData.userId }),
+        recipientOwnerId: store.ownerId || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         isReadByOwner: false,
       };
       await adminDb.collection("storeMessages").add(messageData);
-      
+
       setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
-      
+
       if (store.ownerId) {
         return { success: true, message: "Το ερώτημά σας έχει σταλεί στον ιδιοκτήτη του κέντρου." };
       } else {
@@ -182,7 +181,7 @@ export async function addReviewAction(
   for (const [key, value] of formData.entries()) {
     console.log(`  ${key}: ${value}`);
   }
-  
+
   const validatedFields = reviewSchema.safeParse({
     storeId: formData.get('storeId'),
     userId: formData.get('userId'),
@@ -204,41 +203,41 @@ export async function addReviewAction(
 
   const { storeId, userId, userName, userAvatarUrl, rating, comment } = validatedFields.data;
 
-  const newReviewForFirestore = { 
-    id: adminDb.collection('_').doc().id, 
+  const newReviewForFirestore = {
+    id: adminDb.collection('_').doc().id,
     userId,
     userName,
-    userAvatarUrl: userAvatarUrl || undefined, 
+    userAvatarUrl: userAvatarUrl || undefined,
     rating,
     comment,
-    date: admin.firestore.Timestamp.now(), 
+    date: admin.firestore.Timestamp.now(),
   };
 
   try {
     const storeRef = adminDb.collection(STORE_COLLECTION).doc(storeId);
-    
+
     await adminDb.runTransaction(async (transaction) => {
       const storeDoc = await transaction.get(storeRef);
       if (!storeDoc.exists) {
         throw new Error("Store not found for adding review.");
       }
-      const storeData = storeDoc.data() as Omit<Store, 'id'| 'reviews'> & {reviews?: any[]}; 
-      
+      const storeData = storeDoc.data() as Omit<Store, 'id'| 'reviews'> & {reviews?: any[]};
+
       const existingReviews = (storeData.reviews || []).map(r => ({
           ...r,
-          date: r.date instanceof admin.firestore.Timestamp ? r.date.toDate().toISOString() : r.date 
+          date: r.date instanceof admin.firestore.Timestamp ? r.date.toDate().toISOString() : r.date
       }));
 
       const updatedReviewsForCalc = [...existingReviews, {
         ...newReviewForFirestore,
-        date: newReviewForFirestore.date.toDate().toISOString() 
+        date: newReviewForFirestore.date.toDate().toISOString()
       }];
-      
+
       const totalRating = updatedReviewsForCalc.reduce((acc, review) => acc + review.rating, 0);
       const newAverageRating = updatedReviewsForCalc.length > 0 ? parseFloat((totalRating / updatedReviewsForCalc.length).toFixed(2)) : 0;
 
       transaction.update(storeRef, {
-        reviews: admin.firestore.FieldValue.arrayUnion(newReviewForFirestore), 
+        reviews: admin.firestore.FieldValue.arrayUnion(newReviewForFirestore),
         rating: newAverageRating,
       });
     });
@@ -262,7 +261,7 @@ const bookingSchema = z.object({
   serviceName: z.string().min(1, "Το όνομα της υπηρεσίας είναι υποχρεωτικό."),
   serviceDurationMinutes: z.coerce.number().int().positive("Η διάρκεια της υπηρεσίας πρέπει να είναι θετικός αριθμός."),
   servicePrice: z.coerce.number().positive("Η τιμή της υπηρεσίας πρέπει να είναι θετικός αριθμός."),
-  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Μη έγκυρη μορφή ημερομηνίας, αναμένεται YYYY-MM-DD"),
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Μη έγκυρη μορφή ημερομηνίας, αναμένεταιYYYY-MM-DD"),
   bookingTime: z.string()
   .min(1, "Η ώρα είναι υποχρεωτική.")
   .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Μη έγκυρη μορφή ώρας (π.χ. 14:30)"),
@@ -277,7 +276,7 @@ export async function createBookingAction(
   for (const [key, value] of formData.entries()) {
     console.log(`  ${key}: ${value}`);
   }
-  
+
   const validatedFields = bookingSchema.safeParse({
     storeId: formData.get('storeId'),
     storeName: formData.get('storeName'),
@@ -302,12 +301,12 @@ export async function createBookingAction(
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  
+
   console.log("[createBookingAction - Server Action] Zod Validation successful. Validated data:", validatedFields.data);
-  const { 
-    storeId, storeName, userId, userName, userEmail, 
-    serviceId, serviceName, serviceDurationMinutes, servicePrice, 
-    bookingDate, bookingTime, notes 
+  const {
+    storeId, storeName, userId, userName, userEmail,
+    serviceId, serviceName, serviceDurationMinutes, servicePrice,
+    bookingDate, bookingTime, notes
   } = validatedFields.data;
 
   try {
@@ -330,7 +329,7 @@ export async function createBookingAction(
     console.log("[createBookingAction - Server Action] Converted bookingDate to Admin SDK Firestore Timestamp:", bookingDateTimestamp.toDate().toISOString());
 
     const bookingId = adminDb.collection(BOOKINGS_COLLECTION).doc().id;
-    
+
     console.log("[createBookingAction - Server Action] Fetching store details for ownerId using Admin SDK...");
     const storeDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
     if (!storeDocSnap.exists) {
@@ -343,46 +342,46 @@ export async function createBookingAction(
     console.log(`[createBookingAction - Server Action] Store ${storeId} found. OwnerId: ${storeOwnerId || 'Not set'}`);
 
     const newBookingDataForFirestore: BookingDocumentData = {
-      id: bookingId, 
+      id: bookingId,
       storeId,
-      storeName, 
+      storeName,
       userId,
       userName,
       userEmail,
       serviceId,
-      serviceName, 
-      serviceDurationMinutes, 
-      servicePrice, 
-      bookingDate: bookingDateTimestamp, 
+      serviceName,
+      serviceDurationMinutes,
+      servicePrice,
+      bookingDate: bookingDateTimestamp,
       bookingTime,
-      status: 'pending' as Booking['status'], 
+      status: 'pending' as Booking['status'],
       createdAt: admin.firestore.FieldValue.serverTimestamp() as AdminTimestamp,
       notes: notes || "",
-      ownerId: storeOwnerId || undefined, 
+      ownerId: storeOwnerId || undefined,
     };
-    
+
     console.log("[createBookingAction - Server Action] Preparing to add booking to DB with Admin SDK. Data (Timestamps will be objects):", JSON.stringify({
         ...newBookingDataForFirestore,
         bookingDate: `Timestamp(${newBookingDataForFirestore.bookingDate.seconds}, ${newBookingDataForFirestore.bookingDate.nanoseconds})`,
         createdAt: `Timestamp(NOW)`
     }, null, 2));
-    
+
     let bookingAddErrorMessage = "Παρουσιάστηκε σφάλμα κατά την προσθήκη της κράτησής σας στη βάση δεδομένων.";
     try {
         await adminDb.collection(BOOKINGS_COLLECTION).doc(bookingId).set(newBookingDataForFirestore);
         console.log("[createBookingAction - Server Action] Admin SDK: Booking successfully added to 'bookings' collection with ID:", bookingId);
     } catch (bookingAddError: any) {
         console.error("[createBookingAction - Server Action] Admin SDK Firestore error while adding to 'bookings' collection. Raw error object:", bookingAddError);
-        const errorCodeString = String(bookingAddError.code || ''); 
+        const errorCodeString = String(bookingAddError.code || '');
         if (errorCodeString) {
           bookingAddErrorMessage += ` (Κωδικός Σφάλματος: ${errorCodeString})`;
            if (errorCodeString.toLowerCase().includes("permission-denied")) {
             bookingAddErrorMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
           }
         }
-        throw new Error(bookingAddErrorMessage); 
+        throw new Error(bookingAddErrorMessage);
     }
-    
+
     if (storeOwnerId) {
       console.log(`[createBookingAction - Server Action] Admin SDK: Store has ownerId: ${storeOwnerId}. Attempting to update owner's profile.`);
       const ownerProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(storeOwnerId);
@@ -398,21 +397,21 @@ export async function createBookingAction(
     } else {
       console.warn(`[createBookingAction - Server Action] Admin SDK: Store ${storeId} does not have an ownerId. Cannot increment pending bookings count.`);
     }
-    
+
     revalidatePath(`/stores/${storeId}`);
     revalidatePath(`/dashboard`);
-    revalidatePath('/dashboard/my-bookings'); 
+    revalidatePath('/dashboard/my-bookings');
 
     return {
       success: true,
       message: `Η κράτησή σας για την υπηρεσία "${serviceName}" στις ${parsedBookingDateUTC.toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric' })} ${bookingTime} υποβλήθηκε επιτυχώς.`,
-      booking: { 
+      booking: {
         ...newBookingDataForFirestore,
         id: bookingId,
-        createdAt: new Date().toISOString(), 
-        bookingDate: newBookingDataForFirestore.bookingDate.toDate().toISOString().split("T")[0], 
-        status: 'pending', 
-      } as Booking, 
+        createdAt: new Date().toISOString(),
+        bookingDate: newBookingDataForFirestore.bookingDate.toDate().toISOString().split("T")[0],
+        status: 'pending',
+      } as Booking,
     };
 
   } catch (error: any) {
@@ -421,15 +420,15 @@ export async function createBookingAction(
         if (error.message.toLowerCase().includes("permission-denied") || error.message.includes("Άρνηση Πρόσβασης")) {
            detailedMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
         } else if (error.message.includes("Κωδικός Σφάλματος") || (typeof error.code === 'string' && error.code) || (typeof error.code === 'number' && error.code) ) {
-           detailedMessage = error.message; 
+           detailedMessage = error.message;
            if(!detailedMessage.includes("Κωδικός Σφάλματος") && error.code) {
             detailedMessage += ` (Κωδικός Σφάλματος: ${error.code})`;
            }
         } else {
-           detailedMessage = error.message; 
+           detailedMessage = error.message;
         }
-    } else if (error.code) { 
-        detailedMessage += ` (Κωδικός Σφάλματος: ${String(error.code)})`; 
+    } else if (error.code) {
+        detailedMessage += ` (Κωδικός Σφάλματος: ${String(error.code)})`;
     }
     console.error("[createBookingAction - Server Action] Outer try-catch error in createBookingAction. Final error message for client:", detailedMessage, error.stack);
     return { success: false, message: detailedMessage };
@@ -440,35 +439,35 @@ export async function createBookingAction(
 export async function getBookingsForStoreAndDate(storeId: string, dateString: string): Promise<Booking[]> {
   console.log(`[getBookingsForStoreAndDate - Server Action] Admin SDK: Called for storeId: ${storeId}, dateString: ${dateString}`);
   try {
-    const parts = dateString.split('-').map(Number); 
+    const parts = dateString.split('-').map(Number);
     if (parts.length !== 3 || parts.some(isNaN) || parts[1] < 1 || parts[1] > 12 || parts[2] < 1 || parts[2] > 31) {
         const dateParseErrorMsg = `[getBookingsForStoreAndDate - Server Action] Admin SDK: Invalid dateString format or value: ${dateString}. Expected YYYY-MM-DD.`;
         console.error(dateParseErrorMsg, "Parts:", parts);
         return [];
     }
-    const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0)); 
-    
+    const targetDateUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0));
+
     const startOfDayTimestamp = admin.firestore.Timestamp.fromDate(targetDateUTC);
     const endOfDayTargetUTC = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999));
     const endOfDayTimestamp = admin.firestore.Timestamp.fromDate(endOfDayTargetUTC);
-    
+
     console.log(`[getBookingsForStoreAndDate - Server Action] Admin SDK: Querying bookings for date ${targetDateUTC.toISOString().split('T')[0]} (UTC)`);
     console.log(`[getBookingsForStoreAndDate - Server Action] Admin SDK: Querying between Timestamp ${startOfDayTimestamp.toDate().toISOString()} and ${endOfDayTimestamp.toDate().toISOString()}`);
 
-    const bookingsRef = adminDb.collection(BOOKINGS_COLLECTION); 
-    const q = bookingsRef 
+    const bookingsRef = adminDb.collection(BOOKINGS_COLLECTION);
+    const q = bookingsRef
       .where("storeId", "==", storeId)
-      .where("bookingDate", ">=", startOfDayTimestamp) 
-      .where("bookingDate", "<=", endOfDayTimestamp); 
+      .where("bookingDate", ">=", startOfDayTimestamp)
+      .where("bookingDate", "<=", endOfDayTimestamp);
 
     const querySnapshot = await q.get();
     const bookings = querySnapshot.docs.map(docSnap => {
-      const data = docSnap.data() as BookingDocumentData; 
+      const data = docSnap.data() as BookingDocumentData;
       return {
         ...data,
         id: docSnap.id,
-        bookingDate: data.bookingDate.toDate().toISOString().split('T')[0], 
-        createdAt: data.createdAt instanceof admin.firestore.Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(), 
+        bookingDate: data.bookingDate.toDate().toISOString().split('T')[0],
+        createdAt: data.createdAt instanceof admin.firestore.Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
       } as Booking;
     });
     console.log(`[getBookingsForStoreAndDate - Server Action] Admin SDK: Found ${bookings.length} bookings for store ${storeId} on ${dateString}.`);
@@ -481,4 +480,81 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
     return [];
   }
 }
-    
+
+// NEW SERVER ACTION FOR SAVING/UNSAVING STORES
+export async function toggleSavedStore(storeId: string, userId: string, isCurrentlySaved: boolean): Promise<{ success: boolean; message: string }> {
+  console.log(`[toggleSavedStore - Server Action] Called for storeId: ${storeId}, userId: ${userId}, isCurrentlySaved: ${isCurrentlySaved}`);
+
+  if (!userId) {
+    return { success: false, message: "Πρέπει να συνδεθείτε για να αποθηκεύσετε/καταργήσετε την αποθήκευση κέντρων." };
+  }
+
+  const userProfileRef = adminDb.collection(USER_PROFILES_COLLECTION).doc(userId);
+  const storeRef = adminDb.collection(STORE_COLLECTION).doc(storeId); // Reference to the store document
+
+  try {
+    const [userProfileDoc, storeDoc] = await Promise.all([
+        userProfileRef.get(),
+        storeRef.get()
+    ]);
+
+    if (!storeDoc.exists) {
+        console.error(`[toggleSavedStore - Server Action] Store with ID ${storeId} not found.`);
+        return { success: false, message: "Το κατάστημα δεν βρέθηκε." };
+    }
+
+    if (!userProfileDoc.exists) {
+      // If user profile doesn't exist, create it with the storeId in savedStores
+      await userProfileRef.set({
+        uid: userId,
+        savedStores: [storeId],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true }); // merge:true is important to not overwrite existing profile data if any
+
+      // Also update the store's savedByUsers array
+      await storeRef.update({
+        savedByUsers: admin.firestore.FieldValue.arrayUnion(userId)
+      });
+      revalidatePath(`/stores/${storeId}`);
+      revalidatePath(`/dashboard/saved-stores`);
+      console.log(`[toggleSavedStore - Server Action] Created user profile and saved store ${storeId} for user ${userId}`);
+      return { success: true, message: "Το κέντρο αποθηκεύτηκε επιτυχώς!" };
+    }
+
+    const userProfileData = userProfileDoc.data() as UserProfileFirestoreData;
+    const savedStores = userProfileData.savedStores || [];
+
+    if (savedStores.includes(storeId)) {
+      // Store is already saved, so unsave it
+      await userProfileRef.update({
+        savedStores: admin.firestore.FieldValue.arrayRemove(storeId)
+      });
+      await storeRef.update({
+        savedByUsers: admin.firestore.FieldValue.arrayRemove(userId)
+      });
+      revalidatePath(`/stores/${storeId}`);
+      revalidatePath(`/dashboard/saved-stores`);
+      console.log(`[toggleSavedStore - Server Action] Unsaved store ${storeId} for user ${userId}`);
+      return { success: true, message: "Το κέντρο αφαιρέθηκε από τις αποθηκευμένες." };
+    } else {
+      // Store is not saved, so save it
+      await userProfileRef.update({
+        savedStores: admin.firestore.FieldValue.arrayUnion(storeId)
+      });
+      await storeRef.update({
+        savedByUsers: admin.firestore.FieldValue.arrayUnion(userId)
+      });
+      revalidatePath(`/stores/${storeId}`);
+      revalidatePath(`/dashboard/saved-stores`);
+      console.log(`[toggleSavedStore - Server Action] Saved store ${storeId} for user ${userId}`);
+      return { success: true, message: "Το κέντρο αποθηκεύτηκε επιτυχώς!" };
+    }
+  } catch (error: any) {
+    console.error(`[toggleSavedStore - Server Action] Error toggling saved store for user ${userId}, store ${storeId}. Code: ${String(error.code || 'N/A')}, Message: ${error.message || 'Unknown error'}`, error.stack);
+    let message = "Παρουσιάστηκε σφάλμα κατά την αποθήκευση του κέντρου. Παρακαλώ δοκιμάστε ξανά.";
+    if (String(error.code).includes('permission-denied') || String(error.message).toLowerCase().includes('permission')) {
+      message = "Άρνηση Πρόσβασης: Δεν έχετε δικαίωμα να αποθηκεύσετε κέντρα. Ελέγξτε τα δικαιώματά σας ή τους κανόνες ασφαλείας.";
+    }
+    return { success: false, message };
+  }
+}

@@ -4,14 +4,14 @@ import { getStoreByIdFromDB } from '@/lib/storeService';
 import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot, StoreCategory } from '@/lib/types';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags } from 'lucide-react';
+import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags, Heart } from 'lucide-react'; // Import Heart icon
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
 import { ProductListItem } from '@/components/store/ProductListItem';
 import { ContactForm } from '@/components/shared/ContactForm';
 import { ReviewForm } from '@/components/store/ReviewForm';
-import { submitStoreQuery, addReviewAction } from './actions';
+import { submitStoreQuery, addReviewAction, toggleSavedStore } from './actions'; // Import toggleSavedStore
 import { AppCategories } from '@/lib/types';
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import { Button } from '@/components/ui/button';
@@ -23,14 +23,23 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { SingleStoreMap } from '@/components/maps/SingleStoreMap';
 import { cn } from '@/lib/utils';
+import { useSession } from 'next-auth/react'; // Import useSession for user authentication
+
+// ADDED IMPORTS FOR THE ICONS (kept from previous changes)
+import VerifiedIconComponent from '@/components/icons/VerifiedIconComponent';
+import PremiumIconComponent from '@/components/icons/PremiumIconComponent';
+// END ADDITIONS
 
 export default function StoreDetailPage() {
   const params = useParams<{ storeId: string }>();
   const storeId = params.storeId;
+  const { data: session, status } = useSession(); // Get user session
+  const userId = session?.user?.id; // Assuming your session has a user.id
 
   const [storeData, setStoreData] = useState<Store | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false); // State to track if the store is saved
 
   const [selectedServiceForBooking, setSelectedServiceForBooking] = useState<Service | null>(null);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
@@ -45,6 +54,11 @@ export default function StoreDetailPage() {
           const fetchedStore = await getStoreByIdFromDB(currentStoreId);
           if (fetchedStore) {
             setStoreData(fetchedStore);
+            // Check if the store is saved by the current user
+            if (userId) {
+              const savedStores = fetchedStore.savedByUsers || [];
+              setIsSaved(savedStores.includes(userId));
+            }
           } else {
             setStoreData(null);
           }
@@ -64,8 +78,43 @@ export default function StoreDetailPage() {
     if (storeId) {
       fetchStore();
     }
-  }, [storeId]);
+  }, [storeId, userId]); // Re-run effect when userId changes
 
+  const handleToggleSave = async () => {
+    if (!userId || !storeData?.id) {
+      // Potentially show a toast or redirect to login if not authenticated
+      console.warn("User not logged in or store ID missing. Cannot save/unsave.");
+      return;
+    }
+    try {
+      // Optimistic UI update
+      setIsSaved(prev => !prev);
+      const result = await toggleSavedStore(storeData.id, userId, !isSaved);
+      if (result.success) {
+        // Optionally update storeData.savedByUsers to reflect the change immediately
+        setStoreData(prevStore => {
+          if (!prevStore) return null;
+          const updatedSavedByUsers = new Set(prevStore.savedByUsers || []);
+          if (!isSaved) { // If it was not saved, now it is
+            updatedSavedByUsers.add(userId);
+          } else { // If it was saved, now it's not
+            updatedSavedByUsers.delete(userId);
+          }
+          return { ...prevStore, savedByUsers: Array.from(updatedSavedByUsers) };
+        });
+      } else {
+        // Revert optimistic update if action failed
+        setIsSaved(prev => !prev);
+        console.error("Failed to toggle saved store:", result.message);
+        // Show an error toast
+      }
+    } catch (error) {
+      // Revert optimistic update if action failed
+      setIsSaved(prev => !prev);
+      console.error("Error toggling saved store:", error);
+      // Show an error toast
+    }
+  };
 
   if (isLoading || storeData === undefined) {
     return (
@@ -98,7 +147,7 @@ export default function StoreDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
         <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
-        <h1 className="text-3xl font-bold text-destructive mb-4">Σφάλμα Φόρτωσης</h1>
+        <h1 className="3xl font-bold text-destructive mb-4">Σφάλμα Φόρτωσης</h1>
         <p className="text-md text-muted-foreground mb-6">{error}</p>
       </div>
     );
@@ -108,7 +157,7 @@ export default function StoreDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
         <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
-        <h1 className="text-4xl font-bold text-foreground mb-2">Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε</h1>
+        <h1 className="4xl font-bold text-foreground mb-2">Το Κέντρο Εξυπηρέτησης δεν Βρέθηκε</h1>
         <p className="text-lg text-muted-foreground mb-8">
           Λυπούμαστε, δεν μπορέσαμε να βρούμε το κέντρο εξυπηρέτησης που αναζητούσατε.
         </p>
@@ -132,6 +181,11 @@ export default function StoreDetailPage() {
     services: storeData.services || [],
     availability: storeData.availability || [],
     categories: storeData.categories || [],
+    iconType: (typeof storeData.iconType === 'string' && (storeData.iconType === 'verified' || storeData.iconType === 'premium'))
+              ? storeData.iconType
+              : undefined,
+    // Ensure savedByUsers is also part of SerializedStore if it's not already
+    savedByUsers: storeData.savedByUsers || [],
   };
 
 
@@ -151,6 +205,10 @@ export default function StoreDetailPage() {
     setIsBookingDialogOpen(true);
   };
 
+  const weekDaysTranslated = [
+    'Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'
+  ];
+
   return (
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl">
@@ -165,6 +223,18 @@ export default function StoreDetailPage() {
               priority
             />
             <div className="absolute inset-0 bg-black/30" />
+            {/* Save Button on Banner */}
+            {status === 'authenticated' && userId && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 z-20 text-white hover:text-red-500 hover:bg-white/20 backdrop-blur-sm rounded-full"
+                onClick={handleToggleSave}
+                aria-label={isSaved ? "Unsave store" : "Save store"}
+              >
+                <Heart className={cn("w-6 h-6", isSaved ? "fill-red-500 text-red-500" : "text-white")} />
+              </Button>
+            )}
           </div>
         )}
         <CardHeader className="p-6 relative mt-[-36px] sm:mt-[-44px] z-10 flex flex-col sm:flex-row items-start sm:items-end gap-4">
@@ -177,7 +247,16 @@ export default function StoreDetailPage() {
             data-ai-hint="logo"
           />
           <div className="flex-1 pt-4 sm:pt-0">
-            <CardTitle className="text-3xl md:text-4xl font-bold text-foreground">{serializableStore.name}</CardTitle>
+            <CardTitle className="text-3xl md:text-4xl font-bold text-foreground flex items-center gap-x-4">
+              {serializableStore.name}
+              {serializableStore.iconType === 'verified' && (
+                  <VerifiedIconComponent className="w-[146px] h-[40px] store-icon" />
+              )}
+              {serializableStore.iconType === 'premium' && (
+                  <PremiumIconComponent className="w-[180px] h-[40px] store-icon" />
+              )}
+            </CardTitle>
+
             <CardDescription className="text-md text-muted-foreground mt-1">{serializableStore.description}</CardDescription>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               {averageRating > 0 && (
@@ -202,6 +281,18 @@ export default function StoreDetailPage() {
               )}
             </div>
           </div>
+          {/* Save Button on the right corner of the CardHeader */}
+          {status === 'authenticated' && userId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-6 right-6 z-20 text-muted-foreground hover:text-red-500"
+              onClick={handleToggleSave}
+              aria-label={isSaved ? "Unsave store" : "Save store"}
+            >
+              <Heart className={cn("w-6 h-6", isSaved ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
+            </Button>
+          )}
         </CardHeader>
       </Card>
 
@@ -212,74 +303,122 @@ export default function StoreDetailPage() {
   <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
   <TabsTrigger value="pricing">Πακέτα</TabsTrigger>
   <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
-  {/* The "Write a Review" trigger has been removed */}
   <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
 </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Σχετικά με το {serializableStore.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground whitespace-pre-line">{serializableStore.longDescription || serializableStore.description}</p>
-              {serializableStore.categories && serializableStore.categories.length > 0 && (
-                 <div className="mt-4">
-                    <h3 className="text-sm font-semibold mb-2 text-foreground">Κατηγορίες:</h3>
-                    <div className="flex flex-wrap gap-2">
-                    {serializableStore.categories.map(slug => {
-                        const catInfo = AppCategories.find(c => c.slug === slug);
-                        return catInfo ? (
-                            <Link key={slug} href={`/category/${slug}`} legacyBehavior>
-                                <a className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/80 transition-colors">
-                                    {catInfo.translatedName}
-                                </a>
-                            </Link>
-                        ) : null;
-                    })}
-                    </div>
-                </div>
-              )}
-              {serializableStore.tags && serializableStore.tags.length > 0 && (
-                 <div className="mt-4">
-                    <h3 className="text-sm font-semibold mb-2 text-foreground">Ετικέτες:</h3>
-                    <div className="flex flex-wrap gap-2">
-                    {serializableStore.tags.map(tag => (
-                        <span key={tag} className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded-full flex items-center">
-                          <Tag className="w-3 h-3 mr-1.5" />
-                          {tag}
-                        </span>
-                    ))}
-                    </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* START: NEW FLEX CONTAINER FOR INFO AND MAP CARDS */}
+          <div className="flex flex-col lg:flex-row gap-6">
 
-          {serializableStore.location && (
-            <Card>
-                <CardHeader>
+            {/* Store Info Card (Left Column) */}
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle>Σχετικά με το {serializableStore.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground whitespace-pre-line">{serializableStore.longDescription || serializableStore.description}</p>
+
+                {/* Categories and Tags */}
+                <div className="mt-4 flex flex-col md:flex-row gap-6">
+                  {serializableStore.categories && serializableStore.categories.length > 0 && (
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-2 text-foreground">Κατηγορίες:</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {serializableStore.categories.map(slug => {
+                          const catInfo = AppCategories.find(c => c.slug === slug);
+                          return catInfo ? (
+                            <Link key={slug} href={`/category/${slug}`} legacyBehavior>
+                              <a className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/80 transition-colors">
+                                {catInfo.translatedName}
+                              </a>
+                            </Link>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {serializableStore.tags && serializableStore.tags.length > 0 && (
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-2 text-foreground">Ετικέτες:</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {serializableStore.tags.map(tag => (
+                          <span key={tag} className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded-full flex items-center">
+                            <Tag className="w-3 h-3 mr-1.5" />
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Right Column: Location and Opening Hours */}
+            <div className="flex flex-col flex-1 gap-6">
+              {/* Location Card (Map) - This remains unchanged */}
+              {serializableStore.location && (
+                <Card className="flex-1">
+                  <CardHeader>
                     <CardTitle>Τοποθεσία</CardTitle>
                     {serializableStore.address && (
-                        <CardDescription>
-                            <MapPin className="inline-block w-4 h-4 mr-1 text-muted-foreground" />
-                            {serializableStore.address}
-                        </CardDescription>
+                      <CardDescription>
+                        <MapPin className="inline-block w-4 h-4 mr-1 text-muted-foreground" />
+                        {serializableStore.address}
+                      </CardDescription>
                     )}
-                </CardHeader>
-                <CardContent>
+                  </CardHeader>
+                  <CardContent>
                     <div className="h-80 w-full rounded-md overflow-hidden border shadow-inner">
-                        <SingleStoreMap
-                            key={serializableStore.id}
-                            latitude={serializableStore.location.latitude}
-                            longitude={serializableStore.location.longitude}
-                            storeName={serializableStore.name}
-                            zoom={15}
-                        />
+                      <SingleStoreMap
+                        key={serializableStore.id}
+                        latitude={serializableStore.location.latitude}
+                        longitude={serializableStore.location.longitude}
+                        storeName={serializableStore.name}
+                        zoom={15}
+                      />
                     </div>
-                </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Weekly Availability Card - Moved here */}
+              {serializableStore.availability && serializableStore.availability.length > 0 && (
+                <Card className="flex-1">
+                  <CardHeader>
+                    <CardTitle>Ώρες Λειτουργίας</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {weekDaysTranslated.map((dayName, index) => {
+                        const dayAvailability = serializableStore.availability.find(
+                          (slot) => slot.dayOfWeek === index
+                        );
+                        const isClosed = !dayAvailability || (!dayAvailability.startTime && !dayAvailability.endTime);
+
+                        return (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <span className="font-semibold flex items-center">
+                              <CalendarDays className="w-4 h-4 mr-2 text-muted-foreground" />
+                              {dayName}
+                            </span>
+                            <span>
+                              {isClosed
+                                ? <span className="text-red-500">Κλειστά</span>
+                                : `${dayAvailability.startTime} - ${dayAvailability.endTime}`
+                              }
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+          {/* END: NEW FLEX CONTAINER FOR INFO AND MAP CARDS */}
 
           <Card>
             <CardHeader>
@@ -300,7 +439,7 @@ export default function StoreDetailPage() {
                           className="object-contain"
                           onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
                         />
-                    
+
                       </div>
                     ))}
                   </div>
@@ -329,7 +468,7 @@ export default function StoreDetailPage() {
                           className="object-contain"
                           onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
                         />
-                    
+
                       </div>
                     ))}
                   </div>
@@ -352,7 +491,7 @@ export default function StoreDetailPage() {
                       <h4 className="font-semibold text-foreground">{feature.name}</h4>
                       {feature.description && <p className="text-xs text-muted-foreground">{feature.description}</p>}
                     </div>
-                  </div> // This is the line your error image is pointing to.
+                  </div>
                 ))}
               </CardContent>
             </Card>

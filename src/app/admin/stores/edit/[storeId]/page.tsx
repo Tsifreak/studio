@@ -83,6 +83,9 @@ export default async function EditStorePage({ params }: EditStorePageProps) {
                   : undefined, // Or handle if it's a GeoPoint instance from getStoreByIdFromDB
         specializedBrands: storeData.specializedBrands || [],
         tyreBrands: storeData.tyreBrands || [],
+        iconType: (typeof storeData.iconType === 'string' && (storeData.iconType === 'verified' || storeData.iconType === 'premium'))
+                  ? storeData.iconType
+                  : undefined,
     };
 
     // Use resolvedParams.storeId for binding, ensuring it's always a string

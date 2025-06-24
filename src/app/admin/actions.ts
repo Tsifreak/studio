@@ -1,4 +1,3 @@
-
 "use server";
 
 import { revalidatePath } from 'next/cache';
@@ -6,8 +5,7 @@ import { z } from 'zod';
 import type { Store, StoreCategory, StoreFormData, SerializedStore, SerializedFeature, Service, AvailabilitySlot } from '@/lib/types';
 import { AppCategories, StoreCategoriesSlugs } from '@/lib/types';
 import { adminDb, adminStorage, admin } from '@/lib/firebase-admin';
-import type { GeoPoint as AdminGeoPoint } from 'firebase-admin/firestore';
-import { Timestamp as FirestoreTimestamp } from '@google-cloud/firestore';
+import type { GeoPoint as AdminGeoPoint, FieldValue } from 'firebase-admin/firestore';
 
 const STORE_COLLECTION = 'StoreInfo';
 const MAX_FILE_SIZE_MB = 2;
@@ -65,6 +63,15 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
 }
 
 function serializeStoreForClient(store: Store): SerializedStore {
+    // Determine the iconType for the client
+    let clientIconType: 'verified' | 'premium' | undefined;
+    if (store.iconType && typeof store.iconType === 'string') {
+        // Only assign if it's one of the expected string literal values
+        if (store.iconType === 'verified' || store.iconType === 'premium') {
+            clientIconType = store.iconType;
+        }
+    }
+
     return {
         id: store.id,
         name: store.name,
@@ -93,8 +100,6 @@ function serializeStoreForClient(store: Store): SerializedStore {
             isoDateString = date.toDate().toISOString();
           } else if (date && typeof date._seconds === 'number' && typeof date._nanoseconds === 'number') {
             isoDateString = new Date(date._seconds * 1000 + date._nanoseconds / 1000000).toISOString();
-          } else if (date && typeof date.seconds === 'number' && typeof date.nanoseconds === 'number') {
-            isoDateString = new Date(date.seconds * 1000 + date.nanoseconds / 1000000).toISOString();
           } else if (typeof date === 'string') {
             isoDateString = new Date(date).toISOString();
           } else if (date instanceof Date) {
@@ -111,6 +116,9 @@ function serializeStoreForClient(store: Store): SerializedStore {
                   (store.location && typeof store.location.latitude === 'number' && typeof store.location.longitude === 'number') ? { latitude: store.location.latitude, longitude: store.location.longitude } : undefined,
         specializedBrands: store.specializedBrands || [],
         tyreBrands: store.tyreBrands || [],
+        iconType: (typeof store.iconType === 'string' && (store.iconType === 'verified' || store.iconType === 'premium'))
+            ? store.iconType
+            : undefined, // Ensures FieldValue.delete() or any other non-string/invalid string becomes undefined
     };
 }
 
@@ -146,7 +154,7 @@ const storeDbSchema = z.object({
       return slugs.every(slug => StoreCategoriesSlugs.includes(slug));
     }, {
         message: `Μία ή περισσότερες κατηγορίες δεν είναι έγκυρες. Έγκυρες τιμές: ${StoreCategoriesSlugs.join(', ')}`,
-    }).optional(), // .optional() means if the field is not provided (undefined), it's okay.
+    }).optional(),
     contactEmail: z.string().email({ message: "Παρακαλώ εισάγετε ένα έγκυρο email επικοινωνίας." }).optional().or(z.literal('')),
     websiteUrl: z.string().url({ message: "Παρακαλώ εισάγετε ένα έγκυρο URL ιστοσελίδας." }).optional().or(z.literal('')),
     latitude: z.string()
@@ -185,6 +193,7 @@ const storeDbSchema = z.object({
     }, { message: "Μη έγκυρο JSON για τη διαθεσιμότητα ή δεν συμφωνεί με το σχήμα." }),
     specializedBrands: specializedBrandsSchema,
     tyreBrands: tyreBrandsSchema,
+    iconType: z.enum(['verified', 'premium']).optional().or(z.literal('')),
 });
 
 export async function addStoreAction(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; errors?: any; store?: SerializedStore }> {
@@ -248,6 +257,7 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
         availabilityJson: formData.get('availabilityJson') as string || '[]',
         // Assuming specializedBrands comes as FormData entry, potentially as a comma-separated string or an array (handled by form library?)
         // If it's an array of strings from the form, Zod handles it. If it's a single string, you might need refinement.
+        iconType: (formData.get('iconType') as string) || '',
     });
 
 
@@ -264,13 +274,13 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
 
 
     try {
-        const { ownerId, servicesJson, availabilityJson, tagsInput, specializedBrands, tyreBrands, latitude, longitude, ...storeCoreData } = validatedFields.data;
-        
+        const { ownerId, servicesJson, availabilityJson, tagsInput, specializedBrands, tyreBrands, latitude, longitude, iconType, ...storeCoreData } = validatedFields.data;
+        console.log("[updateStoreAction] Debug: iconType from validatedFields.data:", iconType, "Type:", typeof iconType);
         let categoriesToSave: StoreCategory[] = [];
         // If validatedCategoriesInputFromZod is a string (even empty), parse it.
         // If it's undefined (field not submitted), categoriesToSave remains [].
         if (validatedCategoriesInputFromZod !== undefined) {
-            categoriesToSave = (validatedCategoriesInputFromZod ?? '') // Use validated input
+            categoriesToSave = (validatedCategoriesInputFromZod ?? '')
                 .split(',')
                 .map((s) => s.trim().toLowerCase())
                 .filter(Boolean) as StoreCategory[];
@@ -307,8 +317,9 @@ export async function addStoreAction(prevState: any, formData: FormData): Promis
             rating: 0,
             services,
             availability,
-            specializedBrands: specializedBrands || [], // Use validated data
-            tyreBrands: tyreBrands || [], // Initialize with validated data or empty array
+            specializedBrands: specializedBrands || [],
+            tyreBrands: tyreBrands || [],
+            iconType: iconType === '' ? undefined : (iconType as 'verified' | 'premium'),
         };
 
         const docRef = await adminDb.collection(STORE_COLLECTION).add(storeDataForDB);
@@ -411,6 +422,7 @@ console.log("[updateStoreAction] FormData for tyreBrands:", formData.getAll('tyr
         specializedBrands: formData.getAll('specializedBrands') as string[] | undefined, // Assuming checkboxes send an array
         // Explicitly include tyreBrands from formData using getAll
         tyreBrands: formData.getAll('tyreBrands') as string[] | undefined, // Ensure tyreBrands is passed to Zod
+        iconType: (formData.get('iconType') as string) || '',
     });
 
     if (!validatedFields.success) {
@@ -426,14 +438,20 @@ console.log("[updateStoreAction] FormData for tyreBrands:", formData.getAll('tyr
 
 
     try {
-        const { servicesJson, availabilityJson, tagsInput, specializedBrands, tyreBrands, latitude, longitude, ...dataToUpdate } = validatedFields.data;
-
+        // Destructure all validated data fields, then explicitly build the payload.
+        const {
+            name, logoUrl, bannerUrl, description, longDescription,
+            contactEmail, websiteUrl, address, latitude, longitude,
+            ownerId, servicesJson, availabilityJson, tagsInput,
+            specializedBrands, tyreBrands, iconType
+        } = validatedFields.data;
+        console.log("[updateStoreAction] Debug: iconType after Zod validation:", iconType, "Type:", typeof iconType);
         let categoriesToUseInUpdate: StoreCategory[];
 
         if (validatedCategoriesInputFromZod !== undefined) {
             // Field was present in form data (could be "" or "slug,slug")
             // This means user interacted with checkboxes or the field was submitted with a value (even empty).
-            categoriesToUseInUpdate = (validatedCategoriesInputFromZod ?? '') // Use validated string
+            categoriesToUseInUpdate = (validatedCategoriesInputFromZod ?? '')
                 .split(',')
                 .map(s => s.trim().toLowerCase())
                 .filter(Boolean) as StoreCategory[];
@@ -446,19 +464,19 @@ console.log("[updateStoreAction] FormData for tyreBrands:", formData.getAll('tyr
         }
 
 
-        const firestoreUpdatePayload: Partial<Omit<Store, 'id' | 'location' | 'reviews'>> & { location?: AdminGeoPoint; reviews?: any[] } = {
-            name: dataToUpdate.name,
-            logoUrl: validatedFields.data.logoUrl || '',
-            bannerUrl: validatedFields.data.bannerUrl,
-            description: dataToUpdate.description,
-            longDescription: dataToUpdate.longDescription,
-            contactEmail: dataToUpdate.contactEmail,
-            websiteUrl: dataToUpdate.websiteUrl,
-            address: dataToUpdate.address ?? null,
+        const firestoreUpdatePayload: Partial<Omit<Store, 'id' | 'location' | 'reviews'>> & { location?: AdminGeoPoint; reviews?: any[]; iconType?: 'verified' | 'premium' | FieldValue; } = {
+            name: name,
+            logoUrl: logoUrl || '',
+            bannerUrl: bannerUrl,
+            description: description,
+            longDescription: longDescription,
+            contactEmail: contactEmail,
+            websiteUrl: websiteUrl,
+            address: address ?? null,
             location: new admin.firestore.GeoPoint(parseFloat(latitude), parseFloat(longitude)),
             categories: categoriesToUseInUpdate,
             tags: tagsInput !== undefined ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : existingStoreData.tags || [],
-            ownerId: dataToUpdate.ownerId === '' ? null : (dataToUpdate.ownerId || existingStoreData.ownerId || null),
+            ownerId: ownerId === '' ? null : (ownerId || existingStoreData.ownerId || null),
             services: servicesJson ? JSON.parse(servicesJson) : (existingStoreData.services || []),
             availability: availabilityJson ? JSON.parse(availabilityJson) : (existingStoreData.availability || []),
             features: existingStoreData.features || [],
@@ -490,8 +508,9 @@ console.log("[updateStoreAction] FormData for tyreBrands:", formData.getAll('tyr
                 return { ...review, date: jsDate }; // Pass a standard JavaScript Date object
             }),
             rating: existingStoreData.rating || 0,
- specializedBrands: specializedBrands !== undefined ? specializedBrands : existingStoreData.specializedBrands || [],
-            tyreBrands: tyreBrands !== undefined ? tyreBrands : existingStoreData.tyreBrands || [], // Use validated data or retain existing
+            specializedBrands: specializedBrands !== undefined ? specializedBrands : existingStoreData.specializedBrands || [],
+            tyreBrands: tyreBrands !== undefined ? tyreBrands : existingStoreData.tyreBrands || [],
+            iconType: iconType === '' ? admin.firestore.FieldValue.delete() : (iconType as 'verified' | 'premium'),
         };
 
         console.log("[updateStoreAction] FINAL PAYLOAD for Firestore update:", JSON.stringify(firestoreUpdatePayload, null, 2));
@@ -499,18 +518,18 @@ console.log("[updateStoreAction] FormData for tyreBrands:", formData.getAll('tyr
 
 
         // Perform the Firestore update
- await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload as any) // Type assertion due to potential GeoPoint type mismatch with Partial<Omit<Store...>>
+        await adminDb.collection(STORE_COLLECTION).doc(storeId).update(firestoreUpdatePayload as any)
             .catch(updateError => {
                 console.error(`[updateStoreAction] Firestore update error for storeId ${storeId}:`, updateError);
                 throw updateError; // Re-throw to be caught by the main try...catch block
             });
         
         // Revalidate paths after successful update
- revalidatePath('/admin/stores');
- revalidatePath(`/admin/stores/edit/${storeId}`);
- revalidatePath('/');
- AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
- revalidatePath(`/stores/${storeId}`);
+        revalidatePath('/admin/stores');
+        revalidatePath(`/admin/stores/edit/${storeId}`);
+        revalidatePath('/');
+        AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
+        revalidatePath(`/stores/${storeId}`);
 
         const updatedDocSnap = await adminDb.collection(STORE_COLLECTION).doc(storeId).get();
         if (!updatedDocSnap.exists) {
@@ -530,7 +549,7 @@ console.log("[updateStoreAction] FormData for tyreBrands:", formData.getAll('tyr
     } catch (error: any) {
         console.error("[updateStoreAction] Error during store update process with Admin SDK:", error);
         let message = `Αποτυχία ενημέρωσης κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message || 'Unknown error'}`;
- if (error.code) message += ` (Code: ${error.code})`;
+        if (error.code) message += ` (Code: ${error.code})`;
          if (error.message && error.message.includes("GeoPoint")) {
           message = `Σφάλμα με το GeoPoint: ${error.message}. Βεβαιωθείτε ότι οι συντεταγμένες είναι έγκυρες.`;
         }
@@ -549,12 +568,10 @@ export async function deleteStoreAction(storeId: string): Promise<{ success: boo
         revalidatePath('/admin/stores');
         revalidatePath('/');
         AppCategories.forEach(cat => revalidatePath(`/category/${cat.slug}`));
-        revalidatePath(`/stores/${storeId}`); // Revalidate the specific store page
+        revalidatePath(`/stores/${storeId}`);
         return { success: true, message: "Το κέντρο διαγράφηκε επιτυχώς." };
     } catch (error: any) {
         console.error("Error deleting store with Admin SDK:", error);
         return { success: false, message: `Αποτυχία διαγραφής κέντρου. Παρακαλώ δοκιμάστε ξανά. Error: ${error.message}` };
     }
 }
-
-    

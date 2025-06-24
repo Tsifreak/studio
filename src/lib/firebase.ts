@@ -1,12 +1,9 @@
-
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { getAuth, type Auth, browserSessionPersistence, setPersistence } from 'firebase/auth'; // Ensure these are imported
 import { getAnalytics, isSupported as isAnalyticsSupported, type Analytics } from "firebase/analytics";
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyADVwbjwShAfT3p0oyhzvmi0Nu9v7xg89w",
   authDomain: "cariera-9ba32.firebaseapp.com",
@@ -17,16 +14,13 @@ const firebaseConfig = {
   measurementId: "G-BK5CY4C4YP"
 };
 
-// Initialize Firebase
 let app: FirebaseApp;
-
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApp();
 }
 
-// Initialize Analytics (conditionally on client-side)
 let analytics: Analytics | undefined;
 if (typeof window !== 'undefined') {
   isAnalyticsSupported().then((supported) => {
@@ -38,13 +32,12 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Initialize Firebase Authentication and get a reference to the service
 const auth: Auth = getAuth(app);
+// --- Ensure this line is present ---
+setPersistence(auth, browserSessionPersistence);
+// --- End ensure ---
 
-// Initialize Cloud Firestore and get a reference to the service
 const db: Firestore = getFirestore(app);
-
-// Initialize Firebase Storage and get a reference to the service
 const storage: FirebaseStorage = getStorage(app);
 
 export { app, auth, analytics, db, storage };

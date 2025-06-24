@@ -28,6 +28,10 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { TrashIcon } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue // <<< ADD THIS IMPORT for Select
+} from '@/components/ui/select'; // <<< ADD THIS IMPORT for Select
+
 
 const DynamicStoreMap = dynamic(() =>
   import('./StoreMap').then((mod) => mod.StoreMap), {
@@ -79,6 +83,7 @@ const clientStoreFormSchema = z.object({
   tyreBrands: z.array(z.string()).optional(), // Added for tyre brands
   existingLogoUrl: z.string().optional(),
   existingBannerUrl: z.string().optional(),
+  iconType: z.enum(['verified', 'premium', 'none']).optional().or(z.literal('')), // <<< MODIFIED: Add 'none' to enum
 });
 
 type ClientStoreFormValues = z.infer<typeof clientStoreFormSchema>;
@@ -123,8 +128,8 @@ const getDefaultAvailability = () => weekDays.map((_, index) => ({
 }));
 
 export function StoreForm({ store, action }: StoreFormProps) {
-  console.log("[StoreForm - Initial Load] Store prop received:", store);
-  console.log("[StoreForm - Initial Load] Tyre Brands from prop:", store?.tyreBrands);
+  console.log("[StoreForm] Initial store prop on load:", store); // <<< ADD THIS LINE
+  console.log("[StoreForm] Initial store.iconType on load:", store?.iconType); // <<< ADD THIS LINE
   const { toast } = useToast();
   const router = useRouter();
   const [formState, formAction, isPending] = useActionState<ActionFormState, FormData>(action, initialFormState);
@@ -168,6 +173,9 @@ export function StoreForm({ store, action }: StoreFormProps) {
       availabilityJson: store?.availability ? JSON.stringify(store.availability) : '[]', 
       specializedBrands: store?.specializedBrands ?? [],
       tyreBrands: store?.tyreBrands ?? [],
+      iconType: (store?.iconType === 'verified' || store?.iconType === 'premium')
+        ? store.iconType
+        : 'none', 
     },
   });
 
@@ -256,7 +264,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
   const watchedLatitude = form.watch('latitude');
   const watchedLongitude = form.watch('longitude');
   const handleMapCoordinatesChange = useCallback((lat: number, lng: number) => { form.setValue("latitude", lat.toFixed(7)); form.setValue("longitude", lng.toFixed(7)); }, [form]);
-
+  const watchedIconType = form.watch('iconType');
+  
   return (
     <Card className="w-full max-w-4xl mx-auto shadow-xl">
       {/* ... CardHeader ... */}
@@ -284,7 +293,8 @@ export function StoreForm({ store, action }: StoreFormProps) {
               />
           ))}
 
-
+<input type="hidden" name="iconType" value={watchedIconType === 'none' ? '' : watchedIconType || ''} /> {/* <<< MODIFIED: Added || '' for safety */}
+          
            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
             <div className="space-y-6">
               <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Όνομα Κέντρου</FormLabel><FormControl><Input placeholder="π.χ. AutoFix Πάτρας" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -311,7 +321,7 @@ export function StoreForm({ store, action }: StoreFormProps) {
                               }
                             }} /></FormControl><FormLabel className="font-normal cursor-pointer">{brand}</FormLabel></FormItem>))}</div><FormDescription>Επιλέξτε τα brands στα οποία ειδικεύεται το κέντρο.</FormDescription><FormMessage /></FormItem>)} />
 
-              {/* NEW FIELD FOR TYRE BRANDS */}
+              
               <FormField control={form.control} name="tyreBrands" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Εξειδίκευση σε Μάρκες Ελαστικών</FormLabel>
@@ -338,6 +348,38 @@ export function StoreForm({ store, action }: StoreFormProps) {
                   <FormMessage />
                 </FormItem>
               )} />
+
+              {/* [3] ADD NEW FIELD FOR ICON TYPE HERE */}
+              <FormField control={form.control} name="iconType" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Icon Τύπος</FormLabel>
+                  <Select
+        onValueChange={field.onChange} // field.onChange will update the form state with 'none', 'verified', or 'premium'
+        value={field.value} // <<< MODIFIED: Use `value` instead of `defaultValue` and ensure it's controlled
+      >
+
+                    <FormControl>
+                      <SelectTrigger>
+                        {/* Use the displayed text for the SelectValue */}
+                        <SelectValue placeholder="Επιλέξτε έναν τύπο εικονιδίου">
+                            {field.value === "verified" ? "Επαληθευμένο (Verified)" :
+                             field.value === "premium" ? "Premium" : "Επιλέξτε έναν τύπο εικονιδίου"}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Κανένα</SelectItem>
+                      <SelectItem value="verified">Επαληθευμένο (Verified)</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Επιλέξτε ένα εικονίδιο για να εμφανίζεται δίπλα στο όνομα του καταστήματος.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
             </div>
             <div className="space-y-6">
               <FormField control={form.control} name="contactEmail" render={({ field }) => (<FormItem><FormLabel>Email Επικοινωνίας</FormLabel><FormControl><Input type="email" placeholder="contact@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} />

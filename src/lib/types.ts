@@ -1,6 +1,7 @@
-
 import type * as admin from 'firebase-admin';
 import type { Timestamp } from 'firebase/firestore';
+import type { FieldValue } from 'firebase-admin/firestore'; // <<< ADD THIS IMPORT for FieldValue
+
 
 export interface Review {
   id: string;
@@ -123,7 +124,7 @@ export interface Booking {
   serviceName: string;
   serviceDurationMinutes: number;
   servicePrice: number;
-  bookingDate: string; // YYYY-MM-DD format
+  bookingDate: string; // ISO-MM-DD format
   bookingTime: string; // HH:mm format
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: string; // ISO string
@@ -144,11 +145,11 @@ export interface BookingDocumentData {
   serviceDurationMinutes: number;
   servicePrice: number;
   bookingDate: Timestamp | admin.firestore.Timestamp;
-  bookingTime: string;
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
   createdAt: Timestamp | admin.firestore.Timestamp;
   notes?: string;
   ownerId?: string;
+  bookingTime: string; // Re-add this, was missing from your provided BookingDocumentData
 }
 
 
@@ -180,6 +181,9 @@ export interface Store {
   distance?: number; // Optional: for sorting by distance
   specializedBrands?: string[];
   tyreBrands?: string[];
+  iconType?: 'verified' | 'premium' | FieldValue;
+  // ADD THIS LINE
+  savedByUsers?: string[]; // Array of user UIDs who have saved this store
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
@@ -187,15 +191,17 @@ export interface SerializedFeature extends Omit<Feature, 'icon'> {
 }
 
 // SerializedStore needs to reflect the change from single category to multiple categories
-export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability' | 'categories'> {
+export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability' | 'categories' | 'iconType' | 'savedByUsers'> { // <<< MODIFIED: Omit iconType AND savedByUsers from here so it's only string on serialized
   features: SerializedFeature[];
   reviews: Review[];
   services: Service[];
-  availability: AvailabilitySlot[]; 
+  availability: AvailabilitySlot[];
   specializedBrands?: string[]; // Make optional for serialization if not always present
   categories: StoreCategory[]; // Changed from category: StoreCategory
   distance?: number; // Optional: for sorting by distance
-
+  iconType?: 'verified' | 'premium'; // <<< MODIFIED THIS LINE: Only string literal types for client
+  // ADD THIS LINE
+  savedByUsers?: string[]; // Array of user UIDs who have saved this store (should be included in the serialized version too)
 }
 
 export interface UserPreferences {
@@ -211,6 +217,8 @@ export interface UserProfile {
   isAdmin?: boolean;
   totalUnreadMessages: number;
   pendingBookingsCount: number;
+  // ADD THIS LINE
+  savedStores?: string[]; // Add this line
   bookingStatusUpdatesCount: number;
   preferences?: UserPreferences;
 }
@@ -223,6 +231,8 @@ export interface UserProfileFirestoreData {
   totalUnreadMessages?: number;
   pendingBookingsCount?: number;
   bookingStatusUpdatesCount?: number;
+  // ADD THIS LINE
+  savedStores?: string[]; // Add this line
   lastSeen?: Timestamp | admin.firestore.FieldValue;
   createdAt?: Timestamp | admin.firestore.FieldValue;
 }
@@ -240,6 +250,8 @@ export interface QueryFormData {
 }
 
 export interface StoreFormData {
+  longitude: string;
+  latitude: string;
   name: string;
   logoUrl?: string;
   bannerUrl?: string;
@@ -259,6 +271,7 @@ export interface StoreFormData {
   specializedBrands?: string[]; // Make optional for form data
   existingBannerUrl?: string | null;
   tyreBrands?: string[] | undefined; // Add new field for tyre brands
+  iconType?: 'verified' | 'premium' | ''; // <<< ADD THIS LINE
 }
 
 export interface ReviewFormData {
@@ -309,7 +322,7 @@ declare global {
       NEXT_PUBLIC_FIREBASE_PROJECT_ID: string;
       FIREBASE_STORAGE_BUCKET?: string;
       // Add other environment variables your app uses here
-      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?: string;
+      NEXT_PUBLIC_Maps_API_KEY?: string;
     }
   }
 }

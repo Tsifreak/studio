@@ -1,4 +1,3 @@
-
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -10,14 +9,27 @@ import {
   deleteDoc,
   query,
   where,
-  Timestamp as ClientTimestamp, // Client SDK Timestamp
+  Timestamp as ClientTimestamp
 } from 'firebase/firestore';
-import type { Store, Feature, StoreCategory, StoreFormData, SerializedFeature, Review, Product, PricingPlan, Service, AvailabilitySlot } from '@/lib/types';
+
+import type {
+  Store,
+  Feature,
+  StoreCategory,
+  StoreFormData,
+  SerializedFeature,
+  Review,
+  Product,
+  PricingPlan,
+  Service,
+  AvailabilitySlot,
+  UserProfileFirestoreData
+} from '@/lib/types';
+
 import { AppCategories } from './types';
-// AdminTimestamp is only used for type checking/comparison if necessary, not for client-side operations directly here.
-// import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
 
 const STORE_COLLECTION = 'StoreInfo';
+const USER_PROFILES_COLLECTION = 'userProfiles';
 
 const convertTimestampsInReviews = (reviews: any[]): Review[] => {
   if (!Array.isArray(reviews)) {
@@ -27,23 +39,30 @@ const convertTimestampsInReviews = (reviews: any[]): Review[] => {
     const dateVal = review.date;
     let isoDateString: string;
 
-    if (dateVal && typeof (dateVal as any).toDate === 'function') { // Handles Firestore Timestamp instances (client or admin)
+    if (dateVal && typeof (dateVal as any).toDate === 'function') {
       isoDateString = (dateVal as any).toDate().toISOString();
     } else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
-               Object.prototype.hasOwnProperty.call(dateVal, '_seconds') && typeof (dateVal as any)._seconds === 'number' &&
-               Object.prototype.hasOwnProperty.call(dateVal, '_nanoseconds') && typeof (dateVal as any)._nanoseconds === 'number') {
-      // Handles objects like { _seconds: ..., _nanoseconds: ... } (often from Admin SDK or direct Firestore data)
-      isoDateString = new Date((dateVal as any)._seconds * 1000 + (dateVal as any)._nanoseconds / 1000000).toISOString();
+      Object.prototype.hasOwnProperty.call(dateVal, '_seconds') &&
+      typeof (dateVal as any)._seconds === 'number' &&
+      Object.prototype.hasOwnProperty.call(dateVal, '_nanoseconds') &&
+      typeof (dateVal as any)._nanoseconds === 'number') {
+      isoDateString = new Date(
+        (dateVal as any)._seconds * 1000 +
+        (dateVal as any)._nanoseconds / 1000000
+      ).toISOString();
     } else if (dateVal && typeof dateVal === 'object' && dateVal !== null &&
-               Object.prototype.hasOwnProperty.call(dateVal, 'seconds') && typeof (dateVal as any).seconds === 'number' &&
-               Object.prototype.hasOwnProperty.call(dateVal, 'nanoseconds') && typeof (dateVal as any).nanoseconds === 'number') {
-      // Handles objects like { seconds: ..., nanoseconds: ... } (often from client SDK after JSON.stringify/parse)
-      isoDateString = new Date((dateVal as any).seconds * 1000 + (dateVal as any).nanoseconds / 1000000).toISOString();
+      Object.prototype.hasOwnProperty.call(dateVal, 'seconds') &&
+      typeof (dateVal as any).seconds === 'number' &&
+      Object.prototype.hasOwnProperty.call(dateVal, 'nanoseconds') &&
+      typeof (dateVal as any).nanoseconds === 'number') {
+      isoDateString = new Date(
+        (dateVal as any).seconds * 1000 +
+        (dateVal as any).nanoseconds / 1000000
+      ).toISOString();
     } else if (typeof dateVal === 'string') {
-      // Handles if it's already a string (could be ISO or other parsable date string)
       try {
         const d = new Date(dateVal);
-        if (isNaN(d.getTime())) { // Check if the parsed date is valid
+        if (isNaN(d.getTime())) {
           console.warn(`[convertTimestampsInReviews] Date string "${dateVal}" is invalid, using current date as fallback. Review ID: ${review.id}`);
           isoDateString = new Date().toISOString();
         } else {
@@ -54,10 +73,8 @@ const convertTimestampsInReviews = (reviews: any[]): Review[] => {
         isoDateString = new Date().toISOString();
       }
     } else if (dateVal instanceof Date) {
-      // Handles if it's a JavaScript Date object
       isoDateString = dateVal.toISOString();
     } else {
-      // Fallback for any other unexpected type or null/undefined
       console.warn(`[convertTimestampsInReviews] Review date is of an unexpected type or null/undefined, using current date as fallback. Review ID: ${review.id}, Date value:`, dateVal);
       isoDateString = new Date().toISOString();
     }
@@ -71,6 +88,7 @@ const convertTimestampsInReviews = (reviews: any[]): Review[] => {
 
 const mapDocToStore = (docSnapshot: any): Store => {
   const data = docSnapshot.data();
+  console.log(`[mapDocToStore] Raw data from Firestore for ID ${docSnapshot.id}:`, data);
   const store: Store = {
     id: docSnapshot.id,
     name: data.name || '',
@@ -94,6 +112,8 @@ const mapDocToStore = (docSnapshot: any): Store => {
     availability: data.availability || [],
     specializedBrands: data.specializedBrands || [],
     tyreBrands: data.tyreBrands || [],
+    iconType: data.iconType,
+    savedByUsers: data.savedByUsers || [],
   };
   return store;
 };
@@ -123,8 +143,6 @@ export const getStoreByIdFromDB = async (id: string): Promise<Store | undefined>
   }
 };
 
-// These functions are primarily for client-side operations if needed,
-// but admin writes should use the Admin SDK via server actions.
 export async function addStoreToDB(data: StoreFormData): Promise<Store> {
   const storeData: Omit<Store, 'id'> = {
     name: data.name,
@@ -138,16 +156,17 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
     contactEmail: data.contactEmail || '',
     websiteUrl: data.websiteUrl || '',
     address: data.address || '',
-    features: [], // Default to empty, features are usually managed separately or via admin
-    pricingPlans: [], // Default
-    reviews: [], // Default
-    products: [], // Default
+    features: [],
+    pricingPlans: [],
+    reviews: [],
+    products: [],
     ownerId: data.ownerId || null,
     services: data.servicesJson ? JSON.parse(data.servicesJson) : [],
     availability: data.availabilityJson ? JSON.parse(data.availabilityJson) : [],
-    location: { latitude: 0, longitude: 0 }, // Needs to be set, perhaps from form
- specializedBrands: data.specializedBrands || [], 
- tyreBrands: data.tyreBrands || [],
+    location: { latitude: 0, longitude: 0 },
+    specializedBrands: data.specializedBrands || [],
+    tyreBrands: data.tyreBrands || [],
+    savedByUsers: [],
   };
   try {
     const docRef = await addDoc(collection(db, STORE_COLLECTION), storeData);
@@ -158,8 +177,10 @@ export async function addStoreToDB(data: StoreFormData): Promise<Store> {
   }
 }
 
-
-export const updateStoreInDB = async (storeId: string, updatedData: Partial<Omit<Store, 'id'>>): Promise<Store | undefined> => {
+export const updateStoreInDB = async (
+  storeId: string,
+  updatedData: Partial<Omit<Store, 'id'>>
+): Promise<Store | undefined> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   try {
     const firestoreUpdatePayload: { [key: string]: any } = { ...updatedData };
@@ -180,7 +201,6 @@ export const updateStoreInDB = async (storeId: string, updatedData: Partial<Omit
   }
 };
 
-
 export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
   const storeRef = doc(db, STORE_COLLECTION, storeId);
   try {
@@ -192,3 +212,46 @@ export const deleteStoreFromDB = async (storeId: string): Promise<boolean> => {
   }
 };
 
+// ✅ Updated and simplified to avoid 'never' type error
+export async function getSavedStoresForUser(userId: string): Promise<Store[]> {
+  console.log(`[getSavedStoresForUser - Client Service] Fetching saved stores for user: ${userId}`);
+  try {
+    const userProfileRef = doc(db, USER_PROFILES_COLLECTION, userId);
+    const userProfileDoc = await getDoc(userProfileRef);
+
+    if (!userProfileDoc.exists()) {
+      console.log(`[getSavedStoresForUser - Client Service] User profile not found for ${userId}. Returning empty array.`);
+      return [];
+    }
+
+    const userProfileData = userProfileDoc.data() as UserProfileFirestoreData;
+    const savedStoreIds = userProfileData.savedStores || [];
+
+    if (savedStoreIds.length === 0) {
+      console.log(`[getSavedStoresForUser - Client Service] No saved stores found for user ${userId}.`);
+      return [];
+    }
+
+    console.log(`[getSavedStoresForUser - Client Service] Found ${savedStoreIds.length} saved store IDs. Fetching store details...`);
+
+    const storePromises = savedStoreIds.map(id => getDoc(doc(db, STORE_COLLECTION, id)));
+    const storeDocs = await Promise.all(storePromises);
+
+    const savedStores: Store[] = [];
+    storeDocs.forEach((docSnap, index) => {
+      if (docSnap.exists()) {
+        savedStores.push(mapDocToStore(docSnap));
+      } else {
+        const missingId = savedStoreIds[index];
+        console.warn(`[getSavedStoresForUser - Client Service] Saved store ID ${missingId} not found in StoreInfo collection (might have been deleted).`);
+      }
+    });
+
+    console.log(`[getSavedStoresForUser - Client Service] Successfully fetched ${savedStores.length} actual store documents.`);
+    return savedStores;
+
+  } catch (error: any) {
+    console.error(`[getSavedStoresForUser - Client Service] Error fetching saved stores for user ${userId}. Message: ${error.message || 'Unknown error'}`, error);
+    throw new Error("Failed to retrieve saved stores.");
+  }
+}

@@ -130,4 +130,6 @@
     @apply bg-background text-foreground;
   }
 }
-
+.store-icon {
+  flex-shrink: 0; /* Standard CSS property for flex-shrink-0 */
+}
