@@ -1,18 +1,18 @@
+// src/app/stores/[storeId]/actions.ts
 "use server";
 import { auth } from "@/lib/firebase";
-import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData, Store, Chat } from '@/lib/types';
+import type { QueryFormData, Review, Booking, BookingDocumentData, Service, UserProfileFirestoreData, Store, Chat, ChatMessage } from '@/lib/types'; // Import ChatMessage
 import { getStoreByIdFromDB } from '@/lib/storeService';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { adminDb, admin } from '@/lib/firebase-admin';
-// Removed chatService import for submitMessageToChat as its logic will be inlined.
 import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
 
 const USER_PROFILES_COLLECTION = 'userProfiles';
-const STORE_COLLECTION = 'StoreInfo';
+const STORE_COLLECTION = 'StoreInfo'; // Ensure this matches your Firestore collection name for stores
 const BOOKINGS_COLLECTION = 'bookings';
-const CHATS_COLLECTION = 'chats'; // Added for chat logic
-const MESSAGES_SUBCOLLECTION = 'messages'; // Added for chat logic
+const CHATS_COLLECTION = 'chats';
+const MESSAGES_SUBCOLLECTION = 'messages';
 
 const submissionAttempts = new Map<string, { count: number, lastAttempt: number }>();
 const MAX_ATTEMPTS = 5;
@@ -20,13 +20,14 @@ const COOLDOWN_PERIOD = 60 * 1000; // 1 minute
 
 export async function submitStoreQuery(formData: QueryFormData): Promise<{ success: boolean; message: string; chatId?: string }> {
   console.log("[submitStoreQuery - Server Action] Received form data for store:", formData.storeId);
+  console.log("[submitStoreQuery - Server Action] User provided email:", formData.email); // Debug log
   const userIdentifier = formData.email;
   const now = Date.now();
   const attemptRecord = submissionAttempts.get(userIdentifier);
 
   if (attemptRecord && now - attemptRecord.lastAttempt < COOLDOWN_PERIOD && attemptRecord.count >= MAX_ATTEMPTS) {
     console.warn(`[submitStoreQuery - Server Action] Rate limit exceeded for ${userIdentifier}`);
-    return { success: false, message: "Υποβάλατε πάρα πολλά αιτήματα. Παρακαλώ δοκιμάστε ξανά αργότερα." };
+    return { success: false, message: "Υποβάλατε πάρα πολά αιτήματα. Παρακαλώ δοκιμάστε ξανά αργότερα." };
   }
 
   if (attemptRecord && now - attemptRecord.lastAttempt < COOLDOWN_PERIOD) {
@@ -48,20 +49,34 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
     }
     const store = { id: storeDocSnap.id, ...storeData };
 
+    console.log(`[submitStoreQuery - Debug] Fetched Store ID: ${store.id}`); // Debug log
+    console.log(`[submitStoreQuery - Debug] Store Name: ${store.name}`); // Debug log
+    console.log(`[submitStoreQuery - Debug] Store Owner ID from DB: ${store.ownerId}`); // Debug log
+    console.log(`[submitStoreQuery - Debug] Form Data User ID: ${formData.userId}`); // Debug log
+    console.log(`[submitStoreQuery - Debug] Form Data User Name: ${formData.userName}`); // Debug log
+
+
     if (store.ownerId && formData.userId && formData.userName) {
+      console.log(`[submitStoreQuery - Server Action] Conditions met for chat creation/update.`);
       console.log(`[submitStoreQuery - Server Action] Store has owner ${store.ownerId}. Initiating chat for user ${formData.userName} (${formData.userId}).`);
 
-      // --- Inlined logic from submitMessageToChat ---
       const chatsRefAdmin = adminDb.collection(CHATS_COLLECTION);
       const fullMessageText = `Θέμα: ${formData.subject}\n\n${formData.message}`;
       const batch = adminDb.batch();
       let chatDocRef;
 
+      // --- FIX STARTS HERE ---
+      // 1. Create the sorted participantIds array for the query
+      const sortedParticipantIds = [formData.userId, store.ownerId].sort(); // Ensure consistent order
+      console.log(`[submitStoreQuery/ChatLogic - Admin SDK] Querying with sortedParticipantIds: ${JSON.stringify(sortedParticipantIds)}`); // Debug log
+
+      // 2. Modify the query to use an equality check on the sorted array
+      // This resolves the "max 1 ARRAY_CONTAINS" error.
       const q = chatsRefAdmin
         .where('storeId', '==', store.id)
-        .where('userId', '==', formData.userId)
-        .where('ownerId', '==', store.ownerId)
+        .where('participantIds', '==', sortedParticipantIds) // <-- CRITICAL CHANGE HERE
         .limit(1);
+      // --- FIX ENDS HERE ---
 
       const querySnapshot = await q.get();
       console.log(`[submitStoreQuery/ChatLogic - Admin SDK] Existing chat query found ${querySnapshot.docs.length} documents.`);
@@ -73,13 +88,16 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
         const messagesColRefAdmin = chatDocRef.collection(MESSAGES_SUBCOLLECTION);
         const newMessageRefAdmin = messagesColRefAdmin.doc();
 
-        batch.set(newMessageRefAdmin, {
+        const newTextMessageData: Partial<ChatMessage> = {
           senderId: formData.userId,
           senderName: formData.userName,
           text: fullMessageText,
-          imageUrl: null, // Image sending not supported via this initial contact form
+          type: 'text', // Explicitly set message type
+          imageUrl: undefined, // Ensure imageUrl is undefined for no image
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        };
+        batch.set(newMessageRefAdmin, newTextMessageData);
+
         batch.update(chatDocRef, {
           lastMessageText: fullMessageText.substring(0, 100),
           lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -91,13 +109,14 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
       } else {
         console.log("[submitStoreQuery/ChatLogic - Admin SDK] No existing chat found. Creating new chat.");
         chatDocRef = chatsRefAdmin.doc();
+
         batch.set(chatDocRef, {
           storeId: store.id,
           storeName: store.name,
-          storeLogoUrl: store.logoUrl || null,
+          storeLogoUrl: store.logoUrl || undefined,
           userId: formData.userId,
           userName: formData.userName,
-          userAvatarUrl: formData.userAvatarUrl || null,
+          userAvatarUrl: formData.userAvatarUrl || undefined,
           ownerId: store.ownerId,
           lastMessageText: fullMessageText.substring(0, 100),
           lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -105,22 +124,25 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
           lastImageUrl: null,
           userUnreadCount: 0,
           ownerUnreadCount: 1,
-          participantIds: [formData.userId, store.ownerId].sort(),
+          participantIds: sortedParticipantIds, // <--- USE THE SORTED ARRAY HERE FOR NEW CHATS TOO
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
         const messagesColRefAdmin = chatDocRef.collection(MESSAGES_SUBCOLLECTION);
         const firstMessageRefAdmin = messagesColRefAdmin.doc();
-        batch.set(firstMessageRefAdmin, {
+
+        const firstTextMessageData: Partial<ChatMessage> = {
           senderId: formData.userId,
           senderName: formData.userName,
           text: fullMessageText,
-          imageUrl: null,
+          type: 'text',
+          imageUrl: undefined,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        };
+        batch.set(firstMessageRefAdmin, firstTextMessageData);
       }
       await batch.commit();
-      // --- End of inlined logic ---
+      console.log(`[submitStoreQuery - Server Action] Firestore batch committed successfully. Chat ID: ${chatDocRef.id}`);
 
       setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
       return {
@@ -130,7 +152,12 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
       };
 
     } else {
-      console.log("[submitStoreQuery - Server Action] Store has no owner or user is not logged in. Saving to storeMessages.");
+      console.warn("[submitStoreQuery - Server Action] Skipping chat creation. Reason(s):");
+      console.warn(` - store.ownerId: ${store.ownerId}`);
+      console.warn(` - formData.userId: ${formData.userId}`);
+      console.warn(` - formData.userName: ${formData.userName}`);
+      console.log("[submitStoreQuery - Server Action] Instead, saving message to 'storeMessages' collection.");
+
       const messageData = {
         storeId: formData.storeId,
         storeName: store.name,
@@ -145,17 +172,20 @@ export async function submitStoreQuery(formData: QueryFormData): Promise<{ succe
       };
       await adminDb.collection("storeMessages").add(messageData);
 
+      console.log("[submitStoreQuery - Server Action] Message saved to 'storeMessages' collection.");
       setTimeout(() => submissionAttempts.delete(userIdentifier), COOLDOWN_PERIOD * 5);
 
       if (store.ownerId) {
+        console.log("[submitStoreQuery - Server Action] Store has ownerId, returning success message for direct query.");
         return { success: true, message: "Το ερώτημά σας έχει σταλεί στον ιδιοκτήτη του κέντρου." };
       } else {
+        console.log("[submitStoreQuery - Server Action] Store has NO ownerId, returning success message for unconfigured owner.");
         return { success: true, message: "Το ερώτημά σας έχει καταγραφεί. (Το κέντρο δεν έχει διαμορφωμένο ιδιοκτήτη για άμεση ειδοποίηση)." };
       }
     }
 
   } catch (error: any) {
-    console.error("[submitStoreQuery - Server Action] Error processing store query/chat:", error.message, error.stack);
+    console.error("[submitStoreQuery - Server Action] FINAL CATCH BLOCK: Error processing store query/chat:", error.message, error.stack);
     let clientMessage = "Παρουσιάστηκε σφάλμα κατά την επεξεργασία του ερωτήματός σας.";
     if (error.code || String(error.message).toLowerCase().includes("permission")) {
         clientMessage += ` Error: ${error.message || 'missing or insufficient permissions'}`;
@@ -179,7 +209,7 @@ export async function addReviewAction(
 ): Promise<{ success: boolean; message: string; errors?: any }> {
   console.log("[addReviewAction - Server Action] FormData entries (Admin SDK will be used):");
   for (const [key, value] of formData.entries()) {
-    console.log(`  ${key}: ${value}`);
+    console.log(`    ${key}: ${value}`);
   }
 
   const validatedFields = reviewSchema.safeParse({
@@ -274,7 +304,7 @@ export async function createBookingAction(
 ): Promise<{ success: boolean; message: string; errors?: any; booking?: Booking }> {
   console.log("[createBookingAction - Server Action] Received FormData entries:");
   for (const [key, value] of formData.entries()) {
-    console.log(`  ${key}: ${value}`);
+    console.log(`    ${key}: ${value}`);
   }
 
   const validatedFields = bookingSchema.safeParse({
@@ -375,7 +405,7 @@ export async function createBookingAction(
         const errorCodeString = String(bookingAddError.code || '');
         if (errorCodeString) {
           bookingAddErrorMessage += ` (Κωδικός Σφάλματος: ${errorCodeString})`;
-           if (errorCodeString.toLowerCase().includes("permission-denied")) {
+            if (errorCodeString.toLowerCase().includes("permission-denied")) {
             bookingAddErrorMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
           }
         }
@@ -416,7 +446,7 @@ export async function createBookingAction(
 
   } catch (error: any) {
     let detailedMessage = "Παρουσιάστηκε σφάλμα κατά τη δημιουργία της κράτησής σας. Παρακαλώ δοκιμάστε ξανά.";
-     if (error.message && typeof error.message === 'string') {
+      if (error.message && typeof error.message === 'string') {
         if (error.message.toLowerCase().includes("permission-denied") || error.message.includes("Άρνηση Πρόσβασης")) {
            detailedMessage = "Άρνηση Πρόσβασης: Δεν επιτρέπεται η δημιουργία κράτησης. Ελέγξτε τους κανόνες ασφαλείας του Firestore.";
         } else if (error.message.includes("Κωδικός Σφάλματος") || (typeof error.code === 'string' && error.code) || (typeof error.code === 'number' && error.code) ) {
@@ -441,7 +471,7 @@ export async function getBookingsForStoreAndDate(storeId: string, dateString: st
   try {
     const parts = dateString.split('-').map(Number);
     if (parts.length !== 3 || parts.some(isNaN) || parts[1] < 1 || parts[1] > 12 || parts[2] < 1 || parts[2] > 31) {
-        const dateParseErrorMsg = `[getBookingsForStoreAndDate - Server Action] Admin SDK: Invalid dateString format or value: ${dateString}. Expected YYYY-MM-DD.`;
+        const dateParseErrorMsg = `[getBookingsForStoreAndDate - Server Action] Admin SDK: Invalid dateString format or value: ${dateString}. ExpectedYYYY-MM-DD.`;
         console.error(dateParseErrorMsg, "Parts:", parts);
         return [];
     }

@@ -1,17 +1,18 @@
+// src/app/stores/[storeId]/page.tsx
 "use client";
 
 import { getStoreByIdFromDB } from '@/lib/storeService';
 import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot, StoreCategory } from '@/lib/types';
 import Image from 'next/image';
-import { useParams } from 'next/navigation';
-import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags, Heart } from 'lucide-react'; // Import Heart icon
+import { useParams } from 'next/navigation'; // Keep useParams, useRouter will be in ContactForm
+import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags, Heart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
 import { ProductListItem } from '@/components/store/ProductListItem';
-import { ContactForm } from '@/components/shared/ContactForm';
+import { ContactForm } from '@/components/shared/ContactForm'; // Corrected import path for ContactForm
 import { ReviewForm } from '@/components/store/ReviewForm';
-import { submitStoreQuery, addReviewAction, toggleSavedStore } from './actions'; // Import toggleSavedStore
+import { submitStoreQuery, addReviewAction, toggleSavedStore } from './actions';
 import { AppCategories } from '@/lib/types';
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import { Button } from '@/components/ui/button';
@@ -23,23 +24,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { SingleStoreMap } from '@/components/maps/SingleStoreMap';
 import { cn } from '@/lib/utils';
-import { useSession } from 'next-auth/react'; // Import useSession for user authentication
+import { useSession } from 'next-auth/react';
 
-// ADDED IMPORTS FOR THE ICONS (kept from previous changes)
 import VerifiedIconComponent from '@/components/icons/VerifiedIconComponent';
 import PremiumIconComponent from '@/components/icons/PremiumIconComponent';
-// END ADDITIONS
+
 
 export default function StoreDetailPage() {
   const params = useParams<{ storeId: string }>();
   const storeId = params.storeId;
-  const { data: session, status } = useSession(); // Get user session
-  const userId = session?.user?.id; // Assuming your session has a user.id
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
 
   const [storeData, setStoreData] = useState<Store | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(false); // State to track if the store is saved
+  const [isSaved, setIsSaved] = useState(false);
 
   const [selectedServiceForBooking, setSelectedServiceForBooking] = useState<Service | null>(null);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
@@ -54,7 +54,6 @@ export default function StoreDetailPage() {
           const fetchedStore = await getStoreByIdFromDB(currentStoreId);
           if (fetchedStore) {
             setStoreData(fetchedStore);
-            // Check if the store is saved by the current user
             if (userId) {
               const savedStores = fetchedStore.savedByUsers || [];
               setIsSaved(savedStores.includes(userId));
@@ -78,41 +77,34 @@ export default function StoreDetailPage() {
     if (storeId) {
       fetchStore();
     }
-  }, [storeId, userId]); // Re-run effect when userId changes
+  }, [storeId, userId]);
 
   const handleToggleSave = async () => {
     if (!userId || !storeData?.id) {
-      // Potentially show a toast or redirect to login if not authenticated
       console.warn("User not logged in or store ID missing. Cannot save/unsave.");
       return;
     }
     try {
-      // Optimistic UI update
       setIsSaved(prev => !prev);
       const result = await toggleSavedStore(storeData.id, userId, !isSaved);
       if (result.success) {
-        // Optionally update storeData.savedByUsers to reflect the change immediately
         setStoreData(prevStore => {
           if (!prevStore) return null;
           const updatedSavedByUsers = new Set(prevStore.savedByUsers || []);
-          if (!isSaved) { // If it was not saved, now it is
+          if (!isSaved) {
             updatedSavedByUsers.add(userId);
-          } else { // If it was saved, now it's not
+          } else {
             updatedSavedByUsers.delete(userId);
           }
           return { ...prevStore, savedByUsers: Array.from(updatedSavedByUsers) };
         });
       } else {
-        // Revert optimistic update if action failed
         setIsSaved(prev => !prev);
         console.error("Failed to toggle saved store:", result.message);
-        // Show an error toast
       }
     } catch (error) {
-      // Revert optimistic update if action failed
       setIsSaved(prev => !prev);
       console.error("Error toggling saved store:", error);
-      // Show an error toast
     }
   };
 
@@ -130,12 +122,12 @@ export default function StoreDetailPage() {
                     </div>
                 </CardHeader>
             </Card>
-             <Skeleton className="h-10 w-1/3 mx-auto bg-muted mb-6" />
+              <Skeleton className="h-10 w-1/3 mx-auto bg-muted mb-6" />
             <Card>
                 <CardHeader><Skeleton className="h-8 w-1/2 bg-muted" /></CardHeader>
                 <CardContent><Skeleton className="h-20 w-full bg-muted" /></CardContent>
             </Card>
-             <Card>
+              <Card>
                 <CardHeader><Skeleton className="h-8 w-1/3 bg-muted" /></CardHeader>
                 <CardContent><Skeleton className="h-80 w-full bg-muted rounded-md" /></CardContent>
             </Card>
@@ -184,7 +176,6 @@ export default function StoreDetailPage() {
     iconType: (typeof storeData.iconType === 'string' && (storeData.iconType === 'verified' || storeData.iconType === 'premium'))
               ? storeData.iconType
               : undefined,
-    // Ensure savedByUsers is also part of SerializedStore if it's not already
     savedByUsers: storeData.savedByUsers || [],
   };
 
@@ -232,7 +223,10 @@ export default function StoreDetailPage() {
                 onClick={handleToggleSave}
                 aria-label={isSaved ? "Unsave store" : "Save store"}
               >
-                <Heart className={cn("w-6 h-6", isSaved ? "fill-red-500 text-red-500" : "text-white")} />
+                <Heart
+                  size={20}
+                  className={cn("text-white", isSaved ? "fill-red-500 text-red-500" : "text-white", "!w-[20px]", "!h-[20px]")}
+                />
               </Button>
             )}
           </div>
@@ -286,19 +280,17 @@ export default function StoreDetailPage() {
 
       <Tabs defaultValue="overview" className="w-full">
       <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 mb-6">
-  <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
-  <TabsTrigger value="services_booking">Υπηρεσίες & Κράτηση ({serializableStore.services?.length || 0})</TabsTrigger>
-  <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
-  <TabsTrigger value="pricing">Πακέτα</TabsTrigger>
-  <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
-  <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
-</TabsList>
+        <TabsTrigger value="overview">Επισκόπηση</TabsTrigger>
+        <TabsTrigger value="services_booking">Υπηρεσίες & Κράτηση ({serializableStore.services?.length || 0})</TabsTrigger>
+        <TabsTrigger value="products">Προϊόντα ({serializableStore.products?.length || 0})</TabsTrigger>
+        <TabsTrigger value="pricing">Πακέτα</TabsTrigger>
+        <TabsTrigger value="reviews">Κριτικές ({serializableStore.reviews?.length || 0})</TabsTrigger>
+        <TabsTrigger value="contact">Επικοινωνία</TabsTrigger>
+      </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {/* START: NEW FLEX CONTAINER FOR INFO AND MAP CARDS */}
           <div className="flex flex-col lg:flex-row gap-6">
 
-            {/* Store Info Card (Left Column) */}
             <Card className="flex-1">
               <CardHeader>
                 <CardTitle>Σχετικά με το {serializableStore.name}</CardTitle>
@@ -306,7 +298,6 @@ export default function StoreDetailPage() {
               <CardContent>
                 <p className="text-muted-foreground whitespace-pre-line">{serializableStore.longDescription || serializableStore.description}</p>
 
-                {/* Categories and Tags */}
                 <div className="mt-4 flex flex-col md:flex-row gap-6">
                   {serializableStore.categories && serializableStore.categories.length > 0 && (
                     <div className="flex-1">
@@ -343,9 +334,7 @@ export default function StoreDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Right Column: Location and Opening Hours */}
             <div className="flex flex-col flex-1 gap-6">
-              {/* Location Card (Map) - This remains unchanged */}
               {serializableStore.location && (
                 <Card className="flex-1">
                   <CardHeader>
@@ -371,7 +360,6 @@ export default function StoreDetailPage() {
                 </Card>
               )}
 
-              {/* Weekly Availability Card - Moved here */}
               {serializableStore.availability && serializableStore.availability.length > 0 && (
                 <Card className="flex-1">
                   <CardHeader>
@@ -406,7 +394,6 @@ export default function StoreDetailPage() {
               )}
             </div>
           </div>
-          {/* END: NEW FLEX CONTAINER FOR INFO AND MAP CARDS */}
 
           <Card>
             <CardHeader>
@@ -419,14 +406,14 @@ export default function StoreDetailPage() {
                   <div className="flex flex-wrap items-center gap-4">
                     {serializableStore.specializedBrands.map(brand => (
                       <div key={brand} className="flex flex-col items-center">
-                           <Image
-                           src={`/logos/brands/${brand.toLowerCase().replace(/\s+/g, '-')}.svg`} // Construct logo path
-                           alt={`${brand} logo`}
-                           width={64}
-                           height={64}
-                           className="object-contain"
-                           onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
-                         />
+                             <Image
+                            src={`/logos/brands/${brand.toLowerCase().replace(/\s+/g, '-')}.svg`}
+                            alt={`${brand} logo`}
+                            width={64}
+                            height={64}
+                            className="object-contain"
+                            onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }}
+                           />
 
                       </div>
                     ))}
@@ -448,14 +435,14 @@ export default function StoreDetailPage() {
                   <div className="flex flex-wrap items-center gap-4">
                     {serializableStore.tyreBrands.map(brand => (
                       <div key={brand} className="flex flex-col items-center">
-                           <Image
-                           src={`/logos/brands/${brand.toLowerCase().replace(/\\s+/g, '-')}.svg`} // Construct logo path
-                           alt={`${brand} logo`}
-                           width={64}
-                           height={64}
-                           className="object-contain"
-                           onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }} // Fallback logo if not found
-                         />
+                             <Image
+                            src={`/logos/brands/${brand.toLowerCase().replace(/\\s+/g, '-')}.svg`}
+                            alt={`${brand} logo`}
+                            width={64}
+                            height={64}
+                            className="object-contain"
+                            onError={(e) => { e.currentTarget.src = '/logos/brands/default.svg'; }}
+                           />
 
                       </div>
                     ))}
@@ -494,15 +481,15 @@ export default function StoreDetailPage() {
             </CardHeader>
             <CardContent>
               {!hasAvailability && (
-                   <Alert variant="default" className="mb-6">
-                     <Info className="h-5 w-5" />
-                     <AlertTitle>Η Διαθεσιμότητα δεν έχει Οριστεί</AlertTitle>
-                     <AlertDescription>
-                       Αυτό το κατάστημα δεν έχει ορίσει ακόμη το πρόγραμμα διαθεσιμότητάς του. Οι κρατήσεις δεν είναι δυνατές αυτή τη στιγμή.
-                       Παρακαλούμε ελέγξτε ξανά αργότερα ή επικοινωνήστε απευθείας με το κατάστημα.
-                     </AlertDescription>
-                   </Alert>
-                 )}
+                  <Alert variant="default" className="mb-6">
+                    <Info className="h-5 w-5" />
+                    <AlertTitle>Η Διαθεσιμότητα δεν έχει Οριστεί</AlertTitle>
+                    <AlertDescription>
+                      Αυτό το κατάστημα δεν έχει ορίσει ακόμη το πρόγραμμα διαθεσιμότητάς του. Οι κρατήσεις δεν είναι δυνατές αυτή τη στιγμή.
+                      Παρακαλούμε ελέγξτε ξανά αργότερα ή επικοινωνήστε απευθείας με το κατάστημα.
+                    </AlertDescription>
+                  </Alert>
+                )}
               {serializableStore.services && serializableStore.services.length > 0 ? (
                 <div className="space-y-4">
                   {serializableStore.services.map((service: Service) => (
@@ -558,39 +545,36 @@ export default function StoreDetailPage() {
         </TabsContent>
 
         <TabsContent value="pricing">
-           <Card>
-            <CardHeader>
-              <CardTitle>Πακέτα Τιμολόγησης</CardTitle>
-              <CardDescription>Βρείτε ένα πακέτο που ταιριάζει στις ανάγκες σας από το {serializableStore.name}.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {serializableStore.pricingPlans && serializableStore.pricingPlans.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {serializableStore.pricingPlans.map(plan => (
-                    <PricingCard key={plan.id} plan={plan} />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν διαθέσιμα πακέτα τιμολόγησης για αυτό το κέντρο εξυπηρέτησης.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <Card>
+             <CardHeader>
+               <CardTitle>Πακέτα Τιμολόγησης</CardTitle>
+               <CardDescription>Βρείτε ένα πακέτο που ταιριάζει στις ανάγκες σας από το {serializableStore.name}.</CardDescription>
+             </CardHeader>
+             <CardContent>
+               {serializableStore.pricingPlans && serializableStore.pricingPlans.length > 0 ? (
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {serializableStore.pricingPlans.map(plan => (
+                     <PricingCard key={plan.id} plan={plan} />
+                   ))}
+                 </div>
+               ) : (
+                 <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν διαθέσιμα πακέτα τιμολόγησης για αυτό το κέντρο εξυπηρέτησης.</p>
+               )}
+             </CardContent>
+           </Card>
+         </TabsContent>
 
         <TabsContent value="reviews" className="space-y-8">
-  {/* Card 1: Contains the form to write a new review */}
   <Card>
     <CardHeader>
       <CardTitle>Γράψτε τη γνώμη σας</CardTitle>
       <CardDescription>Μοιραστείτε την εμπειρία σας με την κοινότητα.</CardDescription>
     </CardHeader>
     <CardContent>
-      {/* The ReviewForm component is now placed here */}
       <ReviewForm storeId={serializableStore.id} action={addReviewAction} />
     </CardContent>
   </Card>
 
-  {/* Card 2: Contains the list of existing reviews */}
   <Card>
     <CardHeader>
       <CardTitle>Κριτικές Πελατών</CardTitle>
@@ -598,26 +582,26 @@ export default function StoreDetailPage() {
     </CardHeader>
     <CardContent>
       {serializableStore.reviews && serializableStore.reviews.length > 0 ? (
-           <div className="space-y-4">
-           {serializableStore.reviews.map((review: Review) => (
-             <div key={review.id} className="p-4 border rounded-md bg-muted/50">
-               <div className="flex items-center mb-1">
-                 {review.userAvatarUrl && (
+            <div className="space-y-4">
+            {serializableStore.reviews.map((review: Review) => (
+              <div key={review.id} className="p-4 border rounded-md bg-muted/50">
+                <div className="flex items-center mb-1">
+                  {review.userAvatarUrl && (
                     <Image src={review.userAvatarUrl} alt={review.userName} width={32} height={32} className="rounded-full mr-3" data-ai-hint="avatar person" />
-                 )}
-                 <p className="font-semibold text-foreground">{review.userName}</p>
-               </div>
-               <div className="flex items-center my-1">
-                 {[...Array(5)].map((_, i) => (
-                   <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
-                 ))}
-                   <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
-               </div>
-               <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
-                {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
-             </div>
-           ))}
-         </div>
+                  )}
+                  <p className="font-semibold text-foreground">{review.userName}</p>
+                </div>
+                <div className="flex items-center my-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                  ))}
+                    <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
+                </div>
+                <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
+                 {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
+              </div>
+            ))}
+          </div>
       ) : (
         <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν ακόμη κριτικές για αυτό το κέντρο εξυπηρέτησης.</p>
       )}
@@ -632,6 +616,7 @@ export default function StoreDetailPage() {
               <CardDescription>Έχετε κάποια ερώτηση ή συγκεκριμένο αίτημα? Στείλτε τους απευθείας μήνυμα.</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Use the correctly imported ContactForm */}
               <ContactForm storeId={serializableStore.id} onSubmitAction={submitStoreQuery} />
             </CardContent>
           </Card>

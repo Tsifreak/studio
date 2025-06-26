@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, isFuture, parseISO } from 'date-fns';
 import { ProfileForm } from '@/components/auth/ProfileForm';
 import { useToast } from '@/hooks/use-toast';
+import { getSavedStoresForUser } from '@/lib/storeService'; // NEW: Import the function to get saved stores
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading, logout, updateUserProfile } = useAuth();
@@ -35,7 +35,9 @@ export default function DashboardPage() {
   const [isLoadingActiveOwnerBookings, setIsLoadingActiveOwnerBookings] = useState(true);
 
   const [clientUpcomingBookingsCount, setClientUpcomingBookingsCount] = useState(0);
-  const [isLoadingClientBookings, setIsLoadingClientBookings] = useState(true);
+  const [isLoadingClientBookings, setIsLoadingClientBookings] = useState(true); // This will also cover saved stores loading
+
+  const [savedStoresCount, setSavedStoresCount] = useState(0); // NEW: State for saved stores count
 
   const fetchOwnerData = useCallback(async () => {
     if (user && user.id && user.email === 'tsifrikas.a@gmail.com') {
@@ -70,24 +72,34 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  const fetchClientBookingsData = useCallback(async () => {
+  // RENAMED: This function will now fetch both client bookings and saved stores
+  const fetchClientRelatedData = useCallback(async () => { 
     if (user && user.id) {
       setIsLoadingClientBookings(true);
+      // setIsLoadingSavedStores(true); // No separate loading state needed if combined
       try {
+        // Fetch client bookings
         const fetchedBookings = await getUserBookings(user.id);
         const upcomingAndActive = fetchedBookings.filter(b =>
           (isFuture(parseISO(b.bookingDate)) || format(parseISO(b.bookingDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')) &&
           (b.status === 'pending' || b.status === 'confirmed')
         );
         setClientUpcomingBookingsCount(upcomingAndActive.length);
+
+        // NEW: Fetch saved stores count
+        const fetchedSavedStores = await getSavedStoresForUser(user.id);
+        setSavedStoresCount(fetchedSavedStores.length);
       } catch (error) {
-        console.error("DashboardPage: Failed to fetch client bookings for stat card:", error);
+        console.error("DashboardPage: Failed to fetch client-related data (bookings or saved stores):", error);
+        // Consider setting specific errors if needed
       } finally {
         setIsLoadingClientBookings(false);
+        // setIsLoadingSavedStores(false); // No separate loading state
       }
     } else {
       setIsLoadingClientBookings(false);
       setClientUpcomingBookingsCount(0);
+      setSavedStoresCount(0); // Reset count if no user
     }
   }, [user]);
 
@@ -99,9 +111,9 @@ export default function DashboardPage() {
 
     if (!authLoading && user && user.id) {
       fetchOwnerData();
-      fetchClientBookingsData();
+      fetchClientRelatedData(); // CALL THE RENAMED FUNCTION
     }
-  }, [user, authLoading, router, fetchOwnerData, fetchClientBookingsData]);
+  }, [user, authLoading, router, fetchOwnerData, fetchClientRelatedData]); // Update dependencies
 
   const handleLogout = async () => {
     await logout();
@@ -253,11 +265,11 @@ export default function DashboardPage() {
           )}
           <StatCard
             title="Αποθηκευμένα Κέντρα"
-            value="0" 
+            value={isLoadingClientBookings ? <Loader2 className="h-6 w-6 animate-spin" /> : savedStoresCount} 
             icon={Heart}
-            linkHref="/dashboard" 
+            linkHref="/dashboard/saved-stores" 
             colorClass="bg-saved-card text-saved-card-foreground"
-            description="Δείτε τα αγαπημένα σας"
+            description={isLoadingClientBookings ? "Φόρτωση..." : `${savedStoresCount} κέντρα`}
           />
         </div>
       </div>
@@ -335,4 +347,3 @@ const ShieldTriangle = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 7v10M22 7v10M12 12L2 7M12 12l10-5M12 12v10"/>
   </svg>
 );
-    

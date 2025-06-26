@@ -1,0 +1,43 @@
+type User @table {
+  displayName: String!
+  role: String!
+  createdAt: Timestamp!
+  email: String
+  photoUrl: String
+}
+
+type Store @table {
+  name: String!
+  address: String!
+  phoneNumber: String!
+  description: String!
+  createdAt: Timestamp!
+  hoursOfOperation: String
+  websiteURL: String
+  locationLatitude: Float
+  locationLongitude: Float
+}
+
+type Inquiry @table {
+  user: User!
+  store: Store!
+  subject: String!
+  message: String!
+  status: String!
+  createdAt: Timestamp!
+  response: String
+  responseDate: Timestamp
+}
+
+type Attachment @table {
+  inquiry: Inquiry!
+  fileURL: String!
+  filename: String!
+  createdAt: Timestamp!
+}
+
+type StoreEmployee @table {
+  user: User!
+  store: Store!
+  createdAt: Timestamp!
+}

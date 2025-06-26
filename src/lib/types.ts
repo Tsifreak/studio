@@ -1,8 +1,103 @@
 import type * as admin from 'firebase-admin';
 import type { Timestamp } from 'firebase/firestore';
-import type { FieldValue } from 'firebase-admin/firestore'; // <<< ADD THIS IMPORT for FieldValue
+import type { FieldValue } from 'firebase-admin/firestore';
+
+// --- NEW TYPES FOR DYNAMIC FORMS ---
+
+// Defines a single field within a form
+export interface DynamicFormField {
+  id: string;      // Unique ID for the field (e.g., 'carMake', 'carModel')
+  label: string;   // Display label in Greek (e.g., 'Μάρκα Αυτοκινήτου')
+  type: 'text' | 'number' | 'textarea' | 'date'; // Input type
+  required: boolean; // Is this field mandatory?
+  placeholder?: string; // Placeholder text
+}
+
+// Defines a complete form template that can be sent
+export interface DynamicFormDefinition {
+  id: string;        // Unique ID for the form type (e.g., 'car_details_form')
+  name: string;      // Name of the form (e.g., 'Φόρμα Στοιχείων Οχήματος')
+  description?: string; // Optional description
+  fields: DynamicFormField[]; // Array of fields in this form
+}
+
+// Content for a message that requests a form to be filled
+export interface FormRequestMessageContent {
+  formId: string;        // The ID of the form definition being requested (e.g., 'car_details_form')
+  formName: string;      // Name of the form (e.g., 'Φόρμα Στοιχείων Οχήματος')
+  formDescription?: string; // Optional description
+  formFields: DynamicFormField[]; // Embed the actual fields for rendering
+  instanceId: string;    // Unique ID for this specific form request within the chat
+  status: 'sent' | 'filled' | 'cancelled'; // Status of this form request
+}
+
+// Content for a message that contains the filled form data
+export interface FormResponseMessageContent {
+  formId: string;       // ID of the form definition that was filled
+  instanceId: string;   // The instanceId of the original form request message this responds to
+  formName: string;     // Name of the form (e.g., 'Φόρμα Στοιχείων Οχήματος')
+  filledData: { [key: string]: string | number | undefined }; // Key-value pairs of fieldId: value. Values can be undefined if optional and not filled.
+}
+
+// --- IMPORTANT: Define your pre-defined form(s) ---
+export const CAR_DETAILS_FORM_DEFINITION: DynamicFormDefinition = {
+  id: 'car_details_form',
+  name: 'Στοιχεία Οχήματος',
+  description: 'Παρακαλώ συμπληρώστε τα στοιχεία του οχήματός σας για καλύτερη εξυπηρέτηση.',
+  fields: [
+    { id: 'carMake', label: 'Μάρκα Αυτοκινήτου', type: 'text', required: true, placeholder: 'π.χ. Toyota' },
+    { id: 'carModel', label: 'Μοντέλο', type: 'text', required: true, placeholder: 'π.χ. Corolla' },
+    { id: 'carYear', label: 'Χρονολογία', type: 'number', required: true, placeholder: 'π.χ. 2015' },
+    { id: 'carColor', label: 'Χρώμα', type: 'text', required: false, placeholder: 'π.χ. Μαύρο' },
+    { id: 'comments', label: 'Κάποιο σχόλιο', type: 'textarea', required: false, placeholder: 'π.χ. Το πρόβλημα είναι...' },
+  ],
+};
+
+export const AvailableDynamicForms: DynamicFormDefinition[] = [
+  CAR_DETAILS_FORM_DEFINITION,
+  // Add other form definitions here as needed
+];
+
+// --- CRITICAL FIX: ChatMessage 'createdAt' is now flexible for Firestore write operations ---
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text?: string; // Make text optional as message might be a form request/response
+  imageUrl?: string;
+  // This now correctly allows Timestamp or FieldValue for writing, and string for reading (after mapping)
+  createdAt: string | Timestamp | admin.firestore.Timestamp | FieldValue;
+
+  type: 'text' | 'form_request' | 'form_response' | 'image'; // Added 'image' type for clarity
+  formRequestContent?: FormRequestMessageContent;
+  formResponseContent?: FormResponseMessageContent;
+}
 
 
+// --- CRITICAL FIX: Chat 'lastMessageAt' and 'createdAt' are now flexible for Firestore write operations ---
+export interface Chat {
+  id: string;
+  storeId: string;
+  storeName: string;
+  storeLogoUrl?: string;
+  userId: string;
+  userName: string;
+  userAvatarUrl?: string;
+  ownerId: string;
+  // This now correctly allows Timestamp or FieldValue for writing, and string for reading (after mapping)
+  lastMessageAt: string | Timestamp | admin.firestore.Timestamp | FieldValue;
+  lastMessageText: string;
+  lastMessageSenderId?: string;
+  lastImageUrl?: string;
+  userUnreadCount: number;
+  ownerUnreadCount: number;
+  participantIds: string[];
+  // This now correctly allows Timestamp or FieldValue for writing, and string for reading (after mapping)
+  createdAt: string | Timestamp | admin.firestore.Timestamp | FieldValue;
+}
+
+
+// --- EXISTING TYPES (ensure they are present below the new ones) ---
 export interface Review {
   id: string;
   userId: string;
@@ -88,29 +183,27 @@ export const AppCategories: AppCategoryInfo[] = [
   }
 ];
 
-// StoreCategories is now just an array of slugs, not for enum-like direct usage in single-selects as much.
 export const StoreCategoriesSlugs = AppCategories.map(cat => cat.slug) as readonly string[];
 export const TranslatedStoreCategories = AppCategories.map(cat => cat.translatedName) as readonly string[];
 
 
 export type StoreCategory = typeof StoreCategoriesSlugs[number];
 
-// New types for Booking System
 export interface Service {
-  id: string; // Unique ID for the service
+  id: string;
   name: string;
   description: string;
   durationMinutes: number;
-  price: number; // Store as number, display with currency
-  availableDaysOfWeek: number[]; // 0 (Sunday) to 6 (Saturday)
+  price: number;
+  availableDaysOfWeek: number[];
 }
 
 export interface AvailabilitySlot {
-  dayOfWeek: number; // 0 (Sunday) to 6 (Saturday)
-  startTime: string; // HH:mm format, e.g., "09:00"
-  endTime: string;   // HH:mm format, e.g., "17:00"
-  lunchBreakStartTime?: string; // Optional HH:mm
-  lunchBreakEndTime?: string;   // Optional HH:mm
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  lunchBreakStartTime?: string;
+  lunchBreakEndTime?: string;
 }
 
 export interface Booking {
@@ -124,15 +217,14 @@ export interface Booking {
   serviceName: string;
   serviceDurationMinutes: number;
   servicePrice: number;
-  bookingDate: string; // ISO-MM-DD format
-  bookingTime: string; // HH:mm format
+  bookingDate: string;
+  bookingTime: string;
   status: 'pending' | 'confirmed' | 'cancelled_by_user' | 'cancelled_by_store' | 'completed' | 'no_show';
-  createdAt: string; // ISO string
+  createdAt: string;
   notes?: string;
   ownerId?: string;
 }
 
-// Firestore document data for Booking (includes Firestore Timestamps for date fields)
 export interface BookingDocumentData {
   id: string;
   storeId: string;
@@ -149,7 +241,7 @@ export interface BookingDocumentData {
   createdAt: Timestamp | admin.firestore.Timestamp;
   notes?: string;
   ownerId?: string;
-  bookingTime: string; // Re-add this, was missing from your provided BookingDocumentData
+  bookingTime: string;
 }
 
 
@@ -161,7 +253,7 @@ export interface Store {
   description: string;
   longDescription?: string;
   rating: number;
-  categories: StoreCategory[]; // Changed from category: StoreCategory
+  categories: StoreCategory[];
   tags?: string[];
   pricingPlans: PricingPlan[];
   features: Feature[];
@@ -178,30 +270,27 @@ export interface Store {
     longitude: number;
 
   };
-  distance?: number; // Optional: for sorting by distance
+  distance?: number;
   specializedBrands?: string[];
   tyreBrands?: string[];
   iconType?: 'verified' | 'premium' | FieldValue;
-  // ADD THIS LINE
-  savedByUsers?: string[]; // Array of user UIDs who have saved this store
+  savedByUsers?: string[];
 }
 
 export interface SerializedFeature extends Omit<Feature, 'icon'> {
   icon?: string;
 }
 
-// SerializedStore needs to reflect the change from single category to multiple categories
-export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability' | 'categories' | 'iconType' | 'savedByUsers'> { // <<< MODIFIED: Omit iconType AND savedByUsers from here so it's only string on serialized
+export interface SerializedStore extends Omit<Store, 'features' | 'reviews' | 'services' | 'availability' | 'categories' | 'iconType' | 'savedByUsers'> {
   features: SerializedFeature[];
   reviews: Review[];
   services: Service[];
   availability: AvailabilitySlot[];
-  specializedBrands?: string[]; // Make optional for serialization if not always present
-  categories: StoreCategory[]; // Changed from category: StoreCategory
-  distance?: number; // Optional: for sorting by distance
-  iconType?: 'verified' | 'premium'; // <<< MODIFIED THIS LINE: Only string literal types for client
-  // ADD THIS LINE
-  savedByUsers?: string[]; // Array of user UIDs who have saved this store (should be included in the serialized version too)
+  specializedBrands?: string[];
+  categories: StoreCategory[];
+  distance?: number;
+  iconType?: 'verified' | 'premium';
+  savedByUsers?: string[];
 }
 
 export interface UserPreferences {
@@ -217,8 +306,7 @@ export interface UserProfile {
   isAdmin?: boolean;
   totalUnreadMessages: number;
   pendingBookingsCount: number;
-  // ADD THIS LINE
-  savedStores?: string[]; // Add this line
+  savedStores?: string[];
   bookingStatusUpdatesCount: number;
   preferences?: UserPreferences;
 }
@@ -231,8 +319,7 @@ export interface UserProfileFirestoreData {
   totalUnreadMessages?: number;
   pendingBookingsCount?: number;
   bookingStatusUpdatesCount?: number;
-  // ADD THIS LINE
-  savedStores?: string[]; // Add this line
+  savedStores?: string[];
   lastSeen?: Timestamp | admin.firestore.FieldValue;
   createdAt?: Timestamp | admin.firestore.FieldValue;
 }
@@ -258,7 +345,7 @@ export interface StoreFormData {
   description: string;
   longDescription?: string;
   tagsInput?: string;
-  categoriesInput?: string; // New field for multiple categories
+  categoriesInput?: string;
   contactEmail?: string;
   websiteUrl?: string;
   address?: string;
@@ -268,43 +355,15 @@ export interface StoreFormData {
   logoFile?: File | null;
   bannerFile?: File | null;
   existingLogoUrl?: string | null;
-  specializedBrands?: string[]; // Make optional for form data
+  specializedBrands?: string[];
   existingBannerUrl?: string | null;
-  tyreBrands?: string[] | undefined; // Add new field for tyre brands
-  iconType?: 'verified' | 'premium' | ''; // <<< ADD THIS LINE
+  tyreBrands?: string[] | undefined;
+  iconType?: 'verified' | 'premium' | '';
 }
 
 export interface ReviewFormData {
   rating: number;
   comment: string;
-}
-
-export interface Chat {
-  id: string;
-  storeId: string;
-  storeName: string;
-  storeLogoUrl?: string;
-  userId: string;
-  userName: string;
-  userAvatarUrl?: string;
-  ownerId: string;
-  lastMessageAt: string;
-  lastMessageText: string;
-  lastMessageSenderId?: string;
-  lastImageUrl?: string;
-  userUnreadCount: number;
-  ownerUnreadCount: number;
-  participantIds: string[];
-  createdAt: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  senderId: string;
-  senderName: string;
-  text: string;
-  imageUrl?: string;
-  createdAt: string;
 }
 
 export interface ChatMessageFormData {
@@ -321,7 +380,6 @@ declare global {
     interface ProcessEnv {
       NEXT_PUBLIC_FIREBASE_PROJECT_ID: string;
       FIREBASE_STORAGE_BUCKET?: string;
-      // Add other environment variables your app uses here
       NEXT_PUBLIC_Maps_API_KEY?: string;
     }
   }

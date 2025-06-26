@@ -1,0 +1,12 @@
+specVersion: "v1"
+serviceId: "cariera-9ba32-service"
+location: "europe-west8"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "cariera-9ba32-database"
+      cloudSql:
+        instanceId: "cariera-9ba32-instance"
+      # schemaValidation: "COMPATIBLE"
+connectorDirs: ["./connector"]

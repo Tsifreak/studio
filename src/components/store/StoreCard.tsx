@@ -92,8 +92,7 @@ export function StoreCard({ store }: StoreCardProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-1.5 right-1.5 z-20 text-muted-foreground hover:text-red-500 bg-white/60 backdrop-blur-md rounded-full shadow-sm"
-              onClick={handleToggleSave}
+              className="absolute top-1.5 right-1.5 z-20 text-muted-foreground hover:text-red-500 hover:bg-white/20 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full transition-colors !w-8 !h-8"              onClick={handleToggleSave}
               aria-label={isSaved ? "Unsave store" : "Save store"}
             >
               <Heart className={cn("w-5 h-5", isSaved ? "fill-red-500 text-red-500" : "text-muted-foreground")} />

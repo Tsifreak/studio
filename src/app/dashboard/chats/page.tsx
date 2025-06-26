@@ -1,20 +1,20 @@
+// src/app/dashboard/chats/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserChats, markChatAsRead, subscribeToChatMessages, sendMessage } from '@/lib/chatService';
-import type { Chat, ChatMessage } from '@/lib/types';
+import type { Chat, ChatMessage, FormRequestMessageContent, FormResponseMessageContent } from '@/lib/types';
 import { ChatList } from '@/components/dashboard/ChatList';
 import { ChatView } from '@/components/dashboard/ChatView';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, MessageSquareOff } from 'lucide-react';
 import type { Unsubscribe } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { CalendarDays } from 'lucide-react';
 
 export default function CombinedChatPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -37,91 +37,133 @@ export default function CombinedChatPage() {
       setError("Πρέπει να είστε συνδεδεμένοι για να δείτε τις συνομιλίες σας.");
       return;
     }
-    if (!user) return;
+    if (!user) return; // Wait for user to be loaded if authLoading is true
 
     const fetchChats = async () => {
       setIsLoadingChats(true);
       try {
         const userChats = await getUserChats(user.id);
         setChats(userChats);
+        console.log("CombinedChatPage (useEffect: fetchChats): Fetched chats:", userChats);
 
         const currentUrlChatId = searchParams.get('chatId');
-        let initialChatToSelectId = currentUrlChatId || (userChats[0]?.id ?? null);
+        let initialChatToSelectId = currentUrlChatId;
 
-        if (initialChatToSelectId && initialChatToSelectId !== selectedChatId) {
+        // If no chat ID in URL, try to select the first chat from the fetched list
+        if (!initialChatToSelectId && userChats.length > 0) {
+          initialChatToSelectId = userChats[0].id;
+          console.log("CombinedChatPage (useEffect: fetchChats): No chatId in URL, setting initial to first chat:", initialChatToSelectId);
+        }
+
+        // Only update state and URL if a different chat is selected or needs to be set
+        if (!selectedChatId && initialChatToSelectId) {
+          console.log("CombinedChatPage (useEffect: fetchChats): No selectedChatId yet, setting to", initialChatToSelectId);
           setSelectedChatId(initialChatToSelectId);
           router.replace(`/dashboard/chats?chatId=${initialChatToSelectId}`);
+        } else if (initialChatToSelectId && initialChatToSelectId === selectedChatId) {
+            console.log("CombinedChatPage (useEffect: fetchChats): selectedChatId already matches URL/initial:", selectedChatId);
+        } else if (!initialChatToSelectId && userChats.length === 0) {
+            console.log("CombinedChatPage (useEffect: fetchChats): No chats available, clearing selection.");
+            setSelectedChatId(null);
+            setSelectedChatDetails(null);
+        } else {
+            console.log("CombinedChatPage (useEffect: fetchChats): No new initial chat to select or already selected.");
         }
       } catch (err) {
-        console.error("Failed to fetch chats:", err);
+        console.error("CombinedChatPage (useEffect: fetchChats): Failed to fetch chats:", err);
         setError("Δεν ήταν δυνατή η φόρτωση των συνομιλιών σας. Παρακαλώ δοκιμάστε ξανά.");
       } finally {
         setIsLoadingChats(false);
       }
     };
     fetchChats();
-  }, [user, authLoading, searchParams, router]);
+  }, [user, authLoading, searchParams, router, selectedChatId]);
 
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
+    
+    // Check for user and selectedChatId first
     if (!user || !selectedChatId) {
+      console.log("CombinedChatPage (useEffect: subscribe): No user or selectedChatId. Clearing messages and details.");
       setMessages([]);
       setSelectedChatDetails(null);
       setIsLoadingMessages(false);
       return;
     }
 
-    const currentChat = chats.find(c => c.id === selectedChatId);
-    if (!currentChat) {
-      setIsLoadingMessages(true);
-      setSelectedChatDetails(null);
-      return;
-    }
+    // --- FIX STARTS HERE ---
+    // Instead of immediately finding, ensure 'chats' is stable or re-fetch details
+    const chatDetailsFromChats = chats.find(c => c.id === selectedChatId);
 
-    setSelectedChatDetails(currentChat);
+    // If chat details are not found in the 'chats' array, it means either:
+    // 1. 'chats' is still loading/empty.
+    // 2. 'chats' hasn't updated yet.
+    // In this case, we temporarily clear details and wait for 'chats' to become consistent.
+    if (!chatDetailsFromChats) {
+      console.log("CombinedChatPage (useEffect: subscribe): selectedChatId", selectedChatId, "not found in current chats list. Waiting for 'chats' to update or be consistent. Current chats:", chats.map(c => c.id));
+      setSelectedChatDetails(null); // Clear details to show loading/empty state
+      setIsLoadingMessages(true); // Indicate loading
+      return; // Exit and wait for next render cycle when 'chats' might be populated
+    }
+    // --- FIX ENDS HERE ---
+
+
+    console.log("CombinedChatPage (useEffect: subscribe): Successfully found selectedChatDetails:", chatDetailsFromChats);
+    setSelectedChatDetails(chatDetailsFromChats); // Set the chat details
     setIsLoadingMessages(true);
     setError(null);
 
-    markChatAsRead(selectedChatId, user.id).catch(err => console.warn("Failed to mark chat as read:", err));
+    markChatAsRead(selectedChatId, user.id).catch(err => console.warn("CombinedChatPage (useEffect: subscribe): Failed to mark chat as read:", err));
 
     unsubscribe = subscribeToChatMessages(selectedChatId, (newMessages) => {
+      console.log("CombinedChatPage (useEffect: subscribe): Messages updated for chat", selectedChatId, ":", newMessages.length, "messages.");
       setMessages(newMessages);
       setIsLoadingMessages(false);
     });
 
     return () => unsubscribe?.();
-  }, [user, selectedChatId, chats]);
+  }, [user, selectedChatId, chats]); // Re-run effect when user, selectedChatId, or chats change
 
   const handleSelectChat = useCallback((chatId: string) => {
-    setSelectedChatId(chatId);
-    router.replace(`/dashboard/chats?chatId=${chatId}`);
-  }, [router]);
+      console.log("CombinedChatPage (handleSelectChat): Chat item clicked, trying to select:", chatId);
+      if (chatId === selectedChatId) {
+          console.log("CombinedChatPage (handleSelectChat): Clicked on already selected chat, no change needed:", chatId);
+          return;
+      }
+      setSelectedChatId(chatId);
+      router.replace(`/dashboard/chats?chatId=${chatId}`);
+  }, [router, selectedChatId]);
 
-  const handleSendMessage = useCallback(async (formData: { text: string; imageFile?: File | null }) => {
+  const handleSendMessage = useCallback(async (messageOptions: {
+    text?: string;
+    imageFile?: File | null;
+    formRequest?: FormRequestMessageContent;
+    formResponse?: FormResponseMessageContent;
+  }) => {
     if (!user || !selectedChatId || !selectedChatDetails) {
       toast({
         title: "Σφάλμα Αποστολής",
-        description: "Δεν είναι δυνατή η αποστολή μηνύματος.",
+        description: "Δεν είναι δυνατή η αποστολή μηνύματος. Λεπτομέρειες συνομιλίας δεν είναι διαθέσιμες.",
         variant: "destructive",
       });
+      console.error("CombinedChatPage (handleSendMessage): Cannot send message. User, selectedChatId or selectedChatDetails missing.");
       return;
     }
-    if (!formData.text && !formData.imageFile) {
+    if (!messageOptions.text && !messageOptions.imageFile && !messageOptions.formRequest && !messageOptions.formResponse) {
       toast({
         title: "Κενό Μήνυμα",
         description: "Δεν μπορείτε να στείλετε ένα εντελώς κενό μήνυμα.",
         variant: "destructive",
       });
+      console.warn("CombinedChatPage (handleSendMessage): Attempted to send empty message.");
       return;
     }
     try {
-      const recipientId = user.id === selectedChatDetails.userId
-        ? selectedChatDetails.ownerId
-        : selectedChatDetails.userId;
-
-      await sendMessage(selectedChatId, user.id, user.name, formData.text, recipientId, formData.imageFile);
+      console.log("CombinedChatPage (handleSendMessage): Sending message with options:", messageOptions);
+      await sendMessage(selectedChatId, user.id, user.name, messageOptions);
+      console.log("CombinedChatPage (handleSendMessage): Message sent successfully.");
     } catch (err) {
-      console.error("Failed to send message:", err);
+      console.error("CombinedChatPage (handleSendMessage): Failed to send message:", err);
       toast({
         title: "Αποτυχία Αποστολής",
         description: "Παρουσιάστηκε σφάλμα κατά την αποστολή του μηνύματος.",
@@ -129,6 +171,28 @@ export default function CombinedChatPage() {
       });
     }
   }, [user, selectedChatId, selectedChatDetails, toast]);
+
+
+  const handleSendFormResponse = useCallback(async (
+    chatId: string,
+    senderId: string,
+    senderName: string,
+    formResponseContent: FormResponseMessageContent
+  ) => {
+    try {
+      console.log("CombinedChatPage (handleSendFormResponse): Sending form response for chat", chatId, "content:", formResponseContent);
+      await sendMessage(chatId, senderId, senderName, { formResponse: formResponseContent });
+      console.log("CombinedChatPage (handleSendFormResponse): Form response sent successfully.");
+    } catch (error) {
+      console.error("CombinedChatPage (handleSendFormResponse): Failed to send form response:", error);
+      toast({
+        title: "Σφάλμα Αποστολής Απάντησης Φόρμας",
+        description: "Παρουσιάστηκε σφάλμα κατά την αποστολή της απάντησής σας.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
 
   if (authLoading || isLoadingChats) {
     return (
@@ -187,6 +251,24 @@ export default function CombinedChatPage() {
     );
   }
 
+  if (!isLoadingChats && chats.length === 0 && !selectedChatId) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)] text-center p-4">
+            <MessageSquareOff className="w-16 h-16 text-muted-foreground mb-6" />
+            <h1 className="text-2xl font-bold mb-4">Δεν υπάρχουν συνομιλίες</h1>
+            <p className="text-md text-muted-foreground mb-6">
+                Δεν έχετε ξεκινήσει καμία συνομιλία ακόμη.
+            </p>
+            <Button asChild>
+                <Link href="/">
+                    Αναζήτηση Καταστημάτων
+                </Link>
+            </Button>
+        </div>
+    );
+  }
+
+
   const otherParticipantName = selectedChatDetails
     ? (user.id === selectedChatDetails.userId ? selectedChatDetails.storeName : selectedChatDetails.userName)
     : 'Επιλέξτε Συνομιλία';
@@ -196,7 +278,7 @@ export default function CombinedChatPage() {
     : '';
 
   return (
-    <div className="p-4 bg-[#f8f8f8] min-h-screen"> {/* light custom blue */}
+    <div className="p-4 bg-[#f8f8f8] min-h-screen">
       <div className="flex h-[calc(100vh-128px)] bg-white overflow-hidden rounded-2xl border shadow-sm">
         <div className="w-80 border-r flex flex-col flex-shrink-0">
           <div className="p-4 border-b">
@@ -228,12 +310,14 @@ export default function CombinedChatPage() {
                 </div>
               </div>
               <ChatView
-                messages={messages}
-                currentUserId={user.id}
-                onSendMessage={handleSendMessage}
-                isLoading={isLoadingMessages}
-                selectedChatDetails={selectedChatDetails}
-              />
+  key={selectedChatDetails?.id} // 👈 Force remount when chat changes
+  messages={messages}
+  currentUserId={user.id}
+  onSendMessage={handleSendMessage}
+  onSendFormResponse={handleSendFormResponse}
+  isLoading={isLoadingMessages}
+  selectedChatDetails={selectedChatDetails}
+/>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground p-4">
