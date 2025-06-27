@@ -68,10 +68,11 @@ export default function HomePage() {
     return (
       <section
         id="hero-section"
-        className="bg-vivid-blue pt-60 md:pt-46 pb-12 md:pb-16 bg-[url('/images/hero-background.jpg')] bg-cover bg-center"
+        className="bg-vivid-blue pt-32 md:pt-40 lg:pt-48 pb-18 md:pb-24 bg-cover bg-center"
+        style={{ backgroundImage: "url('/images/hero-background.jpg')" }}
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="mt-3 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
+          <p className="mt-12 text-lg text-white md:text-xl font-sans">Όλες οι <strong>Ειδικότητες</strong> αυτοκινήτου με ένα <strong>Click</strong></p>
           <form
             onSubmit={handleHeroSearch}
             className="mt-6 max-w-md mx-auto flex items-center gap-0.5 p-1 bg-white rounded-full shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 transition-all border-2 border-transparent hover:border-sky-300"
