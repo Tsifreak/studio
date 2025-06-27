@@ -11,12 +11,15 @@ export default {
   ],
   theme: {
   	extend: {
-      fontFamily: {
-        // Set Comfortaa as the default sans-serif font
-        sans: ['var(--font-comfortaa)', 'Comfortaa', ...defaultTheme.fontFamily.sans],
-      },
+  		fontFamily: {
+  			sans: [
+  				'var(--font-comfortaa)',
+  				'Comfortaa',
+                    ...defaultTheme.fontFamily.sans
+                ]
+  		},
   		colors: {
-			'vivid-blue': '#004FE3',
+  			'vivid-blue': '#004FE3',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
@@ -67,16 +70,16 @@ export default {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			},
-        'icon-highlight-orange': 'hsl(var(--icon-highlight-orange))',
-        contentTitle: 'hsl(var(--content-title-color))',
-        contentText: 'hsl(var(--content-text-color))',
-        heroTextLight: 'hsl(var(--hero-text-light))', // Added for the light hero text
-        'app-teal': 'hsl(var(--teal))',
-        'icon-disc-bg': 'hsl(var(--icon-disc-bg))',
-        'saved-card': { // New color utility for the saved stores card
-            DEFAULT: 'hsl(var(--saved-card-background))',
-            foreground: 'hsl(var(--saved-card-foreground))',
-        },
+  			'icon-highlight-orange': 'hsl(var(--icon-highlight-orange))',
+  			contentTitle: 'hsl(var(--content-title-color))',
+  			contentText: 'hsl(var(--content-text-color))',
+  			heroTextLight: 'hsl(var(--hero-text-light))',
+  			'app-teal': 'hsl(var(--teal))',
+  			'icon-disc-bg': 'hsl(var(--icon-disc-bg))',
+  			'saved-card': {
+  				DEFAULT: 'hsl(var(--saved-card-background))',
+  				foreground: 'hsl(var(--saved-card-foreground))'
+  			}
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

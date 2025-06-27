@@ -183,6 +183,25 @@ export const AppCategories: AppCategoryInfo[] = [
   }
 ];
 
+export const StandardServiceCategories = [
+  { id: 'oil_change', name: 'Αλλαγή Λαδιών' },
+  { id: 'tire_rotation', name: 'Επισκευή/Αλλαγή Ελαστικών' },
+  { id: 'car_wash_exterior', name: 'Πλύσιμο Εξωτερικό' },
+  { id: 'biological_cleaning', name: 'Βιολογικός Καθαρισμός' },
+  { id: 'brake_check', name: 'Έλεγχος/Αλλαγή Φρένων' },
+  { id: 'full_service', name: 'Πλήρες Service' },
+  { id: 'diagnostics', name: 'Διαγνωστικός Έλεγχος' },
+  { id: 'air_conditioning', name: 'Service A/C' },
+  { id: 'battery_check', name: 'Έλεγχος/Αλλαγή Μπαταρίας' },
+  { id: 'wheel_alignment', name: 'Ευθυγράμμιση' },
+  { id: 'paint_repair', name: 'Επισκευή Βαφής' },
+  { id: 'dent_repair', name: 'Επισκευή Βαθουλωμάτων' },
+  { id: 'suspension_check', name: 'Έλεγχος Ανάρτησης' },
+  { id: 'exhaust_system', name: 'Έλεγχος/Αλλαγή Εξάτμισης' },
+  { id: 'fluid_check', name: 'Έλεγχος Υγρών' },
+  // Add other common service categories here with a unique 'id' and a descriptive 'name'
+];
+
 export const StoreCategoriesSlugs = AppCategories.map(cat => cat.slug) as readonly string[];
 export const TranslatedStoreCategories = AppCategories.map(cat => cat.translatedName) as readonly string[];
 
@@ -196,6 +215,7 @@ export interface Service {
   durationMinutes: number;
   price: number;
   availableDaysOfWeek: number[];
+  categoryId: string;
 }
 
 export interface AvailabilitySlot {

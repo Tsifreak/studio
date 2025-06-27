@@ -12,11 +12,21 @@ const MAX_FILE_SIZE_MB = 2;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+// Define the storage bucket name using the environment variable
+// This variable MUST be set to "cariera-9ba32.firebasestorage.app" in your .env.local or deployment config.
+const EXPLICIT_STORAGE_BUCKET_NAME = process.env.FIREBASE_STORAGE_BUCKET; //
+
 async function uploadFileToStorage(file: File, destinationFolder: string): Promise<string> {
     if (!adminStorage) {
         console.error("[uploadFileToStorage] Firebase Admin Storage is not initialized.");
         throw new Error("Η υπηρεσία αποθήκευσης αρχείων δεν είναι διαθέσιμη.");
     }
+    // Add a check for the environment variable being present
+    if (!EXPLICIT_STORAGE_BUCKET_NAME) {
+        console.error("[uploadFileToStorage] FIREBASE_STORAGE_BUCKET environment variable is not set or empty.");
+        throw new Error("Η μεταβλητή περιβάλλοντος FIREBASE_STORAGE_BUCKET δεν έχει οριστεί.");
+    }
+
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
         throw new Error(`Μη υποστηριζόμενος τύπος αρχείου: ${file.type}. Επιτρέπονται: JPEG, PNG, WebP.`);
     }
@@ -25,15 +35,19 @@ async function uploadFileToStorage(file: File, destinationFolder: string): Promi
     }
     let bucket;
     try {
-        bucket = adminStorage.bucket();
+        // --- CRITICAL CHANGE HERE ---
+        // Explicitly specify the bucket name instead of relying on the default.
+        bucket = adminStorage.bucket(EXPLICIT_STORAGE_BUCKET_NAME);
+        // --- END CRITICAL CHANGE ---
+
         if (!bucket) {
-            console.error("[uploadFileToStorage] Default bucket not available in Admin Storage.");
-            throw new Error("Ο προεπιλεγμένος χώρος αποθήκευσης δεν είναι διαθέσιμος.");
+            console.error("[uploadFileToStorage] Specified bucket not available in Admin Storage after explicit call.");
+            throw new Error("Ο καθορισμένος χώρος αποθήκευσης δεν είναι διαθέσιμος.");
         }
-        console.log(`[uploadFileToStorage] Attempting to use bucket: '${bucket.name}'`);
+        console.log(`[uploadFileToStorage] Using bucket explicitly: '${bucket.name}'`);
     } catch (error) {
-        console.error("[uploadFileToStorage] Error accessing adminStorage.bucket():", error);
-        throw new Error("Σφάλμα πρόσβασης στον χώρο αποθήκευσης.");
+        console.error("[uploadFileToStorage] Error accessing adminStorage.bucket() with explicit name:", error);
+        throw new Error(`Σφάλμα πρόσβασης στον χώρο αποθήκευσης. Βεβαιωθείτε ότι το "${EXPLICIT_STORAGE_BUCKET_NAME}" είναι σωστό.`);
     }
 
     const fileName = `${destinationFolder}/${Date.now()}-${Math.random().toString(36).substring(2, 10)}-${file.name.replace(/\s+/g, '_')}`;
@@ -129,6 +143,7 @@ const serviceSchema = z.object({
     durationMinutes: z.number().int().positive(),
     price: z.number().positive(),
     availableDaysOfWeek: z.array(z.number().int().min(0).max(6)),
+    categoryId: z.string().min(1),
 });
 const servicesArraySchema = z.array(serviceSchema);
 

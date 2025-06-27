@@ -3,17 +3,17 @@
 
 import { getStoreByIdFromDB } from '@/lib/storeService';
 import type { Store, Feature, SerializedStore, SerializedFeature, Product as ProductType, Review, Service, AvailabilitySlot, StoreCategory } from '@/lib/types';
+import { AppCategories, StandardServiceCategories } from '@/lib/types';
 import Image from 'next/image';
-import { useParams } from 'next/navigation'; // Keep useParams, useRouter will be in ContactForm
+import { useParams } from 'next/navigation';
 import { Star, MapPin, Globe, ShoppingBag, Edit, CalendarDays, AlertTriangle, Info, Tag, CheckCircle2, Tags, Heart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingCard } from '@/components/store/PricingCard';
 import { ProductListItem } from '@/components/store/ProductListItem';
-import { ContactForm } from '@/components/shared/ContactForm'; // Corrected import path for ContactForm
+import { ContactForm } from '@/components/shared/ContactForm';
 import { ReviewForm } from '@/components/store/ReviewForm';
 import { submitStoreQuery, addReviewAction, toggleSavedStore } from './actions';
-import { AppCategories } from '@/lib/types';
 import { RenderFeatureIcon } from '@/components/store/RenderFeatureIcon';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -29,6 +29,8 @@ import { useSession } from 'next-auth/react';
 import VerifiedIconComponent from '@/components/icons/VerifiedIconComponent';
 import PremiumIconComponent from '@/components/icons/PremiumIconComponent';
 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 
 export default function StoreDetailPage() {
   const params = useParams<{ storeId: string }>();
@@ -43,6 +45,10 @@ export default function StoreDetailPage() {
 
   const [selectedServiceForBooking, setSelectedServiceForBooking] = useState<Service | null>(null);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+
+  // NEW STATE: For displaying service details in a pop-up
+  const [selectedServiceForInfo, setSelectedServiceForInfo] = useState<Service | null>(null);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -196,9 +202,36 @@ export default function StoreDetailPage() {
     setIsBookingDialogOpen(true);
   };
 
+  // NEW HANDLER: For opening the service info dialog
+  const handleServiceInfoClick = (service: Service) => {
+    setSelectedServiceForInfo(service);
+    setIsInfoDialogOpen(true);
+  };
+
   const weekDaysTranslated = [
     'Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'
   ];
+
+  // NEW LOGIC: Group services by category for display
+  const servicesGroupedByCategory: { [categoryId: string]: Service[] } = {};
+  if (serializableStore.services) {
+    serializableStore.services.forEach(service => {
+      // Ensure service.categoryId exists before grouping
+      if (service.categoryId) {
+        if (!servicesGroupedByCategory[service.categoryId]) {
+          servicesGroupedByCategory[service.categoryId] = [];
+        }
+        servicesGroupedByCategory[service.categoryId].push(service);
+      }
+    });
+  }
+
+  // Optional: Helper to get the translated category name for display
+  const getStandardCategoryName = (categoryId: string) => {
+    const category = StandardServiceCategories.find(cat => cat.id === categoryId);
+    return category ? category.name : 'Άγνωστη Κατηγορία'; // Fallback
+  };
+  // END NEW LOGIC
 
   return (
     <div className="space-y-8">
@@ -491,29 +524,52 @@ export default function StoreDetailPage() {
                   </Alert>
                 )}
               {serializableStore.services && serializableStore.services.length > 0 ? (
-                <div className="space-y-4">
-                  {serializableStore.services.map((service: Service) => (
-                    <Card key={service.id} className="p-4 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                        <div>
-                          <h3 className="text-lg font-semibold text-primary">{service.name}</h3>
-                          <p className="text-sm text-muted-foreground mt-1 mb-2">{service.description}</p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                            <span className="flex items-center"><CalendarDays className="w-4 h-4 mr-1.5 text-muted-foreground"/> Διάρκεια: {service.durationMinutes} λεπτά</span>
-                            <span className="flex items-center"><Tag className="w-4 h-4 mr-1.5 text-muted-foreground"/> Τιμή: {service.price.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}</span>
+                <Accordion type="single" collapsible className="w-full space-y-4">
+                  {Object.keys(servicesGroupedByCategory)
+                    .sort((a,b) => getStandardCategoryName(a).localeCompare(getStandardCategoryName(b)))
+                    .map(categoryId => (
+                      <AccordionItem key={categoryId} value={categoryId}>
+                        <AccordionTrigger className="text-lg font-bold text-foreground">
+                          <Tags className="w-5 h-5 mr-2 text-primary" />
+                          {getStandardCategoryName(categoryId)} ({servicesGroupedByCategory[categoryId].length})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4 pt-2">
+                            {servicesGroupedByCategory[categoryId].map((service: Service) => (
+                              <Card key={service.id} className="p-4 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                                  <div>
+                                    <h3 className="text-lg font-semibold text-primary">{service.name}</h3>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-1">
+                                      <span className="flex items-center"><CalendarDays className="w-4 h-4 mr-1.5 text-muted-foreground"/> Διάρκεια: {service.durationMinutes} λεπτά</span>
+                                      <span className="flex items-center"><Tag className="w-4 h-4 mr-1.5 text-muted-foreground"/> Τιμή: {service.price.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}</span>
+                                    </div>
+                                  </div>
+                                  {/* Action buttons: Both "Πληροφορίες" and "Κάντε Κράτηση" */}
+                                  <div className="flex flex-row gap-2 mt-3 sm:mt-0">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleServiceInfoClick(service)}
+                                    >
+                                      Πληροφορίες
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      disabled={!hasAvailability}
+                                      onClick={() => handleBookServiceClick(service)}
+                                    >
+                                      Κάντε Κράτηση
+                                    </Button>
+                                  </div>
+                                </div>
+                              </Card>
+                            ))}
                           </div>
-                        </div>
-                        <Button
-                          className="mt-3 sm:mt-0 sm:ml-4"
-                          disabled={!hasAvailability}
-                          onClick={() => handleBookServiceClick(service)}
-                        >
-                          Κάντε Κράτηση
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                </Accordion>
               ) : (
                 <div className="text-center py-10">
                   <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -561,8 +617,8 @@ export default function StoreDetailPage() {
                  <p className="text-muted-foreground text-center py-8">Δεν υπάρχουν διαθέσιμα πακέτα τιμολόγησης για αυτό το κέντρο εξυπηρέτησης.</p>
                )}
              </CardContent>
-           </Card>
-         </TabsContent>
+            </Card>
+          </TabsContent>
 
         <TabsContent value="reviews" className="space-y-8">
   <Card>
@@ -598,7 +654,7 @@ export default function StoreDetailPage() {
                     <span className="ml-2 text-xs text-muted-foreground">{review.rating.toFixed(1)} αστέρια</span>
                 </div>
                 <p className="text-sm text-muted-foreground italic mt-1 mb-2">{review.comment}</p>
-                 {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
+                   {review.date && <p className="text-xs text-muted-foreground">{new Date(review.date).toLocaleDateString('el-GR', { year: 'numeric', month: 'long', day: 'numeric'})}</p>}
               </div>
             ))}
           </div>
@@ -623,14 +679,54 @@ export default function StoreDetailPage() {
         </TabsContent>
       </Tabs>
 
+      {/* Dialog for Service Information (New) */}
+      {selectedServiceForInfo && (
+        <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>{selectedServiceForInfo.name}</DialogTitle>
+              {/* MODIFIED: Move the div containing duration/price OUT of DialogDescription */}
+              {/* DialogDescription is for text; complex layouts go outside it */}
+              <DialogDescription>
+                {/* You can still put simple text directly here if needed, or leave empty */}
+                Λεπτομέρειες υπηρεσίας.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* NEW: Place the flex div directly within DialogContent, AFTER DialogDescription */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-2">
+              <span className="flex items-center"><CalendarDays className="w-4 h-4 mr-1.5 text-muted-foreground"/> Διάρκεια: {selectedServiceForInfo.durationMinutes} λεπτά</span>
+              <span className="flex items-center"><Tag className="w-4 h-4 mr-1.5 text-muted-foreground"/> Τιμή: {selectedServiceForInfo.price.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}</span>
+            </div>
+
+            <div className="mt-4 text-muted-foreground whitespace-pre-line">
+              <p className="text-sm">{selectedServiceForInfo.description}</p>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setIsInfoDialogOpen(false)}>Κλείσιμο</Button>
+              <Button
+                disabled={!hasAvailability}
+                onClick={() => {
+                  setIsInfoDialogOpen(false); // Close info dialog
+                  handleBookServiceClick(selectedServiceForInfo); // Open booking dialog
+                }}
+              >
+                Κάντε Κράτηση
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Existing Dialog for Booking Form */}
       {selectedServiceForBooking && (
         <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
           <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
-                <DialogTitle>Κράτηση για: {selectedServiceForBooking.name}</DialogTitle>
-                <DialogDescription>
-                    Επιλέξτε ημερομηνία και ώρα για την υπηρεσία. Διάρκεια: {selectedServiceForBooking.durationMinutes} λεπτά.
-                </DialogDescription>
+              <DialogTitle>Κράτηση για: {selectedServiceForBooking.name}</DialogTitle>
+              <DialogDescription>
+                Επιλέξτε ημερομηνία και ώρα για την υπηρεσία. Διάρκεια: {selectedServiceForBooking.durationMinutes} λεπτά.
+              </DialogDescription>
             </DialogHeader>
             <BookingForm
               selectedService={selectedServiceForBooking}

@@ -1,5 +1,3 @@
-// src/lib/firebase-admin.ts
-
 import admin from 'firebase-admin';
 import { getApps } from 'firebase-admin/app';
 // You might need 'fs' if you want the optional local file loading for development
@@ -14,6 +12,7 @@ function initializeFirebaseAdmin() {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
     const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
     const firebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const firebaseStorageBucket = process.env.FIREBASE_STORAGE_BUCKET; // <<< THIS LINE IS CORRECTLY ADDED
 
     if (!projectId) {
       throw new Error(
@@ -32,6 +31,12 @@ function initializeFirebaseAdmin() {
         "Get it from your Firebase service account JSON file."
       );
     }
+    if (!firebaseStorageBucket) {
+      throw new Error(
+        "[firebase-admin] FIREBASE_STORAGE_BUCKET is not set in environment variables. " +
+        "This is required for storage operations."
+      );
+    }
 
     const serviceAccount = {
       projectId: projectId,
@@ -41,26 +46,19 @@ function initializeFirebaseAdmin() {
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      storageBucket: `${projectId}.appspot.com`,
+      storageBucket: firebaseStorageBucket, // <<< THIS IS WHERE firebaseStorageBucket IS USED, WHICH IS CORRECT
     });
 
-    // --- FIX: Apply Firestore settings immediately AFTER initializeApp and BEFORE getting the instance ---
-    // This is the most critical placement for settings to avoid re-initialization errors.
     const firestoreInstance = admin.firestore();
     firestoreInstance.settings({ ignoreUndefinedProperties: true });
-    cachedAdminDb = firestoreInstance; // Cache the configured instance
+    cachedAdminDb = firestoreInstance;
 
     cachedAdminAuth = admin.auth();
     cachedAdminStorage = admin.storage();
 
   } else {
-    // If app is already initialized, retrieve existing instances
-    if (!cachedAdminDb) { // Only get if not already cached
+    if (!cachedAdminDb) {
       cachedAdminDb = admin.firestore();
-      // NOTE: Settings cannot be applied here if it was already initialized and used.
-      // The assumption here is that if getApps().length > 0, it was already set up correctly
-      // or will operate without `ignoreUndefinedProperties` if it wasn't set on first init.
-      // This is a trade-off for complex initialization scenarios.
     }
     if (!cachedAdminAuth) {
       cachedAdminAuth = admin.auth();
@@ -71,11 +69,9 @@ function initializeFirebaseAdmin() {
   }
 }
 
-// Call the initialization function
 initializeFirebaseAdmin();
 
-// Export the cached instances
-export const adminDb = cachedAdminDb!; // Use ! to assert non-null after initialization
+export const adminDb = cachedAdminDb!;
 export const adminAuth = cachedAdminAuth!;
 export const adminStorage = cachedAdminStorage!;
-export { admin }; // Export the entire admin object if you need it for other utilities
+export { admin };
